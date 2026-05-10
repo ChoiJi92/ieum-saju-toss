@@ -91,79 +91,81 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
                 minHeight: 200,
               }}
             >
-              {/* MoodOrb — absolute 우상단 우측 가까이, 크기 ↑ */}
+              {/* MoodOrb — 카드 안쪽 우상단, 살짝 작게 */}
               <div
                 style={{
                   position: 'absolute',
-                  top: 8,
-                  right: -16,
+                  top: 24,
+                  right: 20,
                   pointerEvents: 'none',
                 }}
               >
-                <MoodOrb size={140} />
+                <MoodOrb size={120} />
               </div>
 
-              <div style={{ position: 'relative', zIndex: 1, paddingRight: 110 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: 1,
-                    color: 'rgba(42,35,51,0.7)',
-                  }}
-                >
-                  {dateStr}
-                </div>
-                <div
-                  style={{
-                    fontSize: 26,
-                    fontWeight: 800,
-                    marginTop: 6,
-                    letterSpacing: -0.6,
-                    color: '#2A2333',
-                  }}
-                >
-                  {copy.todayTitle}
-                  <br />
-                  <span
+              {/* Sparkle — MoodOrb 좌측 위 */}
+              <Sparkle
+                size={16}
+                color="#FFC857"
+                style={{ position: 'absolute', top: 36, right: 132, zIndex: 2 }}
+              />
+
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                {/* 본문 — MoodOrb 회피 위해 paddingRight */}
+                <div style={{ paddingRight: 120 }}>
+                  <div
                     style={{
-                      color: '#fff',
-                      textShadow: '0 2px 8px rgba(80,60,110,0.3)',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      letterSpacing: 1,
+                      color: 'var(--cp-text-mid)',
                     }}
                   >
-                    {copy.todayMood}
-                  </span>
+                    {dateStr}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 26,
+                      fontWeight: 800,
+                      marginTop: 6,
+                      letterSpacing: -0.6,
+                      color: 'var(--cp-text)',
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {copy.todayTitle}
+                    <br />
+                    <span style={{ color: 'var(--cp-lavender)' }}>{copy.todayMood}</span>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: 'var(--cp-text-mid)',
+                      margin: '14px 0 0',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {copy.todayLine}
+                  </p>
                 </div>
-                <p
-                  style={{
-                    fontSize: 13,
-                    color: 'rgba(42,35,51,0.78)',
-                    margin: '14px 0 0',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {copy.todayLine}
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+
+                {/* 자세히 보기 — paddingRight 영향 X, 카드 우측 끝 정렬 */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
                   <span
                     style={{
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: 700,
-                      color: '#2A2333',
-                      background: 'rgba(255,255,255,0.55)',
-                      padding: '6px 12px',
+                      color: 'var(--cp-text)',
+                      background: 'rgba(255,255,255,0.7)',
+                      padding: '8px 14px',
                       borderRadius: 999,
+                      boxShadow: '0 2px 6px rgba(80,60,110,0.08)',
                     }}
                   >
                     자세히 보기 →
                   </span>
                 </div>
               </div>
-              <Sparkle
-                size={18}
-                color="#FFC857"
-                style={{ position: 'absolute', top: 24, right: 24, zIndex: 2 }}
-              />
             </div>
           </Reveal>
         </div>

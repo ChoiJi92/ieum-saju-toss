@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useState } from 'react';
+import { CSSProperties, useEffect, useMemo, useState } from 'react';
 import {
   IEButton,
   IECard,
@@ -12,6 +12,7 @@ import {
 import { useRouter } from '../lib/router';
 import { useSaju } from '../lib/saju-state';
 import { showInterstitialThen } from '../lib/ads';
+import { calcGunghap, ilganOf, type GunghapResult } from '../lib/gunghap';
 
 const inputStyle: CSSProperties = {
   width: '100%',
@@ -32,7 +33,7 @@ const inputStyle: CSSProperties = {
 
 export default function ScreenGunghap({ copy }: { copy: IECopy }) {
   const { back } = useRouter();
-  const { profile } = useSaju();
+  const { profile, myeongsik } = useSaju();
   const [step, setStep] = useState<'input' | 'ad' | 'result'>('input');
 
   // 상대 정보
@@ -40,6 +41,16 @@ export default function ScreenGunghap({ copy }: { copy: IECopy }) {
   const [otherYear, setOtherYear] = useState('');
   const [otherMonth, setOtherMonth] = useState('');
   const [otherDay, setOtherDay] = useState('');
+
+  // 두 사람 일간 → 궁합 결과
+  const result: GunghapResult | null = useMemo(() => {
+    if (step !== 'result') return null;
+    if (!myeongsik) return null;
+    const other = ilganOf(parseInt(otherYear, 10), parseInt(otherMonth, 10), parseInt(otherDay, 10));
+    if (!other) return null;
+    const my = myeongsik.ilgan.c as Parameters<typeof calcGunghap>[0];
+    return calcGunghap(my, other);
+  }, [step, myeongsik, otherYear, otherMonth, otherDay]);
 
   const onlyDigits = (s: string) => s.replace(/\D/g, '');
   const canRun =
@@ -218,6 +229,7 @@ export default function ScreenGunghap({ copy }: { copy: IECopy }) {
       onBack={() => setStep('input')}
       myName={profile?.name ?? '나'}
       otherName={otherName || '상대'}
+      result={result}
     />
   );
 }
@@ -226,10 +238,12 @@ function GunghapResult({
   onBack,
   myName,
   otherName,
+  result,
 }: {
   onBack: () => void;
   myName: string;
   otherName: string;
+  result: GunghapResult | null;
 }) {
   return (
     <div className="ie-screen" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -283,30 +297,26 @@ function GunghapResult({
               fontVariantNumeric: 'tabular-nums',
             }}
           >
-            87점
+            {result?.totalScore ?? 0}점
           </div>
           <div style={{ fontSize: 14, color: 'var(--cp-text-mid)', fontWeight: 700 }}>
-            서로의 결을 잘 알아주는 사이
+            {result?.tagline ?? '두 사람의 결'}
           </div>
         </div>
 
         <IECard>
           <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 14 }}>세부 궁합</div>
-          {[
-            { lbl: '성격 합', s: 92, c: '#9D7BFF', ic: '☁️' },
-            { lbl: '대화 합', s: 88, c: '#3DC795', ic: '💬' },
-            { lbl: '연애 합', s: 84, c: '#F495C9', ic: '💞' },
-            { lbl: '돈 가치관', s: 70, c: '#FFC857', ic: '💰' },
-          ].map((x) => (
-            <ScoreRow key={x.lbl} icon={x.ic} label={x.lbl} score={x.s} color={x.c} />
+          {(result?.axes ?? []).map((x) => (
+            <ScoreRow key={x.lbl} icon={x.ic} label={x.lbl} score={x.score} color={x.color} />
           ))}
         </IECard>
 
         <IECard style={{ marginTop: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>한줄 코멘트</div>
           <p style={{ fontSize: 14, color: 'var(--cp-text-mid)', lineHeight: 1.6, margin: 0 }}>
-            木(나)과 火(상대)의 만남. 너의 곧음을 상대가 따뜻하게 비춰주는 관계. 가끔 너무 직선적인
-            너의 말이 상대에게 따갑게 들릴 수 있으니, 한 박자 쉬어가는 호흡이 도움이 돼.
+            {result
+              ? `${result.myIlgan}(나)과 ${result.otherIlgan}(상대)의 만남. ${result.comment}`
+              : '두 사람의 사주 정보를 입력해주세요.'}
           </p>
         </IECard>
       </div>

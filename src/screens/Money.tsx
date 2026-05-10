@@ -1,13 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { IECard, IETopBar, MoodOrb, OHAENG } from '../components/ie';
 import { useRouter } from '../lib/router';
 import { useSaju } from '../lib/saju-state';
 import { showInterstitialThen } from '../lib/ads';
+import { moneyForecast } from '../lib/money';
 
 export default function ScreenMoney() {
   const { back } = useRouter();
   const { profile, myeongsik } = useSaju();
   const [adDone, setAdDone] = useState(false);
+
+  const forecast = useMemo(
+    () => (myeongsik ? moneyForecast(myeongsik.ilgan.c, new Date()) : null),
+    [myeongsik]
+  );
 
   useEffect(() => {
     showInterstitialThen(() => setAdDone(true));
@@ -94,10 +100,10 @@ export default function ScreenMoney() {
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
-                76점
+                {forecast?.monthScore ?? 0}점
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#2A2333', marginTop: 4 }}>
-                안정 흐름
+                {forecast?.mood ?? '평이'}
               </div>
             </div>
             <span style={{ fontSize: 60 }}>💰</span>
@@ -106,22 +112,14 @@ export default function ScreenMoney() {
 
         <IECard style={{ marginTop: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>이번 주 흐름</div>
-          {[
-            { day: '월', s: 60, hint: '큰 지출 주의' },
-            { day: '화', s: 70, hint: '평이' },
-            { day: '수', s: 82, hint: '들어옴 ↑' },
-            { day: '목', s: 78, hint: '안정' },
-            { day: '금', s: 88, hint: '행운의 날' },
-            { day: '토', s: 65, hint: '소비 주의' },
-            { day: '일', s: 72, hint: '평이' },
-          ].map((x) => (
-            <div key={x.day} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
+          {(forecast?.week ?? []).map((x, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
               <div
                 style={{
                   width: 24,
                   fontSize: 13,
                   fontWeight: 800,
-                  color: x.s >= 80 ? '#3DC795' : 'var(--cp-text)',
+                  color: x.score >= 80 ? '#3DC795' : 'var(--cp-text)',
                 }}
               >
                 {x.day}
@@ -137,9 +135,9 @@ export default function ScreenMoney() {
               >
                 <div
                   style={{
-                    width: `${x.s}%`,
+                    width: `${x.score}%`,
                     height: '100%',
-                    background: x.s >= 80 ? '#3DC795' : x.s >= 70 ? '#FFC857' : '#FF8B6C',
+                    background: x.score >= 80 ? '#3DC795' : x.score >= 70 ? '#FFC857' : '#FF8B6C',
                     borderRadius: 999,
                   }}
                 />
@@ -160,11 +158,7 @@ export default function ScreenMoney() {
 
         <IECard style={{ marginTop: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>이번 달 행운 행동</div>
-          {[
-            { ic: '💸', lbl: '자투리 모으기', sub: '평소보다 +12% 모일 흐름' },
-            { ic: '📊', lbl: '주식 점검', sub: '수요일 오전이 좋음' },
-            { ic: '🎁', lbl: '경조사 챙기기', sub: '받는 사람도 너도 운 ↑' },
-          ].map((x) => (
+          {(forecast?.actions ?? []).map((x) => (
             <div
               key={x.lbl}
               style={{

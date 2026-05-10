@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   IECard,
   IEChip,
@@ -11,6 +11,7 @@ import {
 import { useRouter } from '../lib/router';
 import { useSaju } from '../lib/saju-state';
 import { showInterstitialThen } from '../lib/ads';
+import { todayFortune } from '../lib/today';
 
 /**
  * 04 오늘의 운세 — 프로토타입 ScreenToday 이식 + 광고 모델.
@@ -36,48 +37,22 @@ export default function ScreenToday({ copy }: { copy: IECopy }) {
     ['일', '월', '화', '수', '목', '금', '토'][today.getDay()]
   })`;
 
-  const sections = [
-    {
-      id: 'overall',
-      icon: '☁️',
-      label: '총운',
-      score: 84,
-      color: '#9D7BFF',
-      body: '오늘은 흐름이 맞춰져있어. 마음 가는 대로 골라도 다 정답.',
-    },
-    {
-      id: 'love',
-      icon: '💞',
-      label: '연애운',
-      score: 92,
-      color: '#F495C9',
-      body: '오늘 만나는 사람이 너의 결을 잘 알아봐줄 사람일 가능성. 평소엔 안 입던 옷을 한 번 입어봐.',
-    },
-    {
-      id: 'money',
-      icon: '💰',
-      label: '재물운',
-      score: 76,
-      color: '#3DC795',
-      body: '큰 지출보단 작은 보상이 들어오는 흐름. 점심값 N빵 어디 갔지? 한번 확인해봐.',
-    },
-    {
-      id: 'work',
-      icon: '🌱',
-      label: '직장운',
-      score: 68,
-      color: '#FFC857',
-      body: '에너지 살짝 떨어지는 날. 중요한 결정은 내일로 미루는 게 좋겠어.',
-    },
-    {
-      id: 'health',
-      icon: '🍵',
-      label: '건강운',
-      score: 78,
-      color: '#5B8DEF',
-      body: '컨디션 보통. 카페인 줄이고 물 한 잔. 일찍 자면 내일 바로 회복.',
-    },
-  ];
+  /** 본인 일간 + 오늘 일진 → 5섹션 동적 운세 */
+  const fortune = useMemo(
+    () => (myeongsik ? todayFortune(myeongsik.ilgan.c, today) : null),
+    [myeongsik, today.toDateString()]
+  );
+
+  // fortune 없으면 fallback (정보 미입력 케이스 — App.tsx 글로벌 가드로 잡혀야 함)
+  const sections = fortune
+    ? [
+        { id: 'overall', icon: '☁️', label: '총운',  color: '#9D7BFF', score: fortune.sections.overall.score, body: fortune.sections.overall.body },
+        { id: 'love',    icon: '💞', label: '연애운', color: '#F495C9', score: fortune.sections.love.score,    body: fortune.sections.love.body },
+        { id: 'money',   icon: '💰', label: '재물운', color: '#3DC795', score: fortune.sections.money.score,   body: fortune.sections.money.body },
+        { id: 'work',    icon: '🌱', label: '직장운', color: '#FFC857', score: fortune.sections.work.score,    body: fortune.sections.work.body },
+        { id: 'health',  icon: '🍵', label: '건강운', color: '#5B8DEF', score: fortune.sections.health.score,  body: fortune.sections.health.body },
+      ]
+    : [];
 
   // 광고 노출 중 placeholder
   if (!adDone) {
@@ -181,7 +156,11 @@ export default function ScreenToday({ copy }: { copy: IECopy }) {
             {dateStr}
           </div>
           <div style={{ marginTop: 12 }}>
-            <MoodOrb size={180} label={copy.todayMood} score="84" />
+            <MoodOrb
+              size={180}
+              label={fortune?.mood ?? copy.todayMood}
+              score={String(fortune?.sections.overall.score ?? 0)}
+            />
           </div>
           <h2
             style={{
@@ -191,7 +170,7 @@ export default function ScreenToday({ copy }: { copy: IECopy }) {
               margin: '20px 0 6px',
             }}
           >
-            {copy.todayTitle} {copy.todayMood}
+            {copy.todayTitle} {fortune?.mood ?? copy.todayMood}
           </h2>
           <p
             style={{
@@ -204,27 +183,23 @@ export default function ScreenToday({ copy }: { copy: IECopy }) {
               marginRight: 'auto',
             }}
           >
-            {copy.todayLine}
+            {fortune?.oneLine ?? copy.todayLine}
           </p>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: 6,
-              marginTop: 14,
-              flexWrap: 'wrap',
-            }}
-          >
-            <IEChip color="#9D7BFF" soft>
-              #럭키비키
-            </IEChip>
-            <IEChip color="#FF8B6C" soft>
-              #연애운최고
-            </IEChip>
-            <IEChip color="#FFC857" soft>
-              #작은행운
-            </IEChip>
-          </div>
+          {fortune && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: 6,
+                marginTop: 14,
+                flexWrap: 'wrap',
+              }}
+            >
+              <IEChip color="#9D7BFF" soft>{fortune.hashtags[0]}</IEChip>
+              <IEChip color="#FF8B6C" soft>{fortune.hashtags[1]}</IEChip>
+              <IEChip color="#FFC857" soft>{fortune.hashtags[2]}</IEChip>
+            </div>
+          )}
         </div>
 
         {/* 5 섹션 */}

@@ -23,25 +23,9 @@ export default function ScreenSaju({ copy }: { copy: IECopy }) {
   }, []);
 
   if (!adDone) return <AdLoading />;
-  if (!profile || !myeongsik) {
-    return (
-      <div
-        style={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 16,
-          padding: 24,
-        }}
-      >
-        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--cp-text)' }}>
-          먼저 정보를 입력해주세요
-        </div>
-      </div>
-    );
-  }
+  // App.tsx 글로벌 가드(NoProfileGuard)에서 profile 미입력 시 redirect 됨.
+  // 여기 도달하면 profile/myeongsik 보장됨.
+  if (!profile || !myeongsik) return null;
 
   const ilgan = myeongsik.ilgan;
   const ilganOhaeng = OHAENG[ilgan.ohaeng];

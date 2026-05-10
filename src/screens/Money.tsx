@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { IECard, IETopBar, MoodOrb } from '../components/ie';
+import { IECard, IETopBar, MoodOrb, OHAENG } from '../components/ie';
 import { useRouter } from '../lib/router';
+import { useSaju } from '../lib/saju-state';
 import { showInterstitialThen } from '../lib/ads';
 
 export default function ScreenMoney() {
   const { back } = useRouter();
+  const { profile, myeongsik } = useSaju();
   const [adDone, setAdDone] = useState(false);
 
   useEffect(() => {
@@ -37,7 +39,32 @@ export default function ScreenMoney() {
       <div style={{ height: 62, flexShrink: 0 }} />
       <IETopBar onBack={back} title="재물운" />
       <div className="ie-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 20px 32px' }}>
-        <div style={{ height: 8 }} />
+        {/* 본인 정보 칩 */}
+        {profile && myeongsik && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 12px' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 14px',
+                borderRadius: 999,
+                background: 'var(--cp-bg-paper)',
+                border: '1px solid var(--cp-border)',
+                fontSize: 11,
+                fontWeight: 700,
+                color: 'var(--cp-text-mid)',
+              }}
+            >
+              <span>{profile.name}</span>
+              <span style={{ color: 'var(--cp-text-mute)' }}>·</span>
+              <strong style={{ color: OHAENG[myeongsik.ilgan.ohaeng].c, fontSize: 12 }}>
+                {myeongsik.ilgan.c}
+                {OHAENG[myeongsik.ilgan.ohaeng].cn}
+              </strong>
+            </span>
+          </div>
+        )}
         <IECard pop>
           <div
             style={{

@@ -5,9 +5,11 @@ import {
   IECopy,
   IETopBar,
   MoodOrb,
+  OHAENG,
   Reveal,
 } from '../components/ie';
 import { useRouter } from '../lib/router';
+import { useSaju } from '../lib/saju-state';
 import { showInterstitialThen } from '../lib/ads';
 
 /**
@@ -21,6 +23,7 @@ import { showInterstitialThen } from '../lib/ads';
  */
 export default function ScreenToday({ copy }: { copy: IECopy }) {
   const { back, go } = useRouter();
+  const { profile, myeongsik } = useSaju();
   const [adDone, setAdDone] = useState(false);
 
   useEffect(() => {
@@ -156,8 +159,17 @@ export default function ScreenToday({ copy }: { copy: IECopy }) {
         className="ie-scroll"
         style={{ flex: 1, overflowY: 'auto', padding: '0 20px 32px' }}
       >
+        {/* 본인 정보 칩 */}
+        {profile && myeongsik && (
+          <ProfileChip
+            name={profile.name}
+            ilganChar={myeongsik.ilgan.c}
+            ilganOhaeng={OHAENG[myeongsik.ilgan.ohaeng]}
+          />
+        )}
+
         {/* 히어로 */}
-        <div style={{ textAlign: 'center', padding: '8px 0 20px' }}>
+        <div style={{ textAlign: 'center', padding: '4px 0 20px' }}>
           <div
             style={{
               fontSize: 12,
@@ -226,6 +238,44 @@ export default function ScreenToday({ copy }: { copy: IECopy }) {
 
         {/* ⚠️ 광고 모델: 프리미엄 nudge 카드 제거 */}
       </div>
+    </div>
+  );
+}
+
+/** 헤더 아래 작은 본인 정보 칩 — 사용자가 "내 사주 기반"임을 인지 */
+function ProfileChip({
+  name,
+  ilganChar,
+  ilganOhaeng,
+}: {
+  name: string;
+  ilganChar: string;
+  ilganOhaeng: { c: string; cn: string };
+}) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 12px' }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 14px',
+          borderRadius: 999,
+          background: 'var(--cp-bg-paper)',
+          border: '1px solid var(--cp-border)',
+          fontSize: 11,
+          fontWeight: 700,
+          color: 'var(--cp-text-mid)',
+        }}
+      >
+        <span>{name}</span>
+        <span style={{ color: 'var(--cp-text-mute)' }}>·</span>
+        <span>일간</span>
+        <strong style={{ color: ilganOhaeng.c, fontSize: 12 }}>
+          {ilganChar}
+          {ilganOhaeng.cn}
+        </strong>
+      </span>
     </div>
   );
 }

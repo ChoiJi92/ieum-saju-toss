@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { IE_COPY } from './components/ie';
-import { RouterProvider, useRouter } from './lib/router';
-import { SajuProvider } from './lib/saju-state';
+import { IEButton, IE_COPY, MoodOrb } from './components/ie';
+import { RouterProvider, ScreenId, useRouter } from './lib/router';
+import { SajuProvider, useSaju } from './lib/saju-state';
 import ScreenOnboarding from './screens/Onboarding';
 import ScreenHome from './screens/Home';
 import ScreenInput from './screens/Input';
@@ -20,10 +20,19 @@ import ScreenSettings from './screens/Settings';
  * 다음 (Phase B): Input · Today · Share + 광고 SDK 통합.
  */
 
+/** profile 이 있어야만 의미 있는 운세 결과 화면들 */
+const NEEDS_PROFILE: ScreenId[] = ['today', 'saju', 'year', 'gunghap', 'money'];
+
 function Shell() {
   const { current } = useRouter();
+  const { profile } = useSaju();
   const [tone] = useState<keyof typeof IE_COPY>('witty'); // 추후 Settings 에서 토글
   const copy = IE_COPY[tone];
+
+  // 글로벌 가드 — 운세 결과 화면은 profile 없이 진입 X
+  if (NEEDS_PROFILE.includes(current) && !profile) {
+    return <NoProfileGuard />;
+  }
 
   // Phase A·B·C: 11 화면 전부. paywall 은 광고 모델로 제외.
   switch (current) {
@@ -52,6 +61,44 @@ function Shell() {
     default:
       return <ComingSoon screen={current} />;
   }
+}
+
+function NoProfileGuard() {
+  const { reset } = useRouter();
+  return (
+    <div
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 18,
+        padding: 28,
+        background: 'var(--cp-bg)',
+      }}
+    >
+      <MoodOrb size={120} />
+      <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, textAlign: 'center' }}>
+        먼저 정보를 입력해주세요
+      </h2>
+      <p
+        style={{
+          fontSize: 13,
+          color: 'var(--cp-text-dim)',
+          margin: 0,
+          textAlign: 'center',
+          lineHeight: 1.5,
+        }}
+      >
+        이름·생년월일·시·성별을 입력하면<br />
+        나만의 명식과 운세를 풀어드려요
+      </p>
+      <div style={{ width: '100%', maxWidth: 320 }}>
+        <IEButton onClick={() => reset('input')}>정보 입력하기</IEButton>
+      </div>
+    </div>
+  );
 }
 
 function ComingSoon({ screen }: { screen: string }) {

@@ -10,6 +10,7 @@ import {
   Sparkle,
 } from '../components/ie';
 import { useRouter } from '../lib/router';
+import { useSaju } from '../lib/saju-state';
 import { showInterstitialThen } from '../lib/ads';
 
 const inputStyle: CSSProperties = {
@@ -31,7 +32,22 @@ const inputStyle: CSSProperties = {
 
 export default function ScreenGunghap({ copy }: { copy: IECopy }) {
   const { back } = useRouter();
+  const { profile } = useSaju();
   const [step, setStep] = useState<'input' | 'ad' | 'result'>('input');
+
+  // 상대 정보
+  const [otherName, setOtherName] = useState('');
+  const [otherYear, setOtherYear] = useState('');
+  const [otherMonth, setOtherMonth] = useState('');
+  const [otherDay, setOtherDay] = useState('');
+
+  const onlyDigits = (s: string) => s.replace(/\D/g, '');
+  const canRun =
+    !!profile &&
+    otherName.trim().length > 0 &&
+    otherYear.length === 4 &&
+    otherMonth.length === 2 &&
+    otherDay.length === 2;
 
   useEffect(() => {
     if (step !== 'ad') return;
@@ -48,40 +64,109 @@ export default function ScreenGunghap({ copy }: { copy: IECopy }) {
             {copy.ghTitle}
           </h2>
           <p style={{ fontSize: 14, color: 'var(--cp-text-dim)', margin: '0 0 24px' }}>
-            두 사람의 정보를 입력해줘
+            상대의 정보를 입력해줘
           </p>
 
-          {[
-            { name: '나', emoji: '👤' },
-            { name: '상대', emoji: '💞' },
-          ].map((p, i) => (
-            <IECard key={i} style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <span style={{ fontSize: 18 }}>{p.emoji}</span>
-                <span style={{ fontSize: 14, fontWeight: 800 }}>{p.name}</span>
+          {/* 나 — profile 자동 채움 */}
+          <IECard style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 18 }}>👤</span>
+              <span style={{ fontSize: 14, fontWeight: 800 }}>나</span>
+              <span
+                style={{
+                  marginLeft: 'auto',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: 'var(--cp-text-dim)',
+                  letterSpacing: 0.4,
+                }}
+              >
+                내 정보 자동 입력
+              </span>
+            </div>
+            <IEInput label="이름" value={profile?.name ?? ''} onChange={() => {}} />
+            <div style={{ marginBottom: 8 }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: 'var(--cp-text-dim)',
+                  fontWeight: 700,
+                  letterSpacing: 0.4,
+                  marginBottom: 6,
+                }}
+              >
+                생년월일
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 8 }}>
+                <input value={profile?.year ?? ''} readOnly style={inputStyle} />
+                <input
+                  value={profile ? String(profile.month).padStart(2, '0') : ''}
+                  readOnly
+                  style={inputStyle}
+                />
+                <input
+                  value={profile ? String(profile.day).padStart(2, '0') : ''}
+                  readOnly
+                  style={inputStyle}
+                />
               </div>
-              <IEInput label="이름" value={i === 0 ? '김토스' : '박운세'} onChange={() => {}} />
-              <div style={{ marginBottom: 8 }}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: 11,
-                    color: 'var(--cp-text-dim)',
-                    fontWeight: 700,
-                    letterSpacing: 0.4,
-                    marginBottom: 6,
-                  }}
-                >
-                  생년월일
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 8 }}>
-                  <input value={i === 0 ? '1998' : '1996'} readOnly style={inputStyle} />
-                  <input value={i === 0 ? '06' : '11'} readOnly style={inputStyle} />
-                  <input value={i === 0 ? '14' : '02'} readOnly style={inputStyle} />
-                </div>
+            </div>
+          </IECard>
+
+          {/* 상대 — 입력 받기 */}
+          <IECard style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 18 }}>💞</span>
+              <span style={{ fontSize: 14, fontWeight: 800 }}>상대</span>
+            </div>
+            <IEInput
+              label="이름"
+              value={otherName}
+              onChange={setOtherName}
+              placeholder="상대 이름"
+            />
+            <div style={{ marginBottom: 8 }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: 'var(--cp-text-dim)',
+                  fontWeight: 700,
+                  letterSpacing: 0.4,
+                  marginBottom: 6,
+                }}
+              >
+                생년월일
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 8 }}>
+                <input
+                  value={otherYear}
+                  onChange={(e) => setOtherYear(onlyDigits(e.target.value).slice(0, 4))}
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="YYYY"
+                  style={inputStyle}
+                />
+                <input
+                  value={otherMonth}
+                  onChange={(e) => setOtherMonth(onlyDigits(e.target.value).slice(0, 2))}
+                  inputMode="numeric"
+                  maxLength={2}
+                  placeholder="MM"
+                  style={inputStyle}
+                />
+                <input
+                  value={otherDay}
+                  onChange={(e) => setOtherDay(onlyDigits(e.target.value).slice(0, 2))}
+                  inputMode="numeric"
+                  maxLength={2}
+                  placeholder="DD"
+                  style={inputStyle}
+                />
               </div>
-            </IECard>
-          ))}
+            </div>
+          </IECard>
         </div>
         <div
           style={{
@@ -93,7 +178,15 @@ export default function ScreenGunghap({ copy }: { copy: IECopy }) {
             background: 'linear-gradient(180deg, transparent, var(--cp-bg) 30%)',
           }}
         >
-          <IEButton onClick={() => setStep('ad')}>궁합 보기</IEButton>
+          <IEButton
+            onClick={() => canRun && setStep('ad')}
+            style={{
+              opacity: canRun ? 1 : 0.4,
+              cursor: canRun ? 'pointer' : 'not-allowed',
+            }}
+          >
+            궁합 보기
+          </IEButton>
         </div>
       </div>
     );
@@ -120,10 +213,24 @@ export default function ScreenGunghap({ copy }: { copy: IECopy }) {
       </div>
     );
 
-  return <GunghapResult onBack={() => setStep('input')} />;
+  return (
+    <GunghapResult
+      onBack={() => setStep('input')}
+      myName={profile?.name ?? '나'}
+      otherName={otherName || '상대'}
+    />
+  );
 }
 
-function GunghapResult({ onBack }: { onBack: () => void }) {
+function GunghapResult({
+  onBack,
+  myName,
+  otherName,
+}: {
+  onBack: () => void;
+  myName: string;
+  otherName: string;
+}) {
   return (
     <div className="ie-screen" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ height: 62, flexShrink: 0 }} />
@@ -162,7 +269,7 @@ function GunghapResult({ onBack }: { onBack: () => void }) {
 
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: 'var(--cp-text-dim)', fontWeight: 800, letterSpacing: 1 }}>
-            김토스 × 박운세
+            {myName} × {otherName}
           </div>
           <div
             style={{

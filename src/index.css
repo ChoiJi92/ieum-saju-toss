@@ -1,77 +1,140 @@
-/* 이음사주 · Cloud Pastel 디자인 토큰 + 글로벌 reset
- * 토큰 본체는 Claude Design 산출물 e-tokens.css 기반
- * 토스 미니앱 환경(SafeArea 변수, --top-padding 등)과 합본
- */
+@import "tailwindcss";
 
-:root {
-  /* ── COLOR · BRAND ─────────────────────────────────── */
-  --cp-lavender:        #9D7BFF;  /* primary */
-  --cp-lavender-soft:   #C9B6F0;
-  --cp-lavender-tint:   #FBF6FF;
-  --cp-peach:           #FF8B6C;  /* warm */
-  --cp-peach-soft:      #FFB69E;
-  --cp-peach-tint:      #FFF0EE;
-  --cp-mint:            #3DC795;  /* cool */
-  --cp-mint-soft:       #B5E4CB;
-  --cp-mint-tint:       #ECF8F2;
-  --cp-rose:            #F495C9;
-  --cp-butter:          #FFC857;
+/* ─────────────────────────────────────────────────────────────
+ * 이음사주 · Cloud Pastel — Tailwind v4 @theme 블록
+ * 정의된 변수는 자동으로 utility 클래스로 생성됨.
+ *   --color-* → bg-*, text-*, border-*
+ *   --radius-* → rounded-*
+ *   --shadow-* → shadow-*
+ *   --text-*  → text-* (font-size)
+ *   --font-*  → font-*
+ * 동시에 var(--color-cp-lavender) 형태로도 직접 접근 가능.
+ * ─────────────────────────────────────────────────────────────*/
+@theme {
+  /* ── BRAND ────────────────────────────────────────── */
+  --color-cp-lavender:      #9D7BFF;
+  --color-cp-lavender-soft: #C9B6F0;
+  --color-cp-lavender-tint: #FBF6FF;
+  --color-cp-peach:         #FF8B6C;
+  --color-cp-peach-soft:    #FFB69E;
+  --color-cp-peach-tint:    #FFF0EE;
+  --color-cp-mint:          #3DC795;
+  --color-cp-mint-soft:     #B5E4CB;
+  --color-cp-mint-tint:     #ECF8F2;
+  --color-cp-rose:          #F495C9;
+  --color-cp-butter:        #FFC857;
 
-  /* ── COLOR · 五行 ──────────────────────────────────── */
-  --cp-wood:            #3DC795;
-  --cp-fire:            #FF8B6C;
-  --cp-earth:           #FFC857;
-  --cp-metal:           #C9B6F0;
-  --cp-water:           #5B8DEF;
+  /* ── 五行 ─────────────────────────────────────────── */
+  --color-cp-wood:  #3DC795;
+  --color-cp-fire:  #FF8B6C;
+  --color-cp-earth: #FFC857;
+  --color-cp-metal: #C9B6F0;
+  --color-cp-water: #5B8DEF;
 
-  /* ── COLOR · TEXT ──────────────────────────────────── */
-  --cp-text:            #2A2333;
-  --cp-text-mid:        #4A3F5C;
-  --cp-text-dim:        #75688A;
-  --cp-text-mute:       #B0A6BD;
+  /* ── TEXT ─────────────────────────────────────────── */
+  --color-cp-text:      #2A2333;
+  --color-cp-text-mid:  #4A3F5C;
+  --color-cp-text-dim:  #75688A;
+  --color-cp-text-mute: #B0A6BD;
 
-  /* ── COLOR · SURFACE ───────────────────────────────── */
-  --cp-bg:              #FAF6FB;
-  --cp-bg-warm:         #FFF0EE;
-  --cp-bg-mint:         #ECF8F2;
-  --cp-bg-paper:        #FFFFFF;
-  --cp-border:          rgba(80, 60, 110, 0.08);
-  --cp-border-hi:       rgba(157, 123, 255, 0.30);
+  /* ── SURFACE ──────────────────────────────────────── */
+  --color-cp-bg:        #FAF6FB;
+  --color-cp-bg-warm:   #FFF0EE;
+  --color-cp-bg-mint:   #ECF8F2;
+  --color-cp-bg-paper:  #FFFFFF;
+  --color-cp-border:    rgba(80, 60, 110, 0.08);
+  --color-cp-border-hi: rgba(157, 123, 255, 0.30);
 
-  /* ── RADIUS ────────────────────────────────────────── */
-  --cp-radius-sm:       14px;
-  --cp-radius-md:       18px;
-  --cp-radius-lg:       24px;
-  --cp-radius-xl:       32px;
-  --cp-radius-pill:     999px;
+  /* ── RADIUS ───────────────────────────────────────── */
+  --radius-cp-sm:   14px;
+  --radius-cp-md:   18px;
+  --radius-cp-lg:   24px;
+  --radius-cp-xl:   32px;
+  --radius-cp-pill: 999px;
 
-  /* ── SHADOW ────────────────────────────────────────── */
-  --cp-shadow-sm:       0 4px 10px rgba(157, 123, 255, .06);
-  --cp-shadow-md:       0 8px 20px rgba(157, 123, 255, .12);
-  --cp-shadow-lg:       0 12px 32px rgba(157, 123, 255, .14);
-  --cp-shadow-pop:      0 8px 20px rgba(157, 123, 255, .35);
+  /* ── SHADOW ───────────────────────────────────────── */
+  --shadow-cp-sm:  0 4px 10px rgba(157, 123, 255, .06);
+  --shadow-cp-md:  0 8px 20px rgba(157, 123, 255, .12);
+  --shadow-cp-lg:  0 12px 32px rgba(157, 123, 255, .14);
+  --shadow-cp-pop: 0 8px 20px rgba(157, 123, 255, .35);
 
-  /* ── SPACING ───────────────────────────────────────── */
-  --cp-space-1:  4px;
-  --cp-space-2:  8px;
-  --cp-space-3:  12px;
-  --cp-space-4:  16px;
-  --cp-space-5:  20px;
-  --cp-space-6:  24px;
-  --cp-space-8:  32px;
-  --cp-space-10: 40px;
+  /* ── TYPOGRAPHY ───────────────────────────────────── */
+  --text-cp-display: 56px;
+  --text-cp-hero:    32px;
+  --text-cp-title-1: 28px;
+  --text-cp-title-2: 22px;
+  --text-cp-body-l:  16px;
+  --text-cp-body-m:  14px;
+  --text-cp-caption: 11px;
 
-  /* ── TYPE ──────────────────────────────────────────── */
-  font-family: "Pretendard Variable", Pretendard, -apple-system,
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system,
     BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Segoe UI",
     "Noto Sans KR", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+}
+
+/* ── 시그니처 그라디언트 (자주 씀) ─────────────────────── */
+@utility bg-cp-grad {
+  background-image: linear-gradient(135deg, var(--color-cp-lavender), var(--color-cp-peach));
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Legacy alias — 프로토타입 코드의 var(--cp-*) 그대로 동작하게
+ * (Tailwind v4 @theme가 자동 생성한 --color-cp-* 와 별도로 매핑)
+ * ─────────────────────────────────────────────────────────────*/
+:root {
+  /* brand */
+  --cp-lavender:      var(--color-cp-lavender);
+  --cp-lavender-soft: var(--color-cp-lavender-soft);
+  --cp-lavender-tint: var(--color-cp-lavender-tint);
+  --cp-peach:         var(--color-cp-peach);
+  --cp-peach-soft:    var(--color-cp-peach-soft);
+  --cp-peach-tint:    var(--color-cp-peach-tint);
+  --cp-mint:          var(--color-cp-mint);
+  --cp-mint-soft:     var(--color-cp-mint-soft);
+  --cp-mint-tint:     var(--color-cp-mint-tint);
+  --cp-rose:          var(--color-cp-rose);
+  --cp-butter:        var(--color-cp-butter);
+  /* 五行 */
+  --cp-wood:  var(--color-cp-wood);
+  --cp-fire:  var(--color-cp-fire);
+  --cp-earth: var(--color-cp-earth);
+  --cp-metal: var(--color-cp-metal);
+  --cp-water: var(--color-cp-water);
+  /* text */
+  --cp-text:      var(--color-cp-text);
+  --cp-text-mid:  var(--color-cp-text-mid);
+  --cp-text-dim:  var(--color-cp-text-dim);
+  --cp-text-mute: var(--color-cp-text-mute);
+  /* surface */
+  --cp-bg:        var(--color-cp-bg);
+  --cp-bg-warm:   var(--color-cp-bg-warm);
+  --cp-bg-mint:   var(--color-cp-bg-mint);
+  --cp-bg-paper:  var(--color-cp-bg-paper);
+  --cp-border:    var(--color-cp-border);
+  --cp-border-hi: var(--color-cp-border-hi);
+  /* radius */
+  --cp-radius-sm:   var(--radius-cp-sm);
+  --cp-radius-md:   var(--radius-cp-md);
+  --cp-radius-lg:   var(--radius-cp-lg);
+  --cp-radius-xl:   var(--radius-cp-xl);
+  --cp-radius-pill: var(--radius-cp-pill);
+  /* shadow */
+  --cp-shadow-sm:  var(--shadow-cp-sm);
+  --cp-shadow-md:  var(--shadow-cp-md);
+  --cp-shadow-lg:  var(--shadow-cp-lg);
+  --cp-shadow-pop: var(--shadow-cp-pop);
+  /* font */
+  --cp-font: var(--font-sans);
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * GLOBAL RESET — 토스 미니앱 환경 (SafeArea·터치)
+ * ─────────────────────────────────────────────────────────────*/
+:root {
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  /* ── 토스 미니앱 환경 (SafeArea) ───────────────────── */
-  /* --top-padding / --bottom-padding 은 web-framework 가 주입 */
 }
 
 html,
@@ -83,8 +146,9 @@ body,
 
 body {
   margin: 0;
-  background-color: var(--cp-bg);
-  color: var(--cp-text);
+  background-color: var(--color-cp-bg);
+  color: var(--color-cp-text);
+  font-family: var(--font-sans);
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
@@ -96,8 +160,6 @@ ul, li, h1, h2, h3, h4, p, button {
   margin: 0;
   padding: 0;
 }
-
-h1, h2, h3, h4, p { line-height: 1.4; }
 
 ul { list-style: none; }
 
@@ -117,83 +179,3 @@ input { -webkit-user-select: text; user-select: text; }
   padding-top: var(--top-padding, 0px);
   padding-bottom: var(--bottom-padding, 0px);
 }
-
-/* ── TYPE CLASSES ────────────────────────────────────── */
-.cp-display { font-size: 56px; font-weight: 800; line-height: 1.0; letter-spacing: -1.6px; }
-.cp-hero    { font-size: 32px; font-weight: 800; line-height: 1.15; letter-spacing: -1px; }
-.cp-title-1 { font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: -0.6px; }
-.cp-title-2 { font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: -0.3px; }
-.cp-body-l  { font-size: 16px; font-weight: 500; line-height: 1.5; }
-.cp-body-m  { font-size: 14px; font-weight: 400; line-height: 1.5; }
-.cp-caption { font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.5px; color: var(--cp-text-dim); }
-
-/* ── BUTTONS ─────────────────────────────────────────── */
-.cp-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 56px; padding: 0 24px; border: none;
-  border-radius: var(--cp-radius-xl);
-  font-family: inherit; font-size: 16px; font-weight: 700;
-  cursor: pointer; transition: transform .12s ease, box-shadow .12s ease;
-}
-.cp-btn-primary {
-  background: linear-gradient(135deg, var(--cp-lavender), var(--cp-peach));
-  color: #fff; box-shadow: var(--cp-shadow-pop);
-}
-.cp-btn-primary:active { transform: scale(.97); }
-.cp-btn-soft {
-  background: color-mix(in srgb, var(--cp-lavender-soft) 55%, transparent);
-  color: var(--cp-lavender); height: 52px; border-radius: var(--cp-radius-lg);
-}
-.cp-btn-ghost {
-  background: var(--cp-bg-paper); color: var(--cp-text);
-  border: 1px solid var(--cp-border);
-  height: 52px; border-radius: var(--cp-radius-lg); font-weight: 600;
-}
-
-/* ── INPUT ───────────────────────────────────────────── */
-.cp-input {
-  width: 100%; height: 56px; padding: 0 18px;
-  background: var(--cp-bg-paper);
-  border: 2px solid var(--cp-border);
-  border-radius: var(--cp-radius-md);
-  font-family: inherit; font-size: 17px; font-weight: 700;
-  color: var(--cp-text); outline: none;
-  transition: border-color .12s;
-}
-.cp-input:focus { border-color: var(--cp-lavender); }
-.cp-input-label { font-size: 11px; color: var(--cp-text-dim); margin-bottom: 6px; display: block; }
-
-/* ── CARD ────────────────────────────────────────────── */
-.cp-card {
-  padding: 18px; border-radius: var(--cp-radius-lg);
-  background: var(--cp-bg-paper); box-shadow: var(--cp-shadow-md);
-}
-.cp-card-pop {
-  background: linear-gradient(135deg, var(--cp-lavender-soft), var(--cp-peach-soft));
-  color: var(--cp-text);
-}
-.cp-card-flat {
-  background: var(--cp-bg-paper);
-  border: 1px solid var(--cp-border); box-shadow: none;
-}
-
-/* ── CHIP / BADGE ────────────────────────────────────── */
-.cp-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border-radius: var(--cp-radius-pill);
-  background: var(--cp-bg-paper); border: 1px solid var(--cp-border);
-  font-size: 11px; color: var(--cp-text-dim);
-}
-.cp-chip strong { color: var(--cp-text); font-weight: 700; }
-.cp-badge-toss {
-  display: inline-block; padding: 2px 7px; border-radius: 6px;
-  background: #3182F6; color: #fff;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
-}
-
-/* ── 사주 모듈 ───────────────────────────────────────── */
-.cp-saju-pillar     { text-align: center; }
-.cp-saju-pillar-lbl { font-size: 10px; font-weight: 700; color: var(--cp-text-dim); margin-bottom: 4px; }
-.cp-saju-pillar-lbl.is-self { color: var(--cp-lavender); }
-.cp-saju-cell-top   { padding: 12px 0; margin-bottom: 3px; border-radius: 14px 14px 6px 6px; font-size: 24px; font-weight: 700; }
-.cp-saju-cell-bot   { padding: 12px 0; border-radius: 6px 6px 14px 14px; font-size: 24px; font-weight: 700; }

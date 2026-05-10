@@ -1,119 +1,127 @@
 import { useState } from 'react';
+import { IE_COPY } from './components/ie';
+import { RouterProvider, useRouter } from './lib/router';
+import ScreenOnboarding from './screens/Onboarding';
+import ScreenHome from './screens/Home';
+import ScreenInput from './screens/Input';
+import ScreenToday from './screens/Today';
+import ScreenShare from './screens/Share';
+import ScreenSaju from './screens/Saju';
+import ScreenYear from './screens/Year';
+import ScreenGunghap from './screens/Gunghap';
+import ScreenMoney from './screens/Money';
+import ScreenHistory from './screens/History';
+import ScreenSettings from './screens/Settings';
 
 /**
- * 이음사주 — 토스 미니앱 첫 랜딩 화면.
- * Cloud Pastel 디자인 시스템 위에서 헤로 + 서브 + CTA 만 노출.
- * 다음 단계: 온보딩(생년월일) 라우터, 명식 로딩, 결과 챕터.
+ * 이음사주 토스 미니앱 — App shell.
+ * Phase A: 폴더 구조 + 공용 컴포넌트 + 라우터 + Onboarding/Home 2 화면.
+ * 다음 (Phase B): Input · Today · Share + 광고 SDK 통합.
  */
-function App() {
-  const [tappedAt, setTappedAt] = useState<string | null>(null);
 
-  const handleStart = () => {
-    setTappedAt(new Date().toLocaleTimeString('ko-KR'));
-    // TODO: 라우터 붙으면 navigate('/onboarding/birth') 으로 교체
-  };
+function Shell() {
+  const { current } = useRouter();
+  const [tone] = useState<keyof typeof IE_COPY>('witty'); // 추후 Settings 에서 토글
+  const copy = IE_COPY[tone];
 
+  // Phase A·B·C: 11 화면 전부. paywall 은 광고 모델로 제외.
+  switch (current) {
+    case 'onboarding':
+      return <ScreenOnboarding copy={copy} />;
+    case 'input':
+      return <ScreenInput />;
+    case 'home':
+      return <ScreenHome copy={copy} />;
+    case 'today':
+      return <ScreenToday copy={copy} />;
+    case 'share':
+      return <ScreenShare copy={copy} />;
+    case 'saju':
+      return <ScreenSaju copy={copy} />;
+    case 'year':
+      return <ScreenYear copy={copy} />;
+    case 'gunghap':
+      return <ScreenGunghap copy={copy} />;
+    case 'money':
+      return <ScreenMoney />;
+    case 'history':
+      return <ScreenHistory />;
+    case 'settings':
+      return <ScreenSettings />;
+    default:
+      return <ComingSoon screen={current} />;
+  }
+}
+
+function ComingSoon({ screen }: { screen: string }) {
+  const { back, reset } = useRouter();
   return (
-    <main
+    <div
       style={{
-        flex: 1,
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        padding: 24,
         background: 'var(--cp-bg)',
-        padding: '32px 24px 32px',
       }}
     >
-      {/* 헤더 영역 */}
-      <header style={{ paddingTop: 16 }}>
-        <div
-          className="cp-caption"
-          style={{ color: 'var(--cp-lavender)', fontWeight: 700 }}
-        >
-          SAJU · TOSS
-        </div>
-        <h1
-          className="cp-display"
-          style={{ marginTop: 12, fontSize: 44, lineHeight: 1.05 }}
-        >
-          어제와 내일을<br />
-          <span style={{ color: 'var(--cp-lavender)' }}>이어주는</span>
-          <br />
-          이음사주
-        </h1>
-        <p
-          className="cp-body-l"
-          style={{ marginTop: 16, color: 'var(--cp-text-mid)', maxWidth: 320 }}
-        >
-          당신의 결, 풀어드릴게요. ☁️
-        </p>
-      </header>
-
-      {/* 중앙 — 일러스트 자리 (임시 그라디언트 원) */}
-      <div
+      <div style={{ fontSize: 48 }}>🛠️</div>
+      <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>
+        {screen} 화면 준비 중
+      </h2>
+      <p
         style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '32px 0',
+          fontSize: 13,
+          color: 'var(--cp-text-dim)',
+          margin: 0,
+          textAlign: 'center',
         }}
       >
-        <div
-          aria-hidden
+        Phase B/C 에서 구현 예정
+      </p>
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button
+          onClick={back}
           style={{
-            width: 220,
-            height: 220,
-            borderRadius: '50%',
-            background:
-              'conic-gradient(from 180deg, var(--cp-lavender-soft), var(--cp-peach-soft), var(--cp-mint-soft), var(--cp-lavender-soft))',
-            filter: 'blur(0.5px)',
-            boxShadow: 'var(--cp-shadow-lg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            padding: '10px 18px',
+            borderRadius: 999,
+            border: '1px solid var(--cp-border)',
+            background: 'var(--cp-bg-paper)',
             color: 'var(--cp-text)',
-            fontSize: 72,
-            fontWeight: 800,
-            letterSpacing: -2,
-            background:
-              'linear-gradient(135deg, var(--cp-lavender) 0%, var(--cp-peach) 100%)',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: 'pointer',
           }}
         >
-          <span style={{ color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,.15)' }}>
-            결
-          </span>
-        </div>
+          ← 뒤로
+        </button>
+        <button
+          onClick={() => reset('home')}
+          style={{
+            padding: '10px 18px',
+            borderRadius: 999,
+            border: 'none',
+            background: 'linear-gradient(135deg, #9D7BFF, #FF8B6C)',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          홈으로
+        </button>
       </div>
-
-      {/* CTA 영역 */}
-      <footer
-        style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
-      >
-        <button
-          className="cp-btn cp-btn-primary"
-          onClick={handleStart}
-          style={{ width: '100%' }}
-        >
-          내 사주 풀어보기
-        </button>
-        <button
-          className="cp-btn cp-btn-ghost"
-          onClick={handleStart}
-          style={{ width: '100%' }}
-        >
-          오늘의 운세 무료로 보기
-        </button>
-        {tappedAt && (
-          <p
-            className="cp-caption"
-            style={{ textAlign: 'center', marginTop: 4 }}
-          >
-            tap @ {tappedAt} · 다음 화면 라우팅 연결 예정
-          </p>
-        )}
-      </footer>
-    </main>
+    </div>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <RouterProvider initial="onboarding">
+      <Shell />
+    </RouterProvider>
+  );
+}

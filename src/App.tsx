@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { IE_COPY } from './components/ie';
 import { RouterProvider, useRouter } from './lib/router';
+import { SajuProvider } from './lib/saju-state';
 import ScreenOnboarding from './screens/Onboarding';
 import ScreenHome from './screens/Home';
 import ScreenInput from './screens/Input';
@@ -120,8 +121,10 @@ function ComingSoon({ screen }: { screen: string }) {
 
 export default function App() {
   return (
-    <RouterProvider initial="onboarding">
-      <Shell />
-    </RouterProvider>
+    <SajuProvider>
+      <RouterProvider initial="onboarding">
+        <Shell />
+      </RouterProvider>
+    </SajuProvider>
   );
 }

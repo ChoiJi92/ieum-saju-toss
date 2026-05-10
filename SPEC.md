@@ -97,7 +97,7 @@
 | 11 | Settings | ❌ | ✅ Phase C |
 | ~~12~~ | ~~Paywall~~ | - | ❌ 광고 모델로 제거 |
 
-**Phase D (진행 중):** 백엔드 사주 계산 wrapping(`~/saju-report` Python sxtwl 엔진 → FastAPI) + 광고 그룹 ID 콘솔 발급 + 운영 호스팅.
+**Phase D (진행 중):** 사주 계산 클라이언트화(@fullstackfamily/manseryeok, 백엔드 X) + Saju 화면 실 명식 연동 ✅ + Today/Year/Money 동적화 (예정) + 광고 그룹 ID 콘솔 발급.
 
 ---
 
@@ -121,16 +121,24 @@
 ### Frontend
 - `@apps-in-toss/web-framework` 1.5.2 (Web React, RN 아님)
 - React 18 + TypeScript + rsbuild
-- `@granite-js/plugin-router` (Phase 1 라우터)
+- 간단 stack 라우터 (`src/lib/router.tsx`) — 추후 `@granite-js/plugin-router` 또는 `@use-funnel` 마이그 가능
+- Tailwind v4 (`@theme` 블록으로 Cloud Pastel 토큰 매핑)
 - Pretendard Variable CDN
 
-### Backend (Phase 1)
-- 본업 `~/saju-report` Python 사주 엔진 wrapping
-- Anthropic Claude Haiku 4.5 + prompt caching (운영비 ₩1~3만/월)
+### Saju 계산 — ⭐ 클라이언트 (백엔드 X)
+- **`@fullstackfamily/manseryeok` 1.0.8** (KASI 한국천문연구원 데이터, 1900~2050)
+- 본업 `~/saju-report` sxtwl Python 엔진과 **7건 케이스 4기둥 100% 일치 검증** (2026-05-10)
+  - choi-eojin / choi-yujeong / kim-jungi / song-jinseop / im-myeongran / im-myeongsuk / sin-gyeonghwa
+  - 양력 4건 + 음력 3건 모두 4기둥 완전 일치
+- `src/lib/saju.ts` — `computeMyeongsik(input)` 호출 → 4기둥·오행 분포·일간
+- `src/lib/saju-state.tsx` — `SajuProvider` Context + `useSaju` 훅
+- 음력 변환 `lunarToSolar` → `calculateSaju` 패턴, 시 모름 케이스 마스킹
+- Phase 2 추가 룰베이스: 12운성·12신살·대운·세운·신강·공망 (만세력 데이터로 자체 계산)
 
 ### 호스팅
-- 미니앱: 앱인토스 자체 CDN (`*.apps.tossmini.com`)
-- 백엔드: Vercel / Railway 무료 티어
+- 미니앱 빌드: 앱인토스 자체 CDN (`*.apps.tossmini.com`)
+- **백엔드: 없음** — 사주 계산 + 광고 SDK 모두 클라이언트. 운영비 ₩0
+- LLM 카피 합성(Phase 2)은 별도 검토 — Anthropic Claude Haiku 4.5 + prompt caching 도입 시 ₩1~3만/월
 
 ---
 
@@ -142,7 +150,8 @@
 - [x] **Phase A** — 폴더 구조 + 공용 컴포넌트(`IE*`·MoodOrb 등) + 라우터 + Onboarding/Home
 - [x] **Phase B** — Input·Today·Share + 광고 SDK wrapper (`src/lib/ads.ts`)
 - [x] **Phase C** — Saju·Year·Gunghap·Money·History·Settings (광고 모델 적용)
-- [ ] **Phase D** — 백엔드 사주 계산 wrapping (FastAPI) + 광고 ID 발급 + 운영 호스팅 ← **현재**
+- [x] **Phase D 1차** — manseryeok 채택 (sxtwl과 7/7 일치) + saju.ts wrapper + SajuProvider + Saju 실 명식 연동 + Home 히어로 fix
+- [ ] **Phase D 2차** — Today/Year/Money/Gunghap 실 명식 연동 + LLM 카피 합성(Phase 2) + 광고 ID 발급
 - [ ] 사업자등록 (간이과세자, 출시 직전, 홈택스 1시간)
 - [ ] 로고·썸네일·스크린샷 자체 제작
 - [ ] 4단계 심사 통과 (운영·디자인·기능·보안)

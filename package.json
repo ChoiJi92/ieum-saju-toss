@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@apps-in-toss/web-framework": "1.5.2",
+    "@fullstackfamily/manseryeok": "^1.0.8",
     "@granite-js/plugin-router": "0.1.21",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

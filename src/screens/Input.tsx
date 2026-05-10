@@ -1,6 +1,7 @@
 import { CSSProperties, useState } from 'react';
 import { IEButton, IECard, IEInput, IETopBar } from '../components/ie';
 import { useRouter } from '../lib/router';
+import { useSaju } from '../lib/saju-state';
 
 /**
  * 02 정보입력 — 프로토타입 ScreenInput 이식.
@@ -28,6 +29,13 @@ const SIJIN_LABEL: Record<string, string> = Object.fromEntries(
   SIJIN_LIST.map(([k, lbl]) => [k, lbl])
 );
 
+/** 12지 시진 → 24시 (각 시진 중간 시각) */
+const SIJIN_HOUR: Record<string, number> = {
+  子: 0,  丑: 2,  寅: 4,  卯: 6,
+  辰: 8,  巳: 10, 午: 12, 未: 14,
+  申: 16, 酉: 18, 戌: 20, 亥: 22,
+};
+
 const inputStyle: CSSProperties = {
   width: '100%',
   height: 56,
@@ -47,6 +55,7 @@ const inputStyle: CSSProperties = {
 
 export default function ScreenInput() {
   const { back, go } = useRouter();
+  const { setProfile } = useSaju();
   const [name, setName] = useState('');
   const [year, setYear] = useState('');
   const [month, setMonth] = useState('');
@@ -66,8 +75,17 @@ export default function ScreenInput() {
 
   const handleNext = () => {
     if (!canNext) return;
-    // TODO: Phase D — 백엔드 사주 계산 호출. 지금은 home 으로.
-    console.log('input', { name, calendar, leapMonth, year, month, day, sijin, unknownTime, gender });
+    setProfile({
+      name: name.trim(),
+      year: parseInt(year, 10),
+      month: parseInt(month, 10),
+      day: parseInt(day, 10),
+      calendar,
+      leapMonth: calendar === 'lunar' ? leapMonth : false,
+      hour: unknownTime ? undefined : SIJIN_HOUR[sijin],
+      minute: 0,
+      gender,
+    });
     go('home');
   };
 

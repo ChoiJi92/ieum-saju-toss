@@ -88,77 +88,81 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
                 cursor: 'pointer',
                 position: 'relative',
                 overflow: 'hidden',
+                minHeight: 200,
               }}
             >
+              {/* MoodOrb — absolute 우상단 우측 가까이, 크기 ↑ */}
               <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  position: 'absolute',
+                  top: 8,
+                  right: -16,
+                  pointerEvents: 'none',
                 }}
               >
-                <div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 800,
-                      letterSpacing: 1,
-                      color: 'rgba(42,35,51,0.7)',
-                    }}
-                  >
-                    {dateStr}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 26,
-                      fontWeight: 800,
-                      marginTop: 6,
-                      letterSpacing: -0.6,
-                      color: '#2A2333',
-                    }}
-                  >
-                    {copy.todayTitle}
-                    <br />
-                    <span
-                      style={{
-                        color: '#fff',
-                        textShadow: '0 2px 8px rgba(80,60,110,0.3)',
-                      }}
-                    >
-                      {copy.todayMood}
-                    </span>
-                  </div>
-                </div>
-                <MoodOrb size={84} />
+                <MoodOrb size={140} />
               </div>
-              <p
-                style={{
-                  fontSize: 13,
-                  color: 'rgba(42,35,51,0.78)',
-                  margin: '14px 0 0',
-                  lineHeight: 1.5,
-                }}
-              >
-                {copy.todayLine}
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                <span
+
+              <div style={{ position: 'relative', zIndex: 1, paddingRight: 110 }}>
+                <div
                   style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: '#2A2333',
-                    background: 'rgba(255,255,255,0.55)',
-                    padding: '6px 12px',
-                    borderRadius: 999,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: 1,
+                    color: 'rgba(42,35,51,0.7)',
                   }}
                 >
-                  자세히 보기 →
-                </span>
+                  {dateStr}
+                </div>
+                <div
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 800,
+                    marginTop: 6,
+                    letterSpacing: -0.6,
+                    color: '#2A2333',
+                  }}
+                >
+                  {copy.todayTitle}
+                  <br />
+                  <span
+                    style={{
+                      color: '#fff',
+                      textShadow: '0 2px 8px rgba(80,60,110,0.3)',
+                    }}
+                  >
+                    {copy.todayMood}
+                  </span>
+                </div>
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: 'rgba(42,35,51,0.78)',
+                    margin: '14px 0 0',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {copy.todayLine}
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: '#2A2333',
+                      background: 'rgba(255,255,255,0.55)',
+                      padding: '6px 12px',
+                      borderRadius: 999,
+                    }}
+                  >
+                    자세히 보기 →
+                  </span>
+                </div>
               </div>
               <Sparkle
                 size={18}
                 color="#FFC857"
-                style={{ position: 'absolute', top: 20, right: 130 }}
+                style={{ position: 'absolute', top: 24, right: 24, zIndex: 2 }}
               />
             </div>
           </Reveal>

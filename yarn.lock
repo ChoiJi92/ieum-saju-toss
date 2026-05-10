@@ -2803,6 +2803,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fullstackfamily/manseryeok@npm:^1.0.8":
+  version: 1.0.8
+  resolution: "@fullstackfamily/manseryeok@npm:1.0.8"
+  checksum: 10c0/1b3106f73761d9367784b2656b4ffe8a3377291f5aec9053a8b1759f6d4465894fa27e8b76517ed71fede24c0ebd61c780e801ae2da8a7149fa670b54d93e2c6
+  languageName: node
+  linkType: hard
+
 "@granite-js/cli@npm:0.1.31":
   version: 0.1.31
   resolution: "@granite-js/cli@npm:0.1.31"
@@ -8573,6 +8580,7 @@ __metadata:
   dependencies:
     "@apps-in-toss/web-framework": "npm:1.5.2"
     "@eslint/js": "npm:^9.17.0"
+    "@fullstackfamily/manseryeok": "npm:^1.0.8"
     "@granite-js/plugin-router": "npm:0.1.21"
     "@rsbuild/core": "npm:^1.2.4"
     "@rsbuild/plugin-react": "npm:^1.1.0"

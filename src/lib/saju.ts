@@ -43,6 +43,18 @@ const TG_OHAENG: Record<string, OhaengKey> = {
   壬: 'water', 癸: 'water',
 };
 
+/**
+ * 五子遁 (오자둔) — 일주 천간 → 자시 천간 매핑.
+ *   甲己日 → 甲子 / 乙庚日 → 丙子 / 丙辛日 → 戊子 / 丁壬日 → 庚子 / 戊癸日 → 壬子
+ */
+const OJADON: Record<string, string> = {
+  甲: '甲', 己: '甲',
+  乙: '丙', 庚: '丙',
+  丙: '戊', 辛: '戊',
+  丁: '庚', 壬: '庚',
+  戊: '壬', 癸: '壬',
+};
+
 /** 지지 → 오행 매핑 (장간 본기 기준 한국 명리 표준) */
 const DZ_OHAENG: Record<string, OhaengKey> = {
   寅: 'wood', 卯: 'wood',
@@ -105,6 +117,31 @@ function countOhaeng(pillars: Pillar[]): Record<OhaengKey, number> {
   return counts;
 }
 
+/**
+ * 한국 출생자 태양시 보정.
+ * 본업 sxtwl(`saju_calc.py --korean-adjust true`)과 정확히 일치시키기 위해
+ * 입력 시각에서 -30분을 직접 빼고, manseryeok 의 자체 보정은 끔.
+ *
+ * 자시 경계(23:30~00:30) 케이스에서 날짜·일주 변경이 정확히 sxtwl 와 동일하게 처리됨.
+ */
+function adjustKoreanSolarTime(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number
+): { year: number; month: number; day: number; hour: number; minute: number } {
+  const date = new Date(year, month - 1, day, hour, minute);
+  date.setMinutes(date.getMinutes() - 30);
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    hour: date.getHours(),
+    minute: date.getMinutes(),
+  };
+}
+
 /** 사주 계산 메인 — Input → Myeongsik */
 export function computeMyeongsik(input: SajuInput): Myeongsik {
   // 음력 → 양력 변환
@@ -117,16 +154,43 @@ export function computeMyeongsik(input: SajuInput): Myeongsik {
   }
 
   const unknownTime = input.hour === undefined;
+  const rawHour = unknownTime ? 12 : input.hour!;
+  const rawMinute = input.minute ?? 0;
+
+  // 한국 -30분 보정을 직접 적용 (manseryeok 자체 보정은 끔)
+  const adj = adjustKoreanSolarTime(solar.year, solar.month, solar.day, rawHour, rawMinute);
 
   const result: SajuResult = calculateSaju(
-    solar.year,
-    solar.month,
-    solar.day,
-    unknownTime ? 12 : input.hour, // 시 모름이면 정오로 호출 후 시주만 마스킹
-    input.minute ?? 0
+    adj.year,
+    adj.month,
+    adj.day,
+    adj.hour,
+    adj.minute,
+    { applyTimeCorrection: false }
   );
 
-  const hourHanja = unknownTime ? null : result.hourPillarHanja;
+  // 야자시(夜子時) 후처리 — 본업 sxtwl 정책 일치:
+  //   보정 시각 23:00~24:00 = 야자시 → 시진 = 子(자시) + 시주 천간 = 다음날 일주 기준
+  //   (manseryeok 기본은 23:30 자시 시작 + 그날 일주 기준이라 시주 다름)
+  //   일주 변경은 보정 시각 자정 기준이라 그대로 유지.
+  let correctedHourHanja = result.hourPillarHanja;
+  const isYajaSi = !unknownTime && adj.hour === 23;
+  if (isYajaSi) {
+    const next = new Date(adj.year, adj.month - 1, adj.day);
+    next.setDate(next.getDate() + 1);
+    const nextResult = calculateSaju(
+      next.getFullYear(),
+      next.getMonth() + 1,
+      next.getDate(),
+      12,
+      0,
+      { applyTimeCorrection: false }
+    );
+    const nextDayStem = nextResult.dayPillarHanja[0];
+    correctedHourHanja = OJADON[nextDayStem] + '子';
+  }
+
+  const hourHanja = unknownTime ? null : correctedHourHanja;
   const pillars = pillarsFromHanja(
     result.yearPillarHanja,
     result.monthPillarHanja,

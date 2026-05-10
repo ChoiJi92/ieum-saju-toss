@@ -127,13 +127,20 @@
 
 ### Saju 계산 — ⭐ 클라이언트 (백엔드 X)
 - **`@fullstackfamily/manseryeok` 1.0.8** (KASI 한국천문연구원 데이터, 1900~2050)
-- 본업 `~/saju-report` sxtwl Python 엔진과 **7건 케이스 4기둥 100% 일치 검증** (2026-05-10)
-  - choi-eojin / choi-yujeong / kim-jungi / song-jinseop / im-myeongran / im-myeongsuk / sin-gyeonghwa
-  - 양력 4건 + 음력 3건 모두 4기둥 완전 일치
+- 본업 `~/saju-report` sxtwl Python 엔진과 **14건 케이스 4기둥 100% 일치** (2026-05-10)
+  - 본업 의뢰자 7건 (양력 4 + 음력 3) ✅
+  - 자시 경계 5건 (23:00 / 23:30 / 23:45 / 00:00 / 00:30) ✅
+  - 절기 경계 2건 (입춘 직전·직후) ✅
 - `src/lib/saju.ts` — `computeMyeongsik(input)` 호출 → 4기둥·오행 분포·일간
 - `src/lib/saju-state.tsx` — `SajuProvider` Context + `useSaju` 훅
-- 음력 변환 `lunarToSolar` → `calculateSaju` 패턴, 시 모름 케이스 마스킹
-- Phase 2 추가 룰베이스: 12운성·12신살·대운·세운·신강·공망 (만세력 데이터로 자체 계산)
+
+**핵심 패치 2가지** (sxtwl 정책 일치):
+1. **한국 -30분 직접 보정** + manseryeok 자체 보정 OFF (`applyTimeCorrection: false`)
+2. **야자시(夜子時) 후처리** — 보정 시각 23:00~24:00 = 자시 + 다음날 일주 기준 시주 천간 (오자둔)
+
+**주의**: 윤달 케이스는 본업 sxtwl이 `--leap` 옵션 미지원이라 비교 불가. manseryeok `lunarToSolar(y, m, d, isLeap)` API로 처리는 가능하나 본업과 정합 검증은 보류.
+
+Phase 2 추가 룰베이스: 12운성·12신살·대운·세운·신강·공망 (만세력 데이터로 자체 계산)
 
 ### 호스팅
 - 미니앱 빌드: 앱인토스 자체 CDN (`*.apps.tossmini.com`)

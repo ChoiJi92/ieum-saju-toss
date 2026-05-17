@@ -1,73 +1,162 @@
 /**
- * 토스 미니앱 AdMob 광고 wrapper.
+ * 토스 미니앱 리워드 광고 wrapper.
  *
- * - 운세 진입 직전 인터스티셜 노출 (운세 보기마다)
- * - 광고 로드 실패 / 환경 미지원 시 fallback (그냥 결과 보여주기)
- * - 광고 그룹 ID(`adGroupId`)는 출시 전 토스 콘솔에서 발급받아 .env 또는 상수로 주입
- *
- * AdMob API:
- *   showAdMobInterstitialAd({ onEvent, options: { adGroupId } })
- *   onEvent(data) — { type: 'opened' | 'closed' | 'failed' | ... }
+ * 정책 원칙:
+ * - 결과 공개는 userEarnedReward 이벤트가 발생했을 때만 허용
+ * - dismissed / failedToShow / onError 로는 결과를 열지 않음
+ * - Apps in Toss 인앱 광고 2.0 ver2 통합 SDK(loadFullScreenAd/showFullScreenAd)를 우선 사용
+ * - 개발/QA에서는 공식 테스트 리워드 ID(ait-ad-test-rewarded-id)를 사용해야 함
  */
 
-// 콘솔 발급 전 placeholder. 출시 직전 실제 ID로 교체.
-export const AD_GROUP_ID = import.meta.env?.VITE_AD_GROUP_ID || 'TEST_AD_GROUP';
+export const AD_GROUP_ID = import.meta.env.VITE_AD_GROUP_ID || 'TEST_AD_GROUP';
 
-let adApi: typeof import('@apps-in-toss/web-framework') | null = null;
+const AD_ENABLED = AD_GROUP_ID !== 'TEST_AD_GROUP' && AD_GROUP_ID.length > 0;
+
+type WebFramework = typeof import('@apps-in-toss/web-framework');
+type RewardedAdResult = 'rewarded' | 'dismissed' | 'failed' | 'unsupported' | 'not_configured';
+
+let adApi: WebFramework | null = null;
+let isLoading = false;
+let isLoaded = false;
+let loadingPromise: Promise<boolean> | null = null;
 
 async function loadAdApi() {
   if (adApi) return adApi;
   try {
     adApi = await import('@apps-in-toss/web-framework');
     return adApi;
-  } catch (e) {
-    console.warn('[ads] web-framework not available — running in browser dev mode');
+  } catch {
+    console.warn('[ads] web-framework not available');
     return null;
   }
 }
 
-/**
- * 인터스티셜 광고 노출 후 콜백.
- * 광고가 닫히면 onClose 호출 (실제 결과 화면으로 이동).
- * 광고 로드 실패 / 미지원 환경이면 onClose 즉시 호출 (광고 없이 진행).
- */
-export async function showInterstitialThen(onClose: () => void) {
-  const api = await loadAdApi();
-
-  // 토스 web-framework 에서 export 되는 함수명. 1.5.x에서는 `showAdMobInterstitialAd` 시그니처.
-  // (RN/web 양쪽에서 동일 이름. web-bridge가 토스 앱 native 로 IPC 전달)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const showFn: any = (api as any)?.showAdMobInterstitialAd;
-
-  if (!showFn || typeof showFn !== 'function') {
-    // 데스크톱 dev 환경 또는 Granite 미설치 → 즉시 결과로
-    console.info('[ads] showAdMobInterstitialAd unavailable → fallback to result');
-    onClose();
-    return;
-  }
-
-  let resolved = false;
-  const finish = () => {
-    if (resolved) return;
-    resolved = true;
-    onClose();
-  };
-
+function isSupported(fn: unknown): boolean {
+  if (typeof fn !== 'function') return false;
   try {
-    showFn({
-      onEvent: (data: { type?: string }) => {
-        // 가능한 type: 'opened' / 'closed' / 'failed' / 'rewarded' 등 (AdMob 표준)
-        if (!data?.type) return;
-        if (data.type === 'closed' || data.type === 'failed' || data.type === 'dismissed') {
-          finish();
-        }
-      },
-      options: { adGroupId: AD_GROUP_ID },
-    });
-    // 안전 fallback — 8초 안에 콜백 안 오면 강제 진행
-    setTimeout(finish, 8000);
-  } catch (e) {
-    console.warn('[ads] interstitial threw — fallback', e);
-    finish();
+    return (fn as { isSupported?: () => boolean }).isSupported?.() === true;
+  } catch {
+    return false;
   }
+}
+
+export async function preloadRewardedAdForResult() {
+  if (!AD_ENABLED) return false;
+  if (isLoaded) return true;
+  if (isLoading && loadingPromise) return loadingPromise;
+
+  const api = await loadAdApi();
+  const loadFn = api?.loadFullScreenAd;
+
+  if (!isSupported(loadFn)) {
+    console.info('[ads] loadFullScreenAd unsupported');
+    return false;
+  }
+
+  isLoading = true;
+  loadingPromise = new Promise<boolean>((resolve) => {
+    let settled = false;
+    let unregister: (() => void) | undefined;
+
+    const settle = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      isLoading = false;
+      isLoaded = ok;
+      loadingPromise = null;
+      unregister?.();
+      resolve(ok);
+    };
+
+    try {
+      unregister = loadFn({
+        options: { adGroupId: AD_GROUP_ID },
+        onEvent: (event) => {
+          if (event.type === 'loaded') {
+            settle(true);
+          }
+        },
+        onError: (error) => {
+          console.warn('[ads] reward load failed', error);
+          settle(false);
+        },
+      });
+      setTimeout(() => settle(false), 5000);
+    } catch (error) {
+      console.warn('[ads] reward load threw', error);
+      settle(false);
+    }
+  });
+
+  return loadingPromise;
+}
+
+/**
+ * 리워드 광고를 표시하고, 끝까지 시청해 보상 이벤트를 받은 경우에만 'rewarded'를 반환.
+ * dismissed/failed/onError는 결과 공개로 이어지면 안 된다.
+ */
+export async function showRewardedAdForResult(): Promise<RewardedAdResult> {
+  if (!AD_ENABLED) return 'not_configured';
+
+  const api = await loadAdApi();
+  const showFn = api?.showFullScreenAd;
+
+  if (!isSupported(showFn)) return 'unsupported';
+
+  const loaded = await preloadRewardedAdForResult();
+  if (!loaded) return 'failed';
+
+  // show는 로드된 광고를 1회 소진한다. 이후에는 반드시 새 load가 필요하다.
+  isLoaded = false;
+
+  return new Promise<RewardedAdResult>((resolve) => {
+    let settled = false;
+    let rewarded = false;
+    let unregister: (() => void) | undefined;
+
+    const settle = (result: RewardedAdResult) => {
+      if (settled) return;
+      settled = true;
+      unregister?.();
+      resolve(result);
+      // Chain preload — 한 광고 소진 직후 다음 광고 백그라운드 로드.
+      // 같은 세션에서 다른 메뉴 진입 시 즉시 ready 상태로 만들기 위함.
+      // 실패는 무시 (다음 게이트에서 재시도).
+      preloadRewardedAdForResult().catch(() => {});
+    };
+
+    try {
+      unregister = showFn({
+        options: { adGroupId: AD_GROUP_ID },
+        onEvent: (event) => {
+          switch (event.type) {
+            case 'userEarnedReward':
+              rewarded = true;
+              settle('rewarded');
+              break;
+            case 'dismissed':
+              settle(rewarded ? 'rewarded' : 'dismissed');
+              break;
+            case 'failedToShow':
+              settle('failed');
+              break;
+            case 'requested':
+            case 'show':
+            case 'impression':
+            case 'clicked':
+              break;
+          }
+        },
+        onError: (error) => {
+          console.warn('[ads] reward show failed', error);
+          settle('failed');
+        },
+      });
+      // Android 특정 버전에서 dismissed 누락 가능. 단, reward 이벤트 없으면 결과 공개 금지.
+      setTimeout(() => settle(rewarded ? 'rewarded' : 'failed'), 60_000);
+    } catch (error) {
+      console.warn('[ads] reward show threw', error);
+      settle('failed');
+    }
+  });
 }

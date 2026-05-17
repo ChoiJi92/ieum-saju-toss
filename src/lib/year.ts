@@ -1,5 +1,17 @@
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { getSipsung, type Sipsung } from './sipsung';
+import type { Myeongsik } from './saju';
+
+/** 명식 8자 + key 로 -3 ~ +3 시드 변동 */
+function variance(seed: string, key: string, range = 3): number {
+  let h = 0;
+  const s = seed + key;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return (Math.abs(h) % (range * 2 + 1)) - range;
+}
+function myeongsikSeed(m: Myeongsik): string {
+  return m.pillars.map((p) => p.top.c + p.bot.c).join('');
+}
 
 /**
  * 신년운세 — 본인 일간 × 한 해 12개월 월주 천간 → 십성 → 월별 점수.
@@ -41,15 +53,19 @@ export type YearForecast = {
   yearScore: number;
   /** 가장 좋은 달 (1~12) */
   bestMonth: number;
+  /** 가장 약한 달 (1~12) */
+  worstMonth: number;
   /** 한 해 mood */
   mood: string;
   tagline: string;
-  /** 분야별 한 줄 — 연애·재물·커리어·건강 */
+  /** 한 해 흐름 풀이 (3~4줄) */
+  yearBody: string;
+  /** 분야별 — 연애·재물·커리어·건강 (각 3줄+) */
   fields: {
-    love:    { score: number; oneLine: string };
-    money:   { score: number; oneLine: string };
-    career:  { score: number; oneLine: string };
-    health:  { score: number; oneLine: string };
+    love:    { score: number; oneLine: string; body: string };
+    money:   { score: number; oneLine: string; body: string };
+    career:  { score: number; oneLine: string; body: string };
+    health:  { score: number; oneLine: string; body: string };
   };
 };
 
@@ -59,9 +75,11 @@ function monthStemAt(year: number, month: number): string {
   return r.monthPillarHanja[0];
 }
 
-/** 본인 일간 × 한 해 → YearForecast */
-export function yearForecast(myIlgan: string, year: number): YearForecast | null {
+/** 본인 명식 × 한 해 → YearForecast (명식 시드 변동 포함) */
+export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast | null {
+  const myIlgan = myeongsik.ilgan.c;
   if (!isStem(myIlgan)) return null;
+  const seed = myeongsikSeed(myeongsik);
 
   const months: MonthForecast[] = [];
   let scoreSum = 0;
@@ -74,11 +92,14 @@ export function yearForecast(myIlgan: string, year: number): YearForecast | null
     if (isStem(stem)) {
       sipsung = getSipsung(myIlgan, stem);
       const s = SCORE_BY_SIPSUNG[sipsung];
-      score = s.overall;
-      fieldSums.love   += s.love;
-      fieldSums.money  += s.money;
-      fieldSums.work   += s.work;
-      fieldSums.health += s.health;
+      // 시드 변동 — 같은 십성이라도 사주 다르면 점수 다름
+      const adjust = (k: string, base: number) =>
+        Math.max(50, Math.min(98, base + variance(seed, `${m}_${k}`, 3)));
+      score = adjust('overall', s.overall);
+      fieldSums.love   += adjust('love',   s.love);
+      fieldSums.money  += adjust('money',  s.money);
+      fieldSums.work   += adjust('work',   s.work);
+      fieldSums.health += adjust('health', s.health);
     }
     months.push({ month: m, monthStem: stem, sipsung, score });
     scoreSum += score;
@@ -87,10 +108,16 @@ export function yearForecast(myIlgan: string, year: number): YearForecast | null
   const yearScore = Math.round(scoreSum / 12);
   let bestMonth = 1;
   let bestScore = months[0].score;
+  let worstMonth = 1;
+  let worstScore = months[0].score;
   for (const m of months) {
     if (m.score > bestScore) {
       bestScore = m.score;
       bestMonth = m.month;
+    }
+    if (m.score < worstScore) {
+      worstScore = m.score;
+      worstMonth = m.month;
     }
   }
 
@@ -134,13 +161,15 @@ export function yearForecast(myIlgan: string, year: number): YearForecast | null
     months,
     yearScore,
     bestMonth,
+    worstMonth,
     mood: moodMap[dominant],
     tagline: taglineMap[dominant],
+    yearBody: yearBodyMap[dominant](year, bestMonth, worstMonth, yearScore),
     fields: {
-      love:   { score: avgLove,   oneLine: oneLineForField('love',   bestMonth, avgLove) },
-      money:  { score: avgMoney,  oneLine: oneLineForField('money',  bestMonth, avgMoney) },
-      career: { score: avgWork,   oneLine: oneLineForField('career', bestMonth, avgWork) },
-      health: { score: avgHealth, oneLine: oneLineForField('health', bestMonth, avgHealth) },
+      love:   { score: avgLove,   oneLine: oneLineForField('love',   bestMonth, avgLove),   body: fieldBody('love',   dominant, bestMonth, worstMonth, avgLove) },
+      money:  { score: avgMoney,  oneLine: oneLineForField('money',  bestMonth, avgMoney),  body: fieldBody('money',  dominant, bestMonth, worstMonth, avgMoney) },
+      career: { score: avgWork,   oneLine: oneLineForField('career', bestMonth, avgWork),   body: fieldBody('career', dominant, bestMonth, worstMonth, avgWork) },
+      health: { score: avgHealth, oneLine: oneLineForField('health', bestMonth, avgHealth), body: fieldBody('health', dominant, bestMonth, worstMonth, avgHealth) },
     },
   };
 }
@@ -151,8 +180,46 @@ function oneLineForField(
   avg: number
 ): string {
   const tone = avg >= 78 ? '활기' : avg >= 70 ? '안정' : '주의';
-  if (field === 'love')   return `${bestMonth}월 강한 인연 신호. 한 해 흐름 ${tone}.`;
-  if (field === 'money')  return `${bestMonth}월 자산 ↑. ${tone === '활기' ? '하반기 회복' : '꾸준히 다지기'}.`;
-  if (field === 'career') return `${bestMonth}월 전환점. ${tone === '활기' ? '도약' : '내실 다지기'}.`;
-  return `환절기·연말 면역 주의. 평균 ${tone}.`;
+  if (field === 'love')   return `${bestMonth}월에 강한 인연 신호가 와요. 한 해 흐름은 ${tone}이에요.`;
+  if (field === 'money')  return `${bestMonth}월에 자산이 가장 잘 모여요. ${tone === '활기' ? '하반기에 회복세가 좋아요' : '꾸준히 다지는 흐름이에요'}.`;
+  if (field === 'career') return `${bestMonth}월이 전환점이에요. ${tone === '활기' ? '도약하기 좋은 해예요' : '내실을 다지기 좋은 해예요'}.`;
+  return `환절기·연말엔 면역에 신경 써주세요. 평균 흐름은 ${tone}이에요.`;
 }
+
+/** 분야별 풍부 풀이 (3~4줄) — 십성 dominant + 평균 점수 기반 */
+function fieldBody(
+  field: 'love' | 'money' | 'career' | 'health',
+  dominant: Sipsung,
+  bestMonth: number,
+  worstMonth: number,
+  avg: number
+): string {
+  const tone = avg >= 78 ? '활기 있는' : avg >= 70 ? '안정적인' : '주의가 필요한';
+  if (field === 'love') {
+    return `${tone} 한 해 인연 흐름이에요. ${bestMonth}월에 가장 강한 인연 신호가 와요 — 자연스럽게 만나는 자리에서 끌림이 깊어지는 시기예요. ${worstMonth}월은 다툼·오해가 살짝 생길 수 있으니 연인이라면 평소보다 한 번 더 마음을 표현해주세요.`;
+  }
+  if (field === 'money') {
+    return `${tone} 재물 흐름이에요. ${bestMonth}월에 자산이 가장 잘 모이는 시기라 저축·투자 점검하기 좋아요. ${worstMonth}월은 큰 지출·갑작스러운 비용이 생길 수 있으니, 연말정산·세금 정리는 연초부터 미리 챙겨두면 마음이 편해요.`;
+  }
+  if (field === 'career') {
+    return `${tone} 커리어 흐름이에요. ${bestMonth}월에 전환점·중요 결정 신호가 와요 — 이직·승진·새 프로젝트 시동에 좋은 타이밍이에요. ${worstMonth}월은 압박·평가가 강해서 정신력 챙기는 게 중요해요. 평소보다 멘토를 자주 만나면 한결 가벼워져요.`;
+  }
+  return `${tone} 건강 흐름이에요. ${bestMonth}월은 컨디션이 ↑이라 새 운동·식단을 시작하기 좋은 타이밍이에요. ${worstMonth}월은 면역·스트레스가 누적될 수 있으니, 환절기엔 잠을 충분히 자고 연말엔 과음을 조금만 줄여주세요.`;
+}
+
+/** 한 해 흐름 풀이 (3~4줄) — dominant 십성별 */
+const yearBodyMap: Record<
+  Sipsung,
+  (year: number, bestMonth: number, worstMonth: number, score: number) => string
+> = {
+  비견: (y, b, w) => `${y}년은 함께 갈 사람이 늘어나는 해예요. 혼자 끌고 가던 일도 동료·친구의 손을 빌리면 두 배 가벼워져요. ${b}월에 가장 강한 협업 신호가 와요. ${w}월은 의견 충돌·갈등이 살짝 생길 수 있으니 한 번 더 들어주는 마음으로 가주세요.`,
+  겁재: (y, b, w) => `${y}년은 경쟁 속에서 단단해지는 해예요. 라이벌·도전 자리가 평소보다 많지만 그게 본인 실력을 키워줘요. ${b}월에 정점에 닿아요. ${w}월은 충동·과욕이 올라오기 쉬우니 한 박자 쉬어가는 여유가 필요해요.`,
+  식신: (y, b) => `${y}년은 하고 싶은 거 마음껏 펼치는 해예요. 자기 표현이 자연스럽게 매력으로 보이는 시기예요. ${b}월에 가장 큰 기회가 와요 — 새 시도·창작·이직에 좋은 타이밍이에요. 즐기되 기록은 꼭 남겨두세요.`,
+  상관: (y, b) => `${y}년은 틀을 깨고 새로 만드는 해예요. 평범한 길보단 본인만의 색으로 가는 해예요. ${b}월에 큰 도약이 일어나요. 단 직설적인 발언으로 사람 잃지 않게 톤 조절은 평소보다 한 번 더 신경 써주세요.`,
+  정재: (y, b, w) => `${y}년은 꾸준히 쌓는 게 답인 해예요. 큰 도박보단 매일 조금씩 모으는 흐름이 더 큰 결과로 와요. ${b}월에 자산이 가장 잘 모여요. ${w}월은 지출·계약을 평소보다 꼼꼼히 살펴주세요.`,
+  편재: (y, b) => `${y}년은 예상 못한 기회·만남이 들어오는 해예요. 안전한 자리에만 있으면 운 절반을 놓치니 새로운 자리·사람을 적극적으로 만나주세요. ${b}월이 정점이에요. 단 큰 베팅은 충분히 검증한 뒤에 결정하는 게 안전해요.`,
+  정관: (y, b, w) => `${y}년은 책임이 보상으로 돌아오는 해예요. 약속·신뢰·정공법이 그대로 운으로 와요. ${b}월에 큰 인정·승진·계약 신호가 와요. ${w}월은 무리·번아웃이 올 수 있으니 잠은 꼭 챙겨주세요.`,
+  편관: (y, b, w) => `${y}년은 한 단계 성장하는 도전의 해예요. 압박·과제 많지만 정면 돌파하면 한 차원 다른 본인이 돼요. ${b}월에 가장 큰 시험이 와요. ${w}월은 휴식·회복 시기로 활용하면 좋아요.`,
+  정인: (y, b) => `${y}년은 배우고 채우는 해예요. 큰 도약보단 내공 쌓기에 집중하기 좋은 시기예요. ${b}월에 좋은 멘토·자료·강의를 만나는 신호가 와요. 책 한 권·강의 하나가 한 해 자산이 돼요.`,
+  편인: (y, b) => `${y}년은 직관·영감이 빛나는 해예요. 평범하지 않은 길에서 본인만의 답을 찾는 해예요. ${b}월에 큰 영감 신호가 와요. 단 실행은 충분히 검증한 뒤에 — 직감만 믿고 큰 결정 내리는 건 위험해요.`,
+};

@@ -1,5 +1,5 @@
-import { CSSProperties, useState } from 'react';
-import { IEButton, IECard, IEInput, IETopBar } from '../components/ie';
+import { useEffect, useState } from 'react';
+import { IEButton, IECheckbox, IEDateSelect, IEInput, IETopBar } from '../components/ie';
 import { useRouter } from '../lib/router';
 import { useSaju } from '../lib/saju-state';
 
@@ -36,26 +36,19 @@ const SIJIN_HOUR: Record<string, number> = {
   申: 16, 酉: 18, 戌: 20, 亥: 22,
 };
 
-const inputStyle: CSSProperties = {
-  width: '100%',
-  height: 56,
-  padding: '0 14px',
-  background: 'var(--cp-bg-paper)',
-  border: '2px solid var(--cp-border)',
-  borderRadius: 'var(--cp-radius-md)',
-  fontFamily: 'var(--cp-font)',
-  fontSize: 17,
-  fontWeight: 700,
-  color: 'var(--cp-text)',
-  textAlign: 'center',
-  outline: 'none',
-  boxSizing: 'border-box',
-  fontVariantNumeric: 'tabular-nums',
-};
+
+/** 시 → 시진 한자 (편집 모드 prefill용 역매핑) */
+function hourToSijin(hour: number): string {
+  const entries = Object.entries(SIJIN_HOUR) as [string, number][];
+  const match = entries.find(([, h]) => h === hour);
+  return match?.[0] ?? '未';
+}
 
 export default function ScreenInput() {
   const { back, go } = useRouter();
-  const { setProfile } = useSaju();
+  const { setSelf, selfProfile } = useSaju();
+  const isEdit = !!selfProfile;
+
   const [name, setName] = useState('');
   const [year, setYear] = useState('');
   const [month, setMonth] = useState('');
@@ -63,19 +56,38 @@ export default function ScreenInput() {
   const [calendar, setCalendar] = useState<Calendar>('solar');
   const [leapMonth, setLeapMonth] = useState(false);
   const [sijin, setSijin] = useState('未');
-  const [unknownTime, setUnknownTime] = useState(false);
+  const [unknownTime, setUnknownTime] = useState(true); // 디폴트 모름
   const [sijinOpen, setSijinOpen] = useState(false);
-  const [gender, setGender] = useState<Gender>('female');
+  const [gender, setGender] = useState<Gender | null>(null);
+
+  // 편집 모드 — 기존 정보로 prefill
+  useEffect(() => {
+    if (!selfProfile) return;
+    setName(selfProfile.name);
+    setYear(String(selfProfile.year));
+    setMonth(String(selfProfile.month).padStart(2, '0'));
+    setDay(String(selfProfile.day).padStart(2, '0'));
+    setCalendar(selfProfile.calendar);
+    setLeapMonth(selfProfile.leapMonth ?? false);
+    if (selfProfile.hour !== undefined) {
+      setUnknownTime(false);
+      setSijin(hourToSijin(selfProfile.hour));
+    } else {
+      setUnknownTime(true);
+    }
+    setGender(selfProfile.gender);
+  }, [selfProfile]);
 
   const canNext =
     name.trim().length > 0 &&
     year.length === 4 &&
     month.length === 2 &&
-    day.length === 2;
+    day.length === 2 &&
+    gender !== null;
 
   const handleNext = () => {
-    if (!canNext) return;
-    setProfile({
+    if (!canNext || gender === null) return;
+    setSelf({
       name: name.trim(),
       year: parseInt(year, 10),
       month: parseInt(month, 10),
@@ -86,16 +98,16 @@ export default function ScreenInput() {
       minute: 0,
       gender,
     });
-    go('home');
+    if (isEdit) back();
+    else go('home');
   };
 
   return (
     <div className="ie-screen" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ height: 62, flexShrink: 0 }} />
       <IETopBar onBack={back} title="내 정보 입력" />
       <div className="ie-scroll" style={{ flex: 1, overflowY: 'auto', padding: '8px 24px 120px' }}>
         <h2 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.6, margin: '12px 0 6px', whiteSpace: 'pre-line' }}>
-          {'너의 사주를\n풀어줄게'}
+          {'당신의 사주를\n풀어드릴게요'}
         </h2>
         <p style={{ fontSize: 14, color: 'var(--cp-text-dim)', margin: '0 0 28px', lineHeight: 1.5 }}>
           입력한 정보는 풀이에만 사용해요
@@ -149,80 +161,59 @@ export default function ScreenInput() {
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 8 }}>
-            <input
+            <IEDateSelect
               value={year}
-              onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              maxLength={4}
-              inputMode="numeric"
-              placeholder="YYYY"
-              style={inputStyle}
+              onChange={(v) => {
+                setYear(v);
+                if (v && month && day) {
+                  const last = new Date(parseInt(v, 10), parseInt(month, 10), 0).getDate();
+                  if (parseInt(day, 10) > last) setDay(String(last).padStart(2, '0'));
+                }
+              }}
+              placeholder="년"
+              options={Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => {
+                const y = 1900 + i;
+                return { value: String(y), label: `${y}년` };
+              }).reverse()}
             />
-            <input
+            <IEDateSelect
               value={month}
-              onChange={(e) => setMonth(e.target.value.replace(/\D/g, '').slice(0, 2))}
-              maxLength={2}
-              inputMode="numeric"
-              placeholder="MM"
-              style={inputStyle}
+              onChange={(v) => {
+                setMonth(v);
+                if (year && v && day) {
+                  const last = new Date(parseInt(year, 10), parseInt(v, 10), 0).getDate();
+                  if (parseInt(day, 10) > last) setDay(String(last).padStart(2, '0'));
+                }
+              }}
+              placeholder="월"
+              options={Array.from({ length: 12 }, (_, i) => ({
+                value: String(i + 1).padStart(2, '0'),
+                label: `${i + 1}월`,
+              }))}
             />
-            <input
+            <IEDateSelect
               value={day}
-              onChange={(e) => setDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
-              maxLength={2}
-              inputMode="numeric"
-              placeholder="DD"
-              style={inputStyle}
+              onChange={setDay}
+              placeholder="일"
+              options={Array.from(
+                {
+                  length:
+                    year && month
+                      ? new Date(parseInt(year, 10), parseInt(month, 10), 0).getDate()
+                      : 31,
+                },
+                (_, i) => ({
+                  value: String(i + 1).padStart(2, '0'),
+                  label: `${i + 1}일`,
+                })
+              )}
             />
           </div>
           {calendar === 'lunar' && (
-            <div
-              onClick={() => setLeapMonth(!leapMonth)}
-              style={{
-                marginTop: 10,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                cursor: 'pointer',
-                padding: '10px 14px',
-                background: leapMonth ? 'rgba(157,123,255,0.08)' : 'var(--cp-bg)',
-                borderRadius: 12,
-                border: leapMonth ? '1.5px solid var(--cp-lavender)' : '1.5px solid transparent',
-              }}
-            >
-              <span
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: 5,
-                  border: `1.5px solid ${leapMonth ? 'var(--cp-lavender)' : 'var(--cp-text-mute)'}`,
-                  background: leapMonth ? 'var(--cp-lavender)' : 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {leapMonth && (
-                  <span style={{ color: '#fff', fontSize: 12, fontWeight: 800 }}>✓</span>
-                )}
-              </span>
-              <span
-                style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: leapMonth ? 'var(--cp-lavender)' : 'var(--cp-text)',
-                }}
-              >
+            <div style={{ marginTop: 10 }}>
+              <IECheckbox checked={leapMonth} onChange={setLeapMonth}>
                 윤달
-              </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  color: 'var(--cp-text-dim)',
-                  marginLeft: 'auto',
-                }}
-              >
-                이 달이 윤달이에요
-              </span>
+              </IECheckbox>
             </div>
           )}
         </div>
@@ -254,7 +245,7 @@ export default function ScreenInput() {
               fontFamily: 'var(--cp-font)',
               fontSize: 16,
               fontWeight: 700,
-              color: unknownTime ? 'var(--cp-text-dim)' : 'var(--cp-text)',
+              color: 'var(--cp-text)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -262,7 +253,18 @@ export default function ScreenInput() {
             }}
           >
             <span>{unknownTime ? '모름' : SIJIN_LABEL[sijin]}</span>
-            <span style={{ fontSize: 14, color: 'var(--cp-text-dim)' }}>▾</span>
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="var(--cp-text-dim)"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
           <div style={{ marginTop: 8, fontSize: 11, color: 'var(--cp-text-dim)' }}>
             모르면 '모름'을 선택해주세요
@@ -284,7 +286,7 @@ export default function ScreenInput() {
             성별
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {(['female', 'male'] as const).map((k) => (
+            {(['male', 'female'] as const).map((k) => (
               <button
                 key={k}
                 onClick={() => setGender(k)}
@@ -431,3 +433,4 @@ export default function ScreenInput() {
     </div>
   );
 }
+

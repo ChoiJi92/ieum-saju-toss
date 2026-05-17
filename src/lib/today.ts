@@ -1,11 +1,13 @@
 import { calculateSaju } from '@fullstackfamily/manseryeok';
-import { fortuneBySipsung, type DailyFortune } from './sipsung';
+import { personalizedFortune, type DailyFortune } from './sipsung';
+import type { Myeongsik } from './saju';
 
 /**
- * 오늘의 운세 — 본인 일간 vs 오늘 일진(60갑자)으로 십성 계산 → 5섹션.
+ * 오늘의 운세 — 본인 명식(8자) + 오늘 일진 → 십성 + 시드 변동 → 5섹션.
  *
  * - 오늘 일진 = manseryeok 으로 오늘 날짜의 일주 천간 추출
  * - 시간 무관 (정오 기준 호출, 일주만 사용)
+ * - 본인 명식 8자 시드 → 같은 일간 다른 사주끼리 점수 ±3 변동 보장
  */
 
 type Stem = '甲' | '乙' | '丙' | '丁' | '戊' | '己' | '庚' | '辛' | '壬' | '癸';
@@ -27,16 +29,19 @@ export function todayDayStem(date: Date = new Date()): Stem {
     { applyTimeCorrection: false }
   );
   const stem = r.dayPillarHanja[0];
-  if (!isStem(stem)) {
-    // 안전 fallback (이론상 발생 X)
-    return '甲';
-  }
+  if (!isStem(stem)) return '甲';
   return stem;
 }
 
-/** 본인 일간 + 오늘 → DailyFortune */
-export function todayFortune(myIlgan: string, date: Date = new Date()): DailyFortune | null {
-  if (!isStem(myIlgan)) return null;
+/** 명식 4기둥 → 시드 문자열 (천간 4 + 지지 4 = 8자) */
+function myeongsikSeed(myeongsik: Myeongsik): string {
+  return myeongsik.pillars.map((p) => p.top.c + p.bot.c).join('');
+}
+
+/** 본인 명식 + 오늘 → DailyFortune (개인화) */
+export function todayFortune(myeongsik: Myeongsik, date: Date = new Date()): DailyFortune | null {
+  const ilgan = myeongsik.ilgan.c;
+  if (!isStem(ilgan)) return null;
   const dayStem = todayDayStem(date);
-  return fortuneBySipsung(myIlgan, dayStem);
+  return personalizedFortune(ilgan, dayStem, myeongsikSeed(myeongsik));
 }

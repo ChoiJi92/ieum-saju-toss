@@ -171,6 +171,17 @@ ul { list-style: none; }
 
 input { -webkit-user-select: text; user-select: text; }
 
+/* 가로/세로 스크롤 영역 스크롤바 숨김 */
+.ie-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ie-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 #root {
   position: fixed;
   inset: 0;
@@ -178,4 +189,14 @@ input { -webkit-user-select: text; user-select: text; }
   flex-direction: column;
   padding-top: var(--top-padding, 0px);
   padding-bottom: var(--bottom-padding, 0px);
+}
+
+/* IEModal 애니메이션 */
+@keyframes ie-modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ie-modal-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   IECard,
   IEChip,
@@ -10,7 +10,7 @@ import {
 } from '../components/ie';
 import { useRouter } from '../lib/router';
 import { useSaju } from '../lib/saju-state';
-import { showInterstitialThen } from '../lib/ads';
+import { RewardedAdGate } from '../components/RewardedAdGate';
 import { todayFortune } from '../lib/today';
 
 /**
@@ -23,23 +23,18 @@ import { todayFortune } from '../lib/today';
  * 프리미엄 nudge 카드 제거 (광고 모델). density 변형도 단순화 (long 1개).
  */
 export default function ScreenToday({ copy }: { copy: IECopy }) {
-  const { back, go } = useRouter();
+  const { back } = useRouter();
   const { profile, myeongsik } = useSaju();
   const [adDone, setAdDone] = useState(false);
-
-  useEffect(() => {
-    // 진입 즉시 광고 호출. 결과는 광고 닫힘 후.
-    showInterstitialThen(() => setAdDone(true));
-  }, []);
 
   const today = new Date();
   const dateStr = `${today.getMonth() + 1}월 ${today.getDate()}일 (${
     ['일', '월', '화', '수', '목', '금', '토'][today.getDay()]
   })`;
 
-  /** 본인 일간 + 오늘 일진 → 5섹션 동적 운세 */
+  /** 본인 명식 + 오늘 일진 → 5섹션 동적 운세 (명식 시드로 점수 ±3 변동) */
   const fortune = useMemo(
-    () => (myeongsik ? todayFortune(myeongsik.ilgan.c, today) : null),
+    () => (myeongsik ? todayFortune(myeongsik, today) : null),
     [myeongsik, today.toDateString()]
   );
 
@@ -53,40 +48,14 @@ export default function ScreenToday({ copy }: { copy: IECopy }) {
         { id: 'health',  icon: '🍵', label: '건강운', color: '#5B8DEF', score: fortune.sections.health.score,  body: fortune.sections.health.body },
       ]
     : [];
-
-  // 광고 노출 중 placeholder
-  if (!adDone) {
-    return (
-      <div
-        className="ie-screen"
-        style={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 18,
-          padding: 24,
-          background: 'var(--cp-bg)',
-        }}
-      >
-        <MoodOrb size={120} />
-        <div style={{ fontSize: 14, color: 'var(--cp-text-mid)', fontWeight: 700 }}>
-          오늘의 흐름을 읽고 있어요…
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            color: 'var(--cp-text-dim)',
-            textAlign: 'center',
-            marginTop: 4,
-          }}
-        >
-          잠시만 기다려주세요 (광고가 끝나면 결과를 보여드려요)
-        </div>
-      </div>
-    );
-  }
+  if (!adDone) return (
+    <RewardedAdGate
+      title="오늘의 운세 보기"
+      description="오늘의 운세 결과를 보려면 리워드 광고를 시청해주세요."
+      onCancel={back}
+      onUnlocked={() => setAdDone(true)}
+    />
+  );
 
   return (
     <div
@@ -98,37 +67,9 @@ export default function ScreenToday({ copy }: { copy: IECopy }) {
         background: 'linear-gradient(180deg, #FBF6FF 0%, var(--cp-bg) 50%)',
       }}
     >
-      <div style={{ height: 62, flexShrink: 0 }} />
       <IETopBar
         onBack={back}
         title="오늘의 운세"
-        right={
-          <button
-            onClick={() => go('share')}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              width: 36,
-              height: 36,
-              cursor: 'pointer',
-              color: 'var(--cp-text-mid)',
-            }}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-            >
-              <path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7" />
-              <path d="M16 6l-4-4-4 4" />
-              <path d="M12 2v13" />
-            </svg>
-          </button>
-        }
       />
       <div
         className="ie-scroll"

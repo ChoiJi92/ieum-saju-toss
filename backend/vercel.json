@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": null,
+  "outputDirectory": null,
+  "framework": null,
+  "functions": {
+    "api/toss/exchange.ts": {
+      "maxDuration": 10
+    },
+    "api/toss/disconnect.ts": {
+      "maxDuration": 5
+    }
+  }
+}

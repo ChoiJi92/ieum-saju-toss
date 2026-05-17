@@ -6,13 +6,19 @@ import ScreenOnboarding from './screens/Onboarding';
 import ScreenHome from './screens/Home';
 import ScreenInput from './screens/Input';
 import ScreenToday from './screens/Today';
-import ScreenShare from './screens/Share';
 import ScreenSaju from './screens/Saju';
+import ScreenMonth from './screens/Month';
 import ScreenYear from './screens/Year';
+import ScreenLove from './screens/Love';
 import ScreenGunghap from './screens/Gunghap';
 import ScreenMoney from './screens/Money';
-import ScreenHistory from './screens/History';
+import ScreenCareer from './screens/Career';
+import ScreenHealth from './screens/Health';
 import ScreenSettings from './screens/Settings';
+import ScreenLegal from './screens/Legal';
+import ScreenProfiles from './screens/Profiles';
+import ScreenAddProfile from './screens/AddProfile';
+import ScreenTossConfirm from './screens/TossConfirm';
 
 /**
  * 이음사주 토스 미니앱 — App shell.
@@ -21,7 +27,7 @@ import ScreenSettings from './screens/Settings';
  */
 
 /** profile 이 있어야만 의미 있는 운세 결과 화면들 */
-const NEEDS_PROFILE: ScreenId[] = ['today', 'saju', 'year', 'gunghap', 'money'];
+const NEEDS_PROFILE: ScreenId[] = ['today', 'saju', 'month', 'year', 'love', 'gunghap', 'money', 'career', 'health', 'profiles', 'addProfile'];
 
 function Shell() {
   const { current } = useRouter();
@@ -44,20 +50,34 @@ function Shell() {
       return <ScreenHome copy={copy} />;
     case 'today':
       return <ScreenToday copy={copy} />;
-    case 'share':
-      return <ScreenShare copy={copy} />;
     case 'saju':
       return <ScreenSaju copy={copy} />;
+    case 'month':
+      return <ScreenMonth />;
     case 'year':
       return <ScreenYear copy={copy} />;
+    case 'love':
+      return <ScreenLove />;
     case 'gunghap':
       return <ScreenGunghap copy={copy} />;
     case 'money':
       return <ScreenMoney />;
-    case 'history':
-      return <ScreenHistory />;
+    case 'career':
+      return <ScreenCareer />;
+    case 'health':
+      return <ScreenHealth />;
     case 'settings':
       return <ScreenSettings />;
+    case 'terms':
+      return <ScreenLegal kind="terms" />;
+    case 'privacy':
+      return <ScreenLegal kind="privacy" />;
+    case 'profiles':
+      return <ScreenProfiles />;
+    case 'addProfile':
+      return <ScreenAddProfile />;
+    case 'tossConfirm':
+      return <ScreenTossConfirm />;
     default:
       return <ComingSoon screen={current} />;
   }
@@ -166,12 +186,53 @@ function ComingSoon({ screen }: { screen: string }) {
   );
 }
 
+/**
+ * 토스 deep link path → ScreenId 매핑.
+ * 콘솔 등록 URL: intoss://ieum-saju/today, /saju, /gunghap
+ * webview에 path가 전달되면 그 화면으로 바로 진입 (profile 없으면 NoProfileGuard로 자동 차단).
+ */
+const DEEP_LINK_MAP: Record<string, ScreenId> = {
+  today: 'today',
+  saju: 'saju',
+  gunghap: 'gunghap',
+  month: 'month',
+  year: 'year',
+  love: 'love',
+  money: 'money',
+  career: 'career',
+  health: 'health',
+};
+
+function readDeepLinkTarget(): ScreenId | null {
+  if (typeof window === 'undefined') return null;
+  const path = (window.location.pathname || '').replace(/^\/+|\/+$/g, '');
+  return DEEP_LINK_MAP[path] ?? null;
+}
+
+function ShellWithRouter() {
+  const { profile } = useSaju();
+  const deepLink = readDeepLinkTarget();
+
+  // deep link 진입 — 뒤로가기로 홈에 닿을 수 있도록 stack = [home, target]
+  if (profile && deepLink) {
+    return (
+      <RouterProvider initialStack={['home', deepLink]}>
+        <Shell />
+      </RouterProvider>
+    );
+  }
+
+  return (
+    <RouterProvider initial={profile ? 'home' : 'onboarding'}>
+      <Shell />
+    </RouterProvider>
+  );
+}
+
 export default function App() {
   return (
     <SajuProvider>
-      <RouterProvider initial="onboarding">
-        <Shell />
-      </RouterProvider>
+      <ShellWithRouter />
     </SajuProvider>
   );
 }

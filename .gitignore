@@ -12,10 +12,44 @@ dist
 dist-ssr
 *.local
 
-# env (secrets)
+# env (secrets) — 어떤 위치든 차단
 .env
 .env.local
 .env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+!.env.example
+!**/.env.example
+
+# 인증서·개인키·시크릿 (mTLS, 서명, OAuth 등) — 어떤 디렉토리든 차단
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.der
+*.jks
+*.keystore
+**/.certs/
+**/.secrets/
+**/secrets/
+**/credentials.json
+**/service-account*.json
+
+# Vercel 배포 식별자 (project.json 에 projectId/orgId 노출)
+.vercel
+**/.vercel
+
+# 토스 미니앱 빌드 산출물 (.ait 는 사용자 사주 빌드 가능성 — 절대 push 금지)
+build/
+ait-build/
+
+# OS / Editor
+Thumbs.db
+.AppleDouble
+.LSOverride
 
 # Editor directories and files
 .vscode/*

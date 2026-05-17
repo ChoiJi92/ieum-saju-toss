@@ -1,33 +1,23 @@
-import { IECard, IETopBar } from '../components/ie';
+import { useState } from 'react';
+import { IECard, IEModal, IETopBar } from '../components/ie';
 import { useRouter, ScreenId } from '../lib/router';
 import { useSaju } from '../lib/saju-state';
 
 /**
  * 11 설정 — 광고 모델로 프리미엄 항목 제거.
- * 약관·개인정보 처리방침은 노션 공개 URL 외부 링크.
+ * 약관·개인정보 처리방침은 인앱 페이지 (terms·privacy 화면).
  */
 
-const TERMS_URL =
-  'https://fantasy-bait-347.notion.site/35c1c45e9e7981c39010d7e155fdcc16';
-const PRIVACY_URL =
-  'https://fantasy-bait-347.notion.site/35c1c45e9e798101b98fe0c70bef0961';
-
-/** 외부 URL 열기 — 토스 web-bridge 가 있으면 그걸로, 없으면 window.open */
-function openExternal(url: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any;
-  if (typeof w.openExternalUrl === 'function') {
-    w.openExternalUrl(url);
-  } else if (typeof w.openLink === 'function') {
-    w.openLink(url);
-  } else {
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
-}
-
 export default function ScreenSettings() {
-  const { back, go } = useRouter();
-  const { profile } = useSaju();
+  const { back, go, reset: resetRouter } = useRouter();
+  const { profile, profiles, reset: resetSaju } = useSaju();
+  const [logoutOpen, setLogoutOpen] = useState(false);
+
+  const handleLogoutConfirm = () => {
+    resetSaju();
+    setLogoutOpen(false);
+    resetRouter('onboarding');
+  };
 
   const items: Array<{
     ic: string;
@@ -37,23 +27,18 @@ export default function ScreenSettings() {
     danger?: boolean;
   }> = [
     {
-      ic: '👤',
-      lbl: '내 정보',
-      sub: profile
-        ? `${profile.name} · ${profile.year}.${String(profile.month).padStart(2, '0')}.${String(profile.day).padStart(2, '0')}`
-        : '미입력',
-      go: () => go('input' as ScreenId),
+      ic: '🌙',
+      lbl: '사주 프로필',
+      sub: profile ? `${profile.name} · 등록 ${profiles.length}개` : '미입력',
+      go: () => go('profiles' as ScreenId),
     },
-    { ic: '🔔', lbl: '알림 설정', sub: '매일 오전 9시 · 켜짐' },
-    { ic: '📚', lbl: '히스토리', sub: '풀이 기록 보기', go: () => go('history' as ScreenId) },
-    { ic: '📋', lbl: '서비스 이용약관', go: () => openExternal(TERMS_URL) },
-    { ic: '🔒', lbl: '개인정보 처리방침', go: () => openExternal(PRIVACY_URL) },
-    { ic: '🚪', lbl: '로그아웃', danger: true },
+    { ic: '📋', lbl: '서비스 이용약관', go: () => go('terms' as ScreenId) },
+    { ic: '🔒', lbl: '개인정보 처리방침', go: () => go('privacy' as ScreenId) },
+    { ic: '🚪', lbl: '회원 탈퇴 · 정보 초기화', sub: '입력한 모든 정보 삭제 · 토스 연동 해지', go: () => setLogoutOpen(true), danger: true },
   ];
 
   return (
     <div className="ie-screen" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ height: 62, flexShrink: 0 }} />
       <IETopBar onBack={back} title="설정" />
       <div className="ie-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 20px 32px' }}>
         <IECard flat style={{ padding: 0, overflow: 'hidden' }}>
@@ -102,6 +87,24 @@ export default function ScreenSettings() {
           이음사주 v1.0.0
         </div>
       </div>
+      <IEModal
+        open={logoutOpen}
+        title="회원 탈퇴 · 정보 초기화"
+        body={
+          <>
+            입력한 사주 정보와 모든 풀이 데이터가
+            <br />
+            영구 삭제되고 처음 화면으로 돌아가요.
+            <br />
+            토스 로그인 정보도 함께 폐기돼요.
+          </>
+        }
+        confirmLabel="탈퇴하기"
+        cancelLabel="취소"
+        danger
+        onConfirm={handleLogoutConfirm}
+        onCancel={() => setLogoutOpen(false)}
+      />
     </div>
   );
 }

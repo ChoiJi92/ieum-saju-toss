@@ -10,13 +10,20 @@ export type ScreenId =
   | 'input'
   | 'home'
   | 'today'
-  | 'share'
   | 'saju'
+  | 'month'
   | 'year'
+  | 'love'
   | 'gunghap'
   | 'money'
-  | 'history'
-  | 'settings';
+  | 'career'
+  | 'health'
+  | 'settings'
+  | 'terms'
+  | 'privacy'
+  | 'profiles'
+  | 'addProfile'
+  | 'tossConfirm';
 
 type RouterCtx = {
   current: ScreenId;
@@ -30,12 +37,17 @@ const Ctx = createContext<RouterCtx | null>(null);
 
 export function RouterProvider({
   initial = 'onboarding',
+  initialStack,
   children,
 }: {
   initial?: ScreenId;
+  /** 초기 스택 전체를 직접 지정 (deep link 진입 시 사용) — 지정 시 initial 무시. */
+  initialStack?: ScreenId[];
   children: ReactNode;
 }) {
-  const [stack, setStack] = useState<ScreenId[]>([initial]);
+  const [stack, setStack] = useState<ScreenId[]>(
+    initialStack && initialStack.length > 0 ? initialStack : [initial]
+  );
   const current = stack[stack.length - 1];
 
   const go = useCallback((id: ScreenId) => setStack((s) => [...s, id]), []);

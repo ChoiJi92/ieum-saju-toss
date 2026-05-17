@@ -1,48 +1,33 @@
-import { useEffect, useMemo, useState } from 'react';
-import { IECard, IETopBar, MoodOrb, OHAENG } from '../components/ie';
+import { useMemo, useState } from 'react';
+import { IECard, IETopBar, OHAENG } from '../components/ie';
 import { useRouter } from '../lib/router';
 import { useSaju } from '../lib/saju-state';
-import { showInterstitialThen } from '../lib/ads';
+import { RewardedAdGate } from '../components/RewardedAdGate';
 import { moneyForecast } from '../lib/money';
 
 export default function ScreenMoney() {
   const { back } = useRouter();
   const { profile, myeongsik } = useSaju();
   const [adDone, setAdDone] = useState(false);
+  const [openAction, setOpenAction] = useState<number | null>(null);
 
   const forecast = useMemo(
-    () => (myeongsik ? moneyForecast(myeongsik.ilgan.c, new Date()) : null),
+    () => (myeongsik ? moneyForecast(myeongsik, new Date()) : null),
     [myeongsik]
   );
 
-  useEffect(() => {
-    showInterstitialThen(() => setAdDone(true));
-  }, []);
-
   if (!adDone)
     return (
-      <div
-        style={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 18,
-          padding: 24,
-          background: 'var(--cp-bg)',
-        }}
-      >
-        <MoodOrb size={120} palette={['#3DC795', '#FFC857']} />
-        <div style={{ fontSize: 14, color: 'var(--cp-text-mid)', fontWeight: 700 }}>
-          돈의 흐름을 살피는 중이에요…
-        </div>
-      </div>
+      <RewardedAdGate
+        title="재물운 보기"
+        description="돈 들어오는 흐름을 보려면 리워드 광고를 시청해주세요."
+        onCancel={back}
+        onUnlocked={() => setAdDone(true)}
+      />
     );
 
   return (
     <div className="ie-screen" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ height: 62, flexShrink: 0 }} />
       <IETopBar onBack={back} title="재물운" />
       <div className="ie-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 20px 32px' }}>
         {/* 본인 정보 칩 */}
@@ -110,6 +95,23 @@ export default function ScreenMoney() {
           </div>
         </IECard>
 
+        {/* 이번 달 풀이 */}
+        {forecast?.monthBody && (
+          <IECard style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>이번 달 흐름</div>
+            <p
+              style={{
+                fontSize: 14,
+                color: 'var(--cp-text-mid)',
+                lineHeight: 1.7,
+                margin: 0,
+              }}
+            >
+              {forecast.monthBody}
+            </p>
+          </IECard>
+        )}
+
         <IECard style={{ marginTop: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>이번 주 흐름</div>
           {(forecast?.week ?? []).map((x, i) => (
@@ -158,40 +160,81 @@ export default function ScreenMoney() {
 
         <IECard style={{ marginTop: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>이번 달 행운 행동</div>
-          {(forecast?.actions ?? []).map((x) => (
-            <div
-              key={x.lbl}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '12px 0',
-                borderTop: '1px solid var(--cp-border)',
-              }}
-            >
-              <span
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
-                  background: '#3DC79520',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 16,
-                }}
+          {(forecast?.actions ?? []).map((x, i) => {
+            const open = openAction === i;
+            return (
+              <div
+                key={x.lbl}
+                style={{ borderTop: i === 0 ? '1px solid var(--cp-border)' : '1px solid var(--cp-border)' }}
               >
-                {x.ic}
-              </span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 800 }}>{x.lbl}</div>
-                <div style={{ fontSize: 11, color: 'var(--cp-text-dim)', marginTop: 2 }}>
-                  {x.sub}
-                </div>
+                <button
+                  onClick={() => setOpenAction(open ? null : i)}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '12px 0',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      background: '#3DC79520',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 16,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {x.ic}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--cp-text)' }}>{x.lbl}</div>
+                    <div style={{ fontSize: 11, color: 'var(--cp-text-dim)', marginTop: 2 }}>
+                      {x.sub}
+                    </div>
+                  </div>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="var(--cp-text-dim)"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{
+                      transition: 'transform 0.2s',
+                      transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {open && (
+                  <div
+                    style={{
+                      padding: '4px 0 14px 44px',
+                      fontSize: 13,
+                      color: 'var(--cp-text-mid)',
+                      lineHeight: 1.65,
+                    }}
+                  >
+                    {x.detail}
+                  </div>
+                )}
               </div>
-              <span style={{ fontSize: 14, color: 'var(--cp-text-dim)' }}>›</span>
-            </div>
-          ))}
+            );
+          })}
         </IECard>
       </div>
     </div>

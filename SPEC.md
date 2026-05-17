@@ -188,3 +188,36 @@ Phase 2 추가 룰베이스: 12운성·12신살·대운·세운·신강·공망 
 - 사용자 메모리: `~/.claude/projects/-Users-choijihoon/memory/project_toss_miniapp_brand.md`
 - 디자인 산출물: `~/Downloads/E _ _ _.html` + `~/Downloads/e-tokens.css`
 - 본업 사주 엔진: `~/saju-report/` (재사용)
+
+---
+
+## 12. 출시 체크리스트 (2026-05-10 기준)
+
+### 콘텐츠 / 화면 (Code-side — 완료)
+- [x] 14 화면 구현 (Onboarding · Input · Home · Today · Month · Year · Saju · Love · Gunghap · Money · Career · Health · History · Settings · Share)
+- [x] 십성 룰베이스 + 명식 시드 변동 (같은 일간 다른 사주 다른 점수)
+- [x] 친근 존댓말 톤 통일 (반말·메모체 잔재 제거)
+- [x] 행동 가이드 아코디언 (Month·Money·Love·Career·Health 클릭 시 detail 펼침)
+- [x] 신살 카드 (천을귀인·도화·역마·화개) 사주 명식에 추가
+- [x] Home 점수 칩 동적화 (오늘 fortune 데이터 연결)
+
+### 사용자 작업 (Console / 외부 — 사용자 직접)
+- [ ] **사업자등록** — 이음 (SW 업종 → 일반과세, 간이 배제)
+- [ ] **앱인토스 콘솔 가입** — `apps-in-toss.toss.im`
+- [ ] **AdMob 광고 그룹 ID 발급** → `.env`의 `VITE_AD_GROUP_ID`에 주입
+- [ ] **앱 아이콘 600×600 PNG** 자체 제작 (현재 placeholder URL — `granite.config.ts`)
+- [ ] **스크린샷 6장** (1080×1920) — Home · Today · Month · Saju · Year · Love
+- [ ] **약관·개인정보처리방침** 노션 페이지 사업자명·연락처 최신화
+- [ ] **콘솔 미니앱 등록** + 내부 테스트 → 심사 제출
+- [ ] **AdMob 결제 정보** 등록 (광고 수익 정산용 계좌)
+
+### 출시 후 (Post-launch)
+- [ ] AdMob CPM·노출수 모니터링
+- [ ] 사용자 피드백 수집 (카카오 채널·당근·문의 메일)
+- [ ] PDF 사주 풀이 cross-sell 전환율 측정
+- [ ] 십성 룰베이스 → LLM 합성 업그레이드 (Phase 2, Anthropic Haiku 4.5 + 캐싱)
+
+### 환경 변수 (.env)
+```bash
+VITE_AD_GROUP_ID=실콘솔발급ID         # 광고 정산
+```

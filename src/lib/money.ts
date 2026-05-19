@@ -1,6 +1,7 @@
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { getSipsung, type Sipsung } from './sipsung';
 import type { Myeongsik } from './saju';
+import { profileHint, rotateBySeed } from './personalize';
 
 function variance(seed: string, key: string, range = 3): number {
   let h = 0;
@@ -172,7 +173,7 @@ export function moneyForecast(myeongsik: Myeongsik, today: Date = new Date()): M
   const baseMonthScore = monthSipsung ? MONEY_SCORE[monthSipsung] : 70;
   const monthScore = Math.max(50, Math.min(98, baseMonthScore + variance(seed, 'month', 3)));
   const mood = monthSipsung ? MONEY_MOOD[monthSipsung] : '평이';
-  const actions = monthSipsung ? MONEY_ACTIONS[monthSipsung] : MONEY_ACTIONS['식신'];
+  const actions = monthSipsung ? rotateBySeed(seed, 'money_actions', MONEY_ACTIONS[monthSipsung], 3) : MONEY_ACTIONS['식신'];
 
   // 이번 주 월~일 (오늘 기준 그 주 월요일부터)
   const dow = today.getDay();
@@ -197,7 +198,7 @@ export function moneyForecast(myeongsik: Myeongsik, today: Date = new Date()): M
     });
   }
 
-  const monthBody = monthSipsung ? MONEY_BODY[monthSipsung] : '평이한 흐름이에요. 큰 변동 없이 평소대로 가도 OK.';
+  const monthBody = monthSipsung ? `${MONEY_BODY[monthSipsung]} ${profileHint(myeongsik)}` : '평이한 흐름이에요. 큰 변동 없이 평소대로 가도 OK.';
 
   return { monthScore, mood, monthBody, week, actions };
 }

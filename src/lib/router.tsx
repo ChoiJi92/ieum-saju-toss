@@ -18,6 +18,7 @@ export type ScreenId =
   | 'money'
   | 'career'
   | 'health'
+  | 'personality'
   | 'settings'
   | 'terms'
   | 'privacy'

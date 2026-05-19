@@ -14,6 +14,7 @@ import ScreenGunghap from './screens/Gunghap';
 import ScreenMoney from './screens/Money';
 import ScreenCareer from './screens/Career';
 import ScreenHealth from './screens/Health';
+import ScreenPersonality from './screens/Personality';
 import ScreenSettings from './screens/Settings';
 import ScreenLegal from './screens/Legal';
 import ScreenProfiles from './screens/Profiles';
@@ -27,7 +28,7 @@ import ScreenTossConfirm from './screens/TossConfirm';
  */
 
 /** profile 이 있어야만 의미 있는 운세 결과 화면들 */
-const NEEDS_PROFILE: ScreenId[] = ['today', 'saju', 'month', 'year', 'love', 'gunghap', 'money', 'career', 'health', 'profiles', 'addProfile'];
+const NEEDS_PROFILE: ScreenId[] = ['today', 'saju', 'month', 'year', 'love', 'gunghap', 'money', 'career', 'health', 'personality', 'profiles', 'addProfile'];
 
 function Shell() {
   const { current } = useRouter();
@@ -66,6 +67,8 @@ function Shell() {
       return <ScreenCareer />;
     case 'health':
       return <ScreenHealth />;
+    case 'personality':
+      return <ScreenPersonality />;
     case 'settings':
       return <ScreenSettings />;
     case 'terms':
@@ -201,6 +204,7 @@ const DEEP_LINK_MAP: Record<string, ScreenId> = {
   money: 'money',
   career: 'career',
   health: 'health',
+  personality: 'personality',
 };
 
 function readDeepLinkTarget(): ScreenId | null {

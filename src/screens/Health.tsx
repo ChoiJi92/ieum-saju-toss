@@ -111,7 +111,7 @@ export default function ScreenHealth() {
 
         {/* 4 axis */}
         <IECard style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>건강 4축</div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>건강 4가지 흐름</div>
           {(forecast?.axes ?? []).map((x, i, arr) => (
             <div
               key={x.lbl}
@@ -256,7 +256,7 @@ export default function ScreenHealth() {
         {/* 강점 키워드 */}
         {forecast?.keywords && (
           <IECard style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>이달의 케어 키워드</div>
+            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>이달의 케어 포인트</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {forecast.keywords.map((k) => (
                 <span

@@ -50,8 +50,7 @@ export default function ScreenMoney() {
               <span>{profile.name}</span>
               <span style={{ color: 'var(--cp-text-mute)' }}>·</span>
               <strong style={{ color: OHAENG[myeongsik.ilgan.ohaeng].c, fontSize: 12 }}>
-                {myeongsik.ilgan.c}
-                {OHAENG[myeongsik.ilgan.ohaeng].cn}
+                {OHAENG[myeongsik.ilgan.ohaeng].label} 기운
               </strong>
             </span>
           </div>
@@ -98,7 +97,7 @@ export default function ScreenMoney() {
         {/* 이번 달 풀이 */}
         {forecast?.monthBody && (
           <IECard style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>이번 달 흐름</div>
+            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>🌙 이번 달 흐름</div>
             <p
               style={{
                 fontSize: 14,
@@ -113,7 +112,7 @@ export default function ScreenMoney() {
         )}
 
         <IECard style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>이번 주 흐름</div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>📅 이번 주 흐름</div>
           {(forecast?.week ?? []).map((x, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
               <div
@@ -159,7 +158,7 @@ export default function ScreenMoney() {
         </IECard>
 
         <IECard style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>이번 달 행운 행동</div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>✅ 이번 달 행운 행동</div>
           {(forecast?.actions ?? []).map((x, i) => {
             const open = openAction === i;
             return (

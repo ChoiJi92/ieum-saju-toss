@@ -1,6 +1,7 @@
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { getSipsung, type Sipsung } from './sipsung';
 import type { Myeongsik } from './saju';
+import { profileHint, rotateBySeed } from './personalize';
 
 /**
  * 건강운 — 본인 사주 기반.
@@ -292,7 +293,7 @@ export function healthForecast(
     score: overall,
     mood: MOOD_BY_WEAK[weakOhaeng],
     tagline,
-    body: HEALTH_BODY_BY_ILGAN[myIlgan],
+    body: `${HEALTH_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik)}`,
     axes: [
       { ic: '💪', lbl: '체력',     score: vitality,  color: '#FF8B6C', oneLine: oneLine('vit', vitality) },
       { ic: '🧠', lbl: '정신',     score: mental,    color: '#9D7BFF', oneLine: oneLine('men', mental)   },
@@ -310,6 +311,6 @@ export function healthForecast(
     },
     keywords: KEYWORDS_BY_WEAK[weakOhaeng],
     monthFlow: MONTH_FLOW_BY_SIPSUNG[monthSipsung],
-    tips: TIPS_BY_WEAK[weakOhaeng],
+    tips: rotateBySeed(seed, 'health_tips', TIPS_BY_WEAK[weakOhaeng], 3),
   };
 }

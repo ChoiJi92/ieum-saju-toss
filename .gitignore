@@ -14,13 +14,17 @@ dist-ssr
 
 # env (secrets) — 어떤 위치든 차단
 .env
+.env.*
 .env.local
 .env.*.local
 **/.env
+**/.env.*
 **/.env.local
 **/.env.*.local
-!.env.example
-!**/.env.example
+.env.example
+**/.env.example
+.env.qa.example
+.env.prod.example
 
 # 인증서·개인키·시크릿 (mTLS, 서명, OAuth 등) — 어떤 디렉토리든 차단
 *.pem

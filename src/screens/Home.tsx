@@ -68,10 +68,17 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
       color: "#9D7BFF",
     },
     {
+      id: "personality",
+      icon: "🪞",
+      title: "성격 카드",
+      sub: "내 성향·관계 포인트",
+      color: "#A78BFA",
+    },
+    {
       id: "love",
       icon: "💞",
       title: "연애운",
-      sub: "끌리는 타입·인연 시기",
+      sub: "끌리는 사람 스타일·인연 시기",
       color: "#FF8FB1",
     },
     {

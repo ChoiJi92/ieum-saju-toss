@@ -23,7 +23,7 @@ export default function ScreenLove() {
     return (
       <RewardedAdGate
         title="연애운 보기"
-        description="끌리는 타입과 인연 흐름을 보려면 리워드 광고를 시청해주세요."
+        description="끌리는 사람 스타일과 인연 흐름을 보려면 리워드 광고를 시청해주세요."
         onCancel={back}
         onUnlocked={() => setAdDone(true)}
       />
@@ -53,8 +53,7 @@ export default function ScreenLove() {
               <span>{profile.name}</span>
               <span style={{ color: 'var(--cp-text-mute)' }}>·</span>
               <strong style={{ color: OHAENG[myeongsik.ilgan.ohaeng].c, fontSize: 12 }}>
-                {myeongsik.ilgan.c}
-                {OHAENG[myeongsik.ilgan.ohaeng].cn}
+                {OHAENG[myeongsik.ilgan.ohaeng].label} 기운
               </strong>
             </span>
           </div>
@@ -98,7 +97,7 @@ export default function ScreenLove() {
         {forecast?.body && (
           <IECard style={{ marginTop: 14 }}>
             <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>
-              나의 연애 결
+              💌 나의 연애 결
             </div>
             <p
               style={{
@@ -116,7 +115,7 @@ export default function ScreenLove() {
 
         {/* 4 axis */}
         <IECard style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>연애 4축</div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>📊 연애운 4가지 흐름</div>
           {(forecast?.axes ?? []).map((x, i, arr) => (
             <div
               key={x.lbl}
@@ -162,11 +161,11 @@ export default function ScreenLove() {
           </IECard>
         )}
 
-        {/* 끌리는 타입 */}
+        {/* 끌리는 사람 스타일 */}
         {forecast?.attractedTypes && (
           <IECard style={{ marginTop: 14 }}>
             <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>
-              끌리는 타입
+              끌리는 사람 스타일
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {forecast.attractedTypes.map((t, i) => (
@@ -195,7 +194,7 @@ export default function ScreenLove() {
         {forecast?.timing && (
           <IECard style={{ marginTop: 14 }}>
             <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>
-              인연 들어오는 시기
+              ⏰ 인연 들어오는 시기
             </div>
             <div
               style={{
@@ -234,7 +233,7 @@ export default function ScreenLove() {
 
         {/* 연애 팁 (아코디언) */}
         <IECard style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>연애 팁</div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>🧠 연애 팁</div>
           {(forecast?.tips ?? []).map((x, i) => {
             const open = openTip === i;
             return (

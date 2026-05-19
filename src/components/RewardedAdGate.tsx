@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IEButton, IEModal, MoodOrb } from './ie';
 import { preloadRewardedAdForResult, showRewardedAdForResult } from '../lib/ads';
+import { grantAdPass, hasActiveAdPass } from '../lib/ad-pass';
 
 type RewardedAdGateProps = {
   title: string;
@@ -17,16 +18,35 @@ export function RewardedAdGate({
   onUnlocked,
   children,
 }: RewardedAdGateProps) {
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => hasActiveAdPass());
   const [loading, setLoading] = useState(false);
   const [preparing, setPreparing] = useState(true);
   const [adReady, setAdReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const isLocalhost = typeof window !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  // 기본값: 로컬 DEV에서는 우회 ON. 명시적으로 false일 때만 끔.
+  const devBypassEnabled = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false';
+  const canBypassInLocal = isLocalhost && devBypassEnabled;
+
   useEffect(() => {
     let cancelled = false;
 
     const preload = async () => {
+      if (hasActiveAdPass()) {
+        setUnlocked(true);
+        onUnlocked?.();
+        return;
+      }
+
+      if (canBypassInLocal) {
+        setPreparing(false);
+        setAdReady(false);
+        setMessage('로컬 개발모드: 광고 없이 결과 확인이 가능합니다.');
+        return;
+      }
+
       setPreparing(true);
       const ready = await preloadRewardedAdForResult();
       if (cancelled) return;
@@ -42,7 +62,13 @@ export function RewardedAdGate({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canBypassInLocal, onUnlocked]);
+
+  const handleBypassUnlock = () => {
+    if (!canBypassInLocal) return;
+    setUnlocked(true);
+    onUnlocked?.();
+  };
 
   const handleWatchAd = async () => {
     if (loading || preparing) return;
@@ -54,6 +80,7 @@ export function RewardedAdGate({
     setAdReady(false);
 
     if (result === 'rewarded') {
+      grantAdPass();
       setUnlocked(true);
       onUnlocked?.();
       return;
@@ -113,9 +140,11 @@ export function RewardedAdGate({
                 color: 'var(--cp-text-mid)',
                 fontSize: 12,
                 fontWeight: 700,
+                lineHeight: 1.5,
               }}
             >
-              광고를 끝까지 시청한 경우에만 결과가 열려요.
+              광고를 끝까지 시청하면 즉시 결과가 열리고,
+              그 뒤 5분 동안은 이음패스로 다른 메뉴도 바로 볼 수 있어요.
             </div>
             {message && (
               <div
@@ -123,14 +152,21 @@ export function RewardedAdGate({
                   marginTop: 12,
                   padding: '10px 12px',
                   borderRadius: 14,
-                  background: 'rgba(255, 139, 108, 0.14)',
-                  color: '#C65A3D',
+                  background: canBypassInLocal ? 'rgba(61, 199, 149, 0.16)' : 'rgba(255, 139, 108, 0.14)',
+                  color: canBypassInLocal ? '#1E7A5B' : '#C65A3D',
                   fontSize: 12,
                   fontWeight: 700,
                   lineHeight: 1.5,
                 }}
               >
                 {message}
+              </div>
+            )}
+            {canBypassInLocal && (
+              <div style={{ marginTop: 12 }}>
+                <IEButton onClick={handleBypassUnlock} style={{ width: '100%', background: '#3DC795' }}>
+                  로컬 개발용: 광고 없이 결과 보기
+                </IEButton>
               </div>
             )}
           </div>

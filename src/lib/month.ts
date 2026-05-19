@@ -1,6 +1,7 @@
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { getSipsung, type Sipsung } from './sipsung';
 import type { Myeongsik } from './saju';
+import { profileHint, rotateBySeed } from './personalize';
 
 /**
  * 이달의 운세 — 본인 일간 × 이번 달 월주 천간 → 십성 → 4분야 점수.
@@ -249,7 +250,7 @@ export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): M
     monthScore: overall,
     mood: MOOD[sipsung],
     tagline: TAGLINE[sipsung],
-    monthBody: MONTH_BODY[sipsung],
+    monthBody: `${MONTH_BODY[sipsung]} ${profileHint(myeongsik)}`,
     fields: [
       { ic: '☁️', lbl: '총운',     score: overall, color: '#9D7BFF', oneLine: fieldOneLine('overall', overall) },
       { ic: '💼', lbl: '일·커리어', score: work,    color: '#5B8DEF', oneLine: fieldOneLine('work',    work)    },
@@ -267,6 +268,6 @@ export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): M
       hint: worst.score < 65 ? '중요 결정 피해주세요' : '평소처럼 차분히',
     },
     keywords: KEYWORDS[sipsung],
-    actions: MONTH_ACTIONS[sipsung],
+    actions: rotateBySeed(seed, `${ym}_actions`, MONTH_ACTIONS[sipsung], 3),
   };
 }

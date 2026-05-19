@@ -50,6 +50,9 @@ dist-ssr
 build/
 ait-build/
 
+# 작업/협업용 계획 문서 (로컬 관리)
+docs/plans/*.md
+
 # OS / Editor
 Thumbs.db
 .AppleDouble

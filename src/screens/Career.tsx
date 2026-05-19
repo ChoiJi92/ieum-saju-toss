@@ -111,7 +111,7 @@ export default function ScreenCareer() {
 
         {/* 4 axis */}
         <IECard style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>적성 4축</div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>적성 4가지 흐름</div>
           {(forecast?.axes ?? []).map((x, i, arr) => (
             <div
               key={x.lbl}
@@ -198,7 +198,7 @@ export default function ScreenCareer() {
         {/* 강점 키워드 */}
         {forecast?.keywords && (
           <IECard style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>나의 강점 키워드</div>
+            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>나의 강점 포인트</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {forecast.keywords.map((k) => (
                 <span

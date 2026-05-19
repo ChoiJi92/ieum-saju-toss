@@ -56,8 +56,7 @@ export default function ScreenYear({ copy }: { copy: IECopy }) {
               <span>{profile.name}</span>
               <span style={{ color: 'var(--cp-text-mute)' }}>·</span>
               <strong style={{ color: OHAENG[myeongsik.ilgan.ohaeng].c, fontSize: 12 }}>
-                {myeongsik.ilgan.c}
-                {OHAENG[myeongsik.ilgan.ohaeng].cn}
+                {OHAENG[myeongsik.ilgan.ohaeng].label} 기운
               </strong>
             </span>
           </div>
@@ -65,7 +64,7 @@ export default function ScreenYear({ copy }: { copy: IECopy }) {
 
         <div style={{ padding: '4px 0 16px', textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: 'var(--cp-text-dim)', fontWeight: 800, letterSpacing: 1 }}>
-            {forecast?.year ?? new Date().getFullYear()} · 丙午年
+            {forecast?.year ?? new Date().getFullYear()} · 병오년
           </div>
           <h2 style={{ fontSize: 26, fontWeight: 800, letterSpacing: -0.6, margin: '8px 0 4px' }}>
             {forecast?.tagline ?? copy.yearTagline}
@@ -81,7 +80,7 @@ export default function ScreenYear({ copy }: { copy: IECopy }) {
         </div>
 
         <IECard style={{ marginTop: 4 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>월별 흐름</div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>📈 월별 흐름</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 100, marginBottom: 8 }}>
             {scores.map((s, i) => (
               <div
@@ -136,7 +135,7 @@ export default function ScreenYear({ copy }: { copy: IECopy }) {
         {/* 한 해 흐름 풀이 */}
         {forecast?.yearBody && (
           <IECard style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>한 해 흐름</div>
+            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>🧭 한 해 흐름</div>
             <p
               style={{
                 fontSize: 14,
@@ -151,7 +150,7 @@ export default function ScreenYear({ copy }: { copy: IECopy }) {
         )}
 
         <IECard style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>분야별 풀이</div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>📊 분야별 풀이</div>
           {[
             { ic: '💞', lbl: '연애',   body: forecast?.fields.love.body   ?? '한 해 인연 흐름.', c: '#F495C9' },
             { ic: '💰', lbl: '재물',   body: forecast?.fields.money.body  ?? '한 해 재물 흐름.', c: '#3DC795' },

@@ -21,6 +21,8 @@ export type Sipsung =
   | '정관' | '편관'
   | '정인' | '편인';
 
+import { pickBySeed } from './personalize';
+
 type Stem = '甲' | '乙' | '丙' | '丁' | '戊' | '己' | '庚' | '辛' | '壬' | '癸';
 type OhaengKey = 'wood' | 'fire' | 'earth' | 'metal' | 'water';
 type Eumyang = 'yang' | 'yin';
@@ -254,14 +256,20 @@ export function personalizedFortune(
   const adjust = (key: string, score: number) =>
     Math.max(50, Math.min(98, score + seededVariance(seed, key, 3)));
 
+  const tail = (key: string) => pickBySeed(seed, key, [
+    '오늘은 속도보다 마무리 품질에 점수를 주세요.',
+    '작은 약속 하나를 지키는 게 전체 운을 안정시켜줘요.',
+    '중요한 선택은 메모로 남기면 내일 흐름이 더 좋아져요.',
+  ]);
+
   return {
     ...base,
     sections: {
-      overall: { score: adjust('overall', base.sections.overall.score), body: base.sections.overall.body },
-      love:    { score: adjust('love',    base.sections.love.score),    body: base.sections.love.body },
-      money:   { score: adjust('money',   base.sections.money.score),   body: base.sections.money.body },
-      work:    { score: adjust('work',    base.sections.work.score),    body: base.sections.work.body },
-      health:  { score: adjust('health',  base.sections.health.score),  body: base.sections.health.body },
+      overall: { score: adjust('overall', base.sections.overall.score), body: `${base.sections.overall.body} ${tail('overall')}` },
+      love:    { score: adjust('love',    base.sections.love.score),    body: `${base.sections.love.body} ${tail('love')}` },
+      money:   { score: adjust('money',   base.sections.money.score),   body: `${base.sections.money.body} ${tail('money')}` },
+      work:    { score: adjust('work',    base.sections.work.score),    body: `${base.sections.work.body} ${tail('work')}` },
+      health:  { score: adjust('health',  base.sections.health.score),  body: `${base.sections.health.body} ${tail('health')}` },
     },
     // 일간 한글 + 오행 한글 (예: "기토 일간 ...") — 본문 한자 단독 X 가이드
     oneLine: `${stemKr(ilgan)}${ohaengKr(ilgan)} 일간 ${base.oneLine}`,

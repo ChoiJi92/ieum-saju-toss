@@ -1,6 +1,7 @@
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { getSipsung, type Sipsung } from './sipsung';
 import type { Myeongsik } from './saju';
+import { profileHint, rotateBySeed } from './personalize';
 
 /**
  * 연애운 — 본인 사주 기반.
@@ -61,16 +62,16 @@ const TYPE_BY_ILGAN: Record<Stem, [Sipsung, Sipsung]> = {
 
 /** 일간별 연애 톤 풀이 (4~5줄) */
 const LOVE_BODY_BY_ILGAN: Record<Stem, string> = {
-  甲: '큰 나무처럼 곧고 정직한 사랑을 해요. 한 번 마음 주면 끝까지 가는 타입이에요. 단 너무 자기 방향만 보다 상대 마음을 놓칠 수 있어요. 유연하게 휘어주는 상대와 균형이 잘 맞아요.',
-  乙: '바람에 부드럽게 휘는 풀처럼 세심하고 다정한 사랑을 해요. 상대 마음을 잘 읽고 맞춰주는 타입이에요. 단 너무 맞춰주다 본인이 지칠 수 있으니 자기 시간도 챙겨주세요. 강하게 끌어주는 사람과 잘 맞아요.',
-  丙: '한낮의 태양처럼 밝고 표현이 큰 사랑을 해요. 좋아하면 직진, 숨기지 않는 타입이에요. 단 감정 기복이 클 수 있고 빨리 식기도 해요. 차분하게 받아주는 상대와 균형이 잘 맞아요.',
+  甲: '큰 나무처럼 곧고 정직한 사랑을 해요. 한 번 마음 주면 끝까지 가는 성향이에요. 단 너무 자기 방향만 보다 상대 마음을 놓칠 수 있어요. 유연하게 휘어주는 상대와 균형이 잘 맞아요.',
+  乙: '바람에 부드럽게 휘는 풀처럼 세심하고 다정한 사랑을 해요. 상대 마음을 잘 읽고 맞춰주는 성향이에요. 단 너무 맞춰주다 본인이 지칠 수 있으니 자기 시간도 챙겨주세요. 강하게 끌어주는 사람과 잘 맞아요.',
+  丙: '한낮의 태양처럼 밝고 표현이 큰 사랑을 해요. 좋아하면 직진, 숨기지 않는 성향이에요. 단 감정 기복이 클 수 있고 빨리 식기도 해요. 차분하게 받아주는 상대와 균형이 잘 맞아요.',
   丁: '촛불처럼 안에서 깊게 빛나는 사랑을 해요. 한 사람에게 마음 깊게 쓰는 타입이라 인연이 오래 가요. 단 감정 소진이 빠르니 정서적 케어가 필요해요. 따뜻하게 비춰주는 사람과 잘 맞아요.',
   戊: '큰 산처럼 묵직하고 듬직한 사랑을 해요. 흔들리지 않는 신뢰가 매력이에요. 단 너무 무거워서 감정 표현이 부족할 수 있으니 한 번 더 다정한 말을 건네주세요. 활기 있는 상대가 균형을 잡아줘요.',
   己: '비옥한 들판처럼 포용하고 키워주는 사랑을 해요. 어머니 같은 따뜻함이 매력이에요. 단 너무 다 받아주다 본인이 흐트러질 수 있어요. 명확한 사람과 함께면 진짜 빛나는 관계가 돼요.',
-  庚: '강철처럼 결단력 있고 직선적인 사랑을 해요. 좋고 싫음이 분명한 타입이에요. 단 너무 직설적이면 상대 마음을 다치게 할 수 있어요. 부드럽게 받아주는 상대와 균형이 좋아요.',
-  辛: '잘 닦인 보석처럼 섬세하고 완벽주의적인 사랑을 해요. 디테일에 마음 쓰는 타입이에요. 단 자기 기준이 또렷해서 상대를 평가하기 쉬워요. 있는 그대로 받아주는 사람과 잘 맞아요.',
-  壬: '큰 강처럼 자유롭고 흐름을 읽는 사랑을 해요. 다양한 사람과 잘 어울리는 타입이에요. 단 너무 흐르다 한 사람에게 정착이 어려울 수 있어요. 방향성을 정해주는 사람과 시너지가 폭발해요.',
-  癸: '맑은 샘물처럼 차분하고 깊게 스며드는 사랑을 해요. 조용히 마음 쓰는 타입이에요. 단 너무 조용하면 본인 마음이 잘 안 보여요. 적극적으로 다가와주는 상대와 균형이 잘 맞아요.',
+  庚: '강철처럼 결단력 있고 직선적인 사랑을 해요. 좋고 싫음이 분명한 성향이에요. 단 너무 직설적이면 상대 마음을 다치게 할 수 있어요. 부드럽게 받아주는 상대와 균형이 좋아요.',
+  辛: '잘 닦인 보석처럼 섬세하고 완벽주의적인 사랑을 해요. 디테일에 마음 쓰는 성향이에요. 단 자기 기준이 또렷해서 상대를 평가하기 쉬워요. 있는 그대로 받아주는 사람과 잘 맞아요.',
+  壬: '큰 강처럼 자유롭고 흐름을 읽는 사랑을 해요. 다양한 사람과 잘 어울리는 성향이에요. 단 너무 흐르다 한 사람에게 정착이 어려울 수 있어요. 방향성을 정해주는 사람과 시너지가 폭발해요.',
+  癸: '맑은 샘물처럼 차분하고 깊게 스며드는 사랑을 해요. 조용히 마음 쓰는 성향이에요. 단 너무 조용하면 본인 마음이 잘 안 보여요. 적극적으로 다가와주는 상대와 균형이 잘 맞아요.',
 };
 
 /** 솔로/커플 공통 팁 — 십성 dominant 기반 */
@@ -299,7 +300,7 @@ export function loveForecast(myeongsik: Myeongsik, today: Date = new Date()): Lo
     score: overall,
     mood: moodOf,
     tagline,
-    body: LOVE_BODY_BY_ILGAN[myIlgan],
+    body: `${LOVE_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik)}`,
     axes: [
       { ic: '✨', lbl: '매력',     score: attraction, color: '#F495C9', oneLine: oneLine('attr', attraction) },
       { ic: '💞', lbl: '인연 신호', score: signal,    color: '#FF8B6C', oneLine: oneLine('sig',  signal)    },
@@ -309,6 +310,6 @@ export function loveForecast(myeongsik: Myeongsik, today: Date = new Date()): Lo
     dohwa: { count: dohwaCount, positions: dohwaPositions, line: dohwaLine },
     attractedTypes,
     timing: { month: bestM, reason: timingReason },
-    tips: LOVE_TIPS[dominant],
+    tips: rotateBySeed(seed, 'love_tips', LOVE_TIPS[dominant], 3),
   };
 }

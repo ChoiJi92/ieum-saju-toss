@@ -10,6 +10,8 @@
     "build:prod": "node scripts/build-with-env.mjs .env.prod",
     "preview": "rsbuild preview",
     "lint": "eslint .",
+    "sync:spirits": "node scripts/sync-spirit-assets.mjs",
+    "cutout:spirits": "python3 scripts/cutout-spirits.py",
     "deploy": "ait deploy"
   },
   "dependencies": {

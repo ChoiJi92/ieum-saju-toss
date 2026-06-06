@@ -1,9 +1,11 @@
 import { useEffect, useMemo } from "react";
-import { IECopy, IELogo, MoodOrb, Reveal, Sparkle } from "../components/ie";
+import { IECopy, IELogo, Reveal, Sparkle } from "../components/ie";
+import { SpiritPetHero } from "../components/SpiritPet";
 import { useRouter, ScreenId } from "../lib/router";
 import { useSaju } from "../lib/saju-state";
 import { todayFortune } from "../lib/today";
 import { preloadRewardedAdForResult } from "../lib/ads";
+import { spiritFromMyeongsik } from "../lib/spirit-pet";
 
 /**
  * 03 홈 — 프로토타입 ScreenHome 이식 + 광고 모델 적용 (프리미엄 nudge 제거).
@@ -26,10 +28,8 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
   }요일`;
 
   /** 본인 명식 + 오늘 일진 → 히어로 카드 동적 운세 */
-  const fortune = useMemo(
-    () => (myeongsik ? todayFortune(myeongsik, today) : null),
-    [myeongsik, today.toDateString()],
-  );
+  const fortune = myeongsik ? todayFortune(myeongsik, today) : null;
+  const spirit = useMemo(() => spiritFromMyeongsik(myeongsik), [myeongsik]);
 
   type Menu = {
     id: ScreenId;
@@ -41,79 +41,79 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
   const menus: Menu[] = [
     {
       id: "today",
-      icon: "☁️",
+      icon: "日",
       title: "오늘의 운세",
       sub: "데일리 풀이",
-      color: "#FF8B6C",
+      color: "#FF9E82",
     },
     {
       id: "month",
-      icon: "🗓️",
+      icon: "月",
       title: "이달의 운세",
       sub: "한 달 흐름 + 좋은 날",
-      color: "#B89BFF",
+      color: "#B79CFF",
     },
     {
       id: "year",
-      icon: "✨",
+      icon: "年",
       title: "신년운세",
       sub: "한 해의 흐름",
-      color: "#FFC857",
+      color: "#FFD27A",
     },
     {
       id: "saju",
-      icon: "🔮",
+      icon: "命",
       title: "내 사주 명식",
       sub: "8자 깊이 풀이",
-      color: "#9D7BFF",
+      color: "#D6C6FF",
     },
     {
       id: "personality",
-      icon: "🪞",
+      icon: "心",
       title: "성격 카드",
       sub: "내 성향·관계 포인트",
-      color: "#A78BFA",
+      color: "#B79CFF",
     },
     {
       id: "love",
-      icon: "💞",
+      icon: "緣",
       title: "연애운",
       sub: "끌리는 사람 스타일·인연 시기",
-      color: "#FF8FB1",
+      color: "#FF9ED2",
     },
     {
       id: "gunghap",
-      icon: "💕",
+      icon: "合",
       title: "궁합",
       sub: "둘이 어울리는지",
-      color: "#F495C9",
+      color: "#FF9ED2",
     },
     {
       id: "money",
-      icon: "💰",
+      icon: "財",
       title: "재물운",
       sub: "돈 들어오는 흐름",
-      color: "#3DC795",
+      color: "#5BD9AC",
     },
     {
       id: "career",
-      icon: "💼",
+      icon: "業",
       title: "직업운",
       sub: "어울리는 일·적성",
-      color: "#4A90E2",
+      color: "#7BA8FF",
     },
     {
       id: "health",
-      icon: "🍃",
+      icon: "身",
       title: "건강운",
       sub: "몸의 결·약한 부위",
-      color: "#6FCFC9",
+      color: "#5BD9AC",
     },
   ];
 
   return (
     <div
-      className="ie-screen"
+      className="ie-screen v2-cosmos-bg"
       style={{ height: "100%", display: "flex", flexDirection: "column" }}
     >
       <div className="ie-scroll" style={{ flex: 1, overflowY: "auto" }}>
@@ -130,7 +130,12 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <IELogo size={32} />
               <span
-                style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.4 }}
+                style={{
+                  fontSize: 17,
+                  fontWeight: 800,
+                  letterSpacing: -0.4,
+                  color: "var(--v2-ink)",
+                }}
               >
                 이음사주
               </span>
@@ -156,7 +161,7 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
                   width="22"
                   height="22"
                   fill="none"
-                  stroke="var(--cp-text-mid)"
+                  stroke="var(--v2-ink-mid)"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -186,7 +191,7 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
                   width="22"
                   height="22"
                   fill="none"
-                  stroke="var(--cp-text-mid)"
+                  stroke="var(--v2-ink-mid)"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -208,30 +213,30 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
                 gap: 6,
                 padding: "6px 12px",
                 borderRadius: 999,
-                background: "var(--cp-bg-paper)",
-                border: "1.5px solid var(--cp-lavender)",
+                  background: "var(--v2-glass)",
+                  border: "1px solid var(--v2-glass-line)",
                 marginBottom: 10,
                 cursor: "pointer",
                 fontFamily: "var(--cp-font)",
               }}
             >
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--cp-text-mid)" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--v2-ink-dim)" }}>
                 지금
               </span>
               <span
                 style={{
                   fontSize: 12,
                   fontWeight: 800,
-                  color: "var(--cp-lavender)",
+                  color: "var(--v2-lavender)",
                   letterSpacing: -0.2,
                 }}
               >
                 {activeProfile?.name}
               </span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--cp-text-mid)" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--v2-ink-dim)" }}>
                 사주 보는 중
               </span>
-              <span style={{ fontSize: 10, color: "var(--cp-text-dim)" }}>›</span>
+              <span style={{ fontSize: 10, color: "var(--v2-ink-dim)" }}>›</span>
             </button>
           )}
         </div>
@@ -242,96 +247,141 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
             <div
               onClick={() => go("today")}
               style={{
-                padding: 24,
-                borderRadius: "var(--cp-radius-xl)",
-                background: "linear-gradient(135deg, #C9B6F0 0%, #FFB69E 100%)",
-                boxShadow: "0 12px 28px rgba(157,123,255,0.28)",
+                padding: "18px 18px 20px",
+                borderRadius: "var(--v2-r-lg)",
+                background:
+                  "linear-gradient(180deg, var(--v2-glass-hi), var(--v2-glass))",
+                border: "1px solid var(--v2-glass-line2)",
+                boxShadow: "var(--v2-shadow)",
+                backdropFilter: "blur(14px) saturate(140%)",
                 cursor: "pointer",
                 position: "relative",
                 overflow: "hidden",
-                minHeight: 200,
+                minHeight: 420,
               }}
             >
-              {/* MoodOrb — 카드 안쪽 우상단, 살짝 작게 */}
               <div
                 style={{
                   position: "absolute",
-                  top: 24,
-                  right: 20,
+                  inset: 0,
+                  background:
+                    "radial-gradient(260px 220px at 50% 28%, rgba(183,156,255,.30), transparent 66%), radial-gradient(280px 240px at 82% 18%, rgba(255,158,130,.16), transparent 70%)",
                   pointerEvents: "none",
                 }}
-              >
-                <MoodOrb size={120} />
-              </div>
+              />
 
-              {/* Sparkle — MoodOrb 좌측 위 */}
               <Sparkle
                 size={16}
-                color="#FFC857"
-                style={{ position: "absolute", top: 36, right: 132, zIndex: 2 }}
+                color="#FFD27A"
+                style={{ position: "absolute", top: 44, right: 76, zIndex: 2 }}
+              />
+              <Sparkle
+                size={12}
+                color="#B79CFF"
+                style={{ position: "absolute", top: 150, left: 42, zIndex: 2 }}
               />
 
               <div style={{ position: "relative", zIndex: 1 }}>
-                {/* 본문 — MoodOrb 회피 위해 paddingRight */}
-                <div style={{ paddingRight: 120 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 4,
+                  }}
+                >
                   <div
                     style={{
                       fontSize: 11,
                       fontWeight: 800,
-                      letterSpacing: 1,
-                      color: "var(--cp-text-mid)",
+                      letterSpacing: 1.6,
+                      color: "var(--v2-lavender)",
                     }}
                   >
                     {dateStr}
                   </div>
                   <div
                     style={{
-                      fontSize: 26,
+                      padding: "5px 9px",
+                      borderRadius: 999,
+                      border: "1px solid var(--v2-glass-line)",
+                      background: "var(--v2-glass)",
+                      color: "var(--v2-ink-dim)",
+                      fontSize: 10,
                       fontWeight: 800,
-                      marginTop: 6,
-                      letterSpacing: -0.6,
-                      color: "var(--cp-text)",
+                      letterSpacing: 1,
+                    }}
+                  >
+                    {spirit.lineLabel}
+                  </div>
+                </div>
+
+                <SpiritPetHero spirit={spirit} style={{ minHeight: 226, marginTop: 8 }} />
+
+                <div style={{ textAlign: "center", marginTop: 2 }}>
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 800,
+                      letterSpacing: -0.7,
+                      color: "var(--v2-ink)",
                       lineHeight: 1.25,
                     }}
                   >
                     {copy.todayTitle}
                     <br />
-                    <span style={{ color: "var(--cp-lavender)" }}>
+                    <span style={{ color: "var(--v2-lavender)" }}>
                       {fortune?.mood ?? copy.todayMood}
                     </span>
                   </div>
                   <p
                     style={{
                       fontSize: 13,
-                      color: "var(--cp-text-mid)",
+                      color: "var(--v2-ink-mid)",
                       margin: "14px 0 0",
                       lineHeight: 1.5,
+                      wordBreak: "keep-all",
                     }}
                   >
                     {fortune?.oneLine ?? copy.todayLine}
                   </p>
                 </div>
 
-                {/* 자세히 보기 — paddingRight 영향 X, 카드 우측 끝 정렬 */}
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginTop: 14,
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 9,
+                    marginTop: 18,
                   }}
                 >
                   <span
                     style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: "var(--cp-text)",
-                      background: "rgba(255,255,255,0.7)",
-                      padding: "8px 14px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      color: "var(--v2-ink)",
+                      background: "var(--v2-glass)",
+                      border: "1px solid var(--v2-glass-line2)",
+                      padding: "10px 12px",
                       borderRadius: 999,
-                      boxShadow: "0 2px 6px rgba(80,60,110,0.08)",
+                      textAlign: "center",
                     }}
                   >
-                    자세히 보기 →
+                    교감하기
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      color: "#1b1230",
+                      background: "linear-gradient(135deg, var(--v2-lavender), var(--v2-peach))",
+                      padding: "10px 12px",
+                      borderRadius: 999,
+                      textAlign: "center",
+                      boxShadow: "var(--v2-glow-l)",
+                    }}
+                  >
+                    풀이 보기 →
                   </span>
                 </div>
               </div>
@@ -350,19 +400,19 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
           className="ie-scroll"
         >
           {[
-            { lbl: "총운", s: fortune?.sections.overall.score ?? 70, c: "#9D7BFF" },
-            { lbl: "재물", s: fortune?.sections.money.score   ?? 70, c: "#3DC795" },
-            { lbl: "연애", s: fortune?.sections.love.score    ?? 70, c: "#F495C9" },
-            { lbl: "건강", s: fortune?.sections.health.score  ?? 70, c: "#FFC857" },
+            { lbl: "총운", s: fortune?.sections.overall.score ?? 70, c: "#B79CFF" },
+            { lbl: "재물", s: fortune?.sections.money.score   ?? 70, c: "#5BD9AC" },
+            { lbl: "연애", s: fortune?.sections.love.score    ?? 70, c: "#FF9ED2" },
+            { lbl: "건강", s: fortune?.sections.health.score  ?? 70, c: "#FFD27A" },
           ].map((x) => (
             <div
               key={x.lbl}
               style={{
                 flex: "0 0 auto",
                 padding: "10px 14px",
-                borderRadius: 14,
-                background: "var(--cp-bg-paper)",
-                border: "1px solid var(--cp-border)",
+                borderRadius: "var(--v2-r-sm)",
+                background: "var(--v2-glass)",
+                border: "1px solid var(--v2-glass-line2)",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
@@ -380,7 +430,7 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
               <span
                 style={{
                   fontSize: 11,
-                  color: "var(--cp-text-dim)",
+                  color: "var(--v2-ink-dim)",
                   fontWeight: 700,
                 }}
               >
@@ -405,11 +455,11 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
         <div style={{ padding: "0 20px 32px" }}>
           <div
             style={{
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: 800,
-              color: "var(--cp-text-mid)",
+              color: "var(--v2-ink-dim)",
               marginBottom: 12,
-              letterSpacing: 0.3,
+              letterSpacing: 1.6,
             }}
           >
             다른 풀이
@@ -429,9 +479,10 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
                   onClick={() => go(m.id)}
                   style={{
                     padding: 16,
-                    borderRadius: "var(--cp-radius-lg)",
-                    background: "var(--cp-bg-paper)",
-                    border: "1px solid var(--cp-border)",
+                    borderRadius: "var(--v2-r-md)",
+                    background: "var(--v2-glass)",
+                    border: "1px solid var(--v2-glass-line2)",
+                    backdropFilter: "blur(14px) saturate(140%)",
                     cursor: "pointer",
                     display: "flex",
                     flexDirection: "column",
@@ -444,12 +495,17 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
                     style={{
                       width: 40,
                       height: 40,
-                      borderRadius: 12,
+                      borderRadius: "50%",
                       background: m.color + "20",
+                      border: `1.5px solid ${m.color}`,
+                      color: m.color,
+                      boxShadow: `0 0 24px ${m.color}55`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 20,
+                      fontFamily: "var(--v2-serif)",
+                      fontSize: 18,
+                      fontWeight: 800,
                     }}
                   >
                     {m.icon}
@@ -459,7 +515,7 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
                       style={{
                         fontSize: 14,
                         fontWeight: 800,
-                        color: "var(--cp-text)",
+                        color: "var(--v2-ink)",
                       }}
                     >
                       {m.title}
@@ -467,7 +523,7 @@ export default function ScreenHome({ copy }: { copy: IECopy }) {
                     <div
                       style={{
                         fontSize: 11,
-                        color: "var(--cp-text-dim)",
+                        color: "var(--v2-ink-dim)",
                         fontWeight: 500,
                         marginTop: 2,
                       }}

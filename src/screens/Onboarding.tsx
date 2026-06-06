@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { IECopy, IEModal, MoodOrb, Reveal, Sparkle } from '../components/ie';
+import { IECopy, IEModal, Reveal, Sparkle } from '../components/ie';
+import { SpiritPetHero } from '../components/SpiritPet';
 import { useRouter } from '../lib/router';
 import { useSaju } from '../lib/saju-state';
+import { spiritFromMyeongsik } from '../lib/spirit-pet';
 import {
   getMockTossUser,
   isTossLoginEnabled,
@@ -24,6 +26,7 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
   const { setTossPending } = useSaju();
   const [loading, setLoading] = useState(false);
   const [errOpen, setErrOpen] = useState<string | null>(null);
+  const starterSpirit = spiritFromMyeongsik(null);
 
   const handleTossLogin = async () => {
     if (loading) return;
@@ -51,12 +54,12 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
 
   return (
     <div
-      className="ie-screen"
+      className="ie-screen v2-cosmos-bg"
       style={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        background: 'linear-gradient(180deg, #FBF6FF 0%, #FFF0EE 100%)',
+        overflow: 'hidden',
       }}
     >
       <div
@@ -70,12 +73,12 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
           position: 'relative',
         }}
       >
-        <Sparkle size={20} color="#FFC857" style={{ position: 'absolute', top: 80, left: 50 }} />
-        <Sparkle size={14} color="#9D7BFF" style={{ position: 'absolute', top: 130, right: 60 }} />
-        <Sparkle size={16} color="#FF8B6C" style={{ position: 'absolute', bottom: 200, left: 40 }} />
+        <Sparkle size={20} color="#FFD27A" style={{ position: 'absolute', top: 80, left: 50 }} />
+        <Sparkle size={14} color="#B79CFF" style={{ position: 'absolute', top: 130, right: 60 }} />
+        <Sparkle size={16} color="#FF9E82" style={{ position: 'absolute', bottom: 200, left: 40 }} />
 
         <Reveal>
-          <MoodOrb size={200} />
+          <SpiritPetHero spirit={starterSpirit} />
         </Reveal>
         <Reveal delay={200}>
           <h1
@@ -83,9 +86,10 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
               fontSize: 36,
               fontWeight: 800,
               letterSpacing: -1,
-              margin: '24px 0 12px',
+              margin: '18px 0 12px',
               textAlign: 'center',
               lineHeight: 1.2,
+              color: 'var(--v2-ink)',
             }}
           >
             이음사주
@@ -95,7 +99,7 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
           <p
             style={{
               fontSize: 16,
-              color: 'var(--cp-text-dim)',
+              color: 'var(--v2-ink-mid)',
               textAlign: 'center',
               margin: 0,
               lineHeight: 1.5,
@@ -119,13 +123,13 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
             padding: '0 24px',
             border: 'none',
             borderRadius: 999,
-            background: 'linear-gradient(135deg, #9D7BFF, #FF8B6C)',
-            color: '#fff',
-            fontFamily: 'var(--cp-font)',
+            background: 'linear-gradient(135deg, var(--v2-lavender), var(--v2-peach))',
+            color: '#1b1336',
+            fontFamily: 'var(--v2-font)',
             fontSize: 16,
             fontWeight: 800,
             cursor: loading ? 'wait' : 'pointer',
-            boxShadow: 'var(--cp-shadow-pop)',
+            boxShadow: 'var(--v2-glow-l)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -141,7 +145,7 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
             textAlign: 'center',
             marginTop: 10,
             fontSize: 12,
-            color: 'var(--cp-text-dim)',
+            color: 'var(--v2-ink-dim)',
             fontWeight: 600,
           }}
         >
@@ -157,10 +161,10 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            fontFamily: 'var(--cp-font)',
+            fontFamily: 'var(--v2-font)',
             fontSize: 13,
             fontWeight: 700,
-            color: 'var(--cp-text-mid)',
+            color: 'var(--v2-ink-mid)',
             padding: '8px',
           }}
         >
@@ -173,7 +177,7 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
             marginTop: 6,
             textAlign: 'center',
             fontSize: 11,
-            color: 'var(--cp-text-dim)',
+            color: 'var(--v2-ink-dim)',
             lineHeight: 1.6,
             fontWeight: 600,
             padding: '0 8px',
@@ -187,7 +191,7 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
             }}
             style={{
               textDecoration: 'underline',
-              color: 'var(--cp-text-mid)',
+              color: 'var(--v2-ink-mid)',
               cursor: 'pointer',
               fontWeight: 700,
             }}
@@ -202,7 +206,7 @@ export default function ScreenOnboarding({ copy }: { copy: IECopy }) {
             }}
             style={{
               textDecoration: 'underline',
-              color: 'var(--cp-text-mid)',
+              color: 'var(--v2-ink-mid)',
               cursor: 'pointer',
               fontWeight: 700,
             }}

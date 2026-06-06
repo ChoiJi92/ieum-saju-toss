@@ -189,6 +189,7 @@ export function loveForecast(myeongsik: Myeongsik, today: Date = new Date()): Lo
   const myIlgan = myeongsik.ilgan.c;
   if (!isStem(myIlgan)) return null;
   const seed = myeongsikSeed(myeongsik);
+  const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
   // 도화살 카운트 (4지지 중 子午卯酉 개수)
   const branches = myeongsik.pillars.map((p) => p.bot.c);
@@ -221,7 +222,7 @@ export function loveForecast(myeongsik: Myeongsik, today: Date = new Date()): Lo
   const baseStability = 60 + (has('정인') ? 8 : 0) + (has('정관') ? 10 : 0) + (has('정재') ? 8 : 0);
 
   const adjust = (key: string, v: number) =>
-    Math.max(50, Math.min(98, v + variance(seed, key, 3)));
+    Math.max(50, Math.min(98, v + variance(seed, `${ym}_${key}`, 3)));
 
   const attraction = adjust('attr', baseAttraction);
   const signal     = adjust('sig',  baseSignal);
@@ -258,7 +259,7 @@ export function loveForecast(myeongsik: Myeongsik, today: Date = new Date()): Lo
     else if (sip === '정관' || sip === '편관') score = 85;
     else if (sip === '식신' || sip === '상관') score = 75;
     else score = 65;
-    score += variance(seed, `tim_${i}`, 3);
+    score += variance(seed, `${ym}_tim_${i}`, 3);
     if (score > bestS) {
       bestS = score;
       bestM = checkM;
@@ -310,6 +311,6 @@ export function loveForecast(myeongsik: Myeongsik, today: Date = new Date()): Lo
     dohwa: { count: dohwaCount, positions: dohwaPositions, line: dohwaLine },
     attractedTypes,
     timing: { month: bestM, reason: timingReason },
-    tips: rotateBySeed(seed, 'love_tips', LOVE_TIPS[dominant], 3),
+    tips: rotateBySeed(seed, `${ym}_love_tips`, LOVE_TIPS[dominant], 3),
   };
 }

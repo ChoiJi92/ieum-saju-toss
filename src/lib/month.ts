@@ -90,10 +90,10 @@ const MONTH_ACTIONS: Record<Sipsung, Array<{ ic: string; lbl: string; sub: strin
   비견: [
     { ic: '🤝', lbl: '동료와 함께',     sub: '협업 자리에 운',
       detail: '오늘부터 같이 일하는 동료에게 점심·커피를 먼저 제안해보세요. 비견이 강한 달은 같은 결의 사람들과 손 잡으면 두 배로 풀려요. 단 책임 분배는 처음부터 명확히 정해두세요 — 모호하면 나중에 갈등이 돼요.' },
-    { ic: '👥', lbl: '모임 참여',       sub: '의외의 인연 ↑',
+    { ic: '👥', lbl: '모임 참여',       sub: '의외의 인연 상승',
       detail: '친구·동호회·동창회 같은 모임에 한 번이라도 참여해보세요. 친구의 친구를 통해 의외의 인연·정보·기회가 들어오는 흐름이에요. 새 사람 만날 자리에 한 번만 가도 한 달 운이 풀려요.' },
     { ic: '📋', lbl: '책임 분배 명확',   sub: '나중에 불씨 차단',
-      detail: '팀 작업·공동 프로젝트에서 누가 뭘 맡을지 처음부터 명확히 적어두세요. 비견의 달은 협업이 ↑이지만 책임이 모호하면 나중에 갈등이 커져요. 문서·메모로 남겨두면 안전해요.' },
+      detail: '팀 작업·공동 프로젝트에서 누가 뭘 맡을지 처음부터 명확히 적어두세요. 비견의 달은 협업 흐름이 강하지만 책임이 모호하면 나중에 갈등이 커져요. 문서·메모로 남겨두면 안전해요.' },
   ],
   겁재: [
     { ic: '⚠️', lbl: '큰 결정 보류',    sub: '24시간 룰',
@@ -136,7 +136,7 @@ const MONTH_ACTIONS: Record<Sipsung, Array<{ ic: string; lbl: string; sub: strin
       detail: '잊고 있던 환급·캐시백·당첨 알림·포인트를 한 번 정리해보세요. 편재의 달은 작은 횡재 신호가 의외로 자주 와요. 단 큰 베팅은 X — 작은 돈만 받아주세요.' },
   ],
   정관: [
-    { ic: '💼', lbl: '약속 지키기',     sub: '신뢰 ↑',
+    { ic: '💼', lbl: '약속 지키기',     sub: '신뢰 상승',
       detail: '이번 달은 작은 약속도 한 번 더 지켜주세요. 정관의 달은 신뢰가 곧 운이라 작은 디테일까지 챙기면 윗사람·고객·평가자가 "이 사람 진짜네" 신호를 보내요.' },
     { ic: '🎓', lbl: '평가 준비',       sub: '윗사람 인정',
       detail: '면담·평가·발표가 있다면 정공법으로 준비해주세요. 정관 달은 화려한 트릭보다 묵묵한 신뢰가 빛나는 시기예요. 평소 안 보이던 디테일까지 챙기면 인정이 자연스럽게 따라와요.' },
@@ -163,7 +163,7 @@ const MONTH_ACTIONS: Record<Sipsung, Array<{ ic: string; lbl: string; sub: strin
     { ic: '🌙', lbl: '직관 따라가기',    sub: '느낌 좋은 곳',
       detail: '"왠지 이쪽이 끌려" 같은 느낌을 한 번 따라가보세요. 편인의 달은 분석·논리보단 직관이 더 정확한 시기예요. 단 큰 돈·계약 결정은 X — 작은 선택만 직관으로 가주세요.' },
     { ic: '⏸️', lbl: '큰 결정 미루기',  sub: '일주일 뒤 다시',
-      detail: '투자·계약·이직 같은 큰 결정은 일단 일주일 미뤄주세요. 편인 달은 직관은 ↑이지만 분석은 ↓이라 큰 돈을 베팅하면 위험해요. 일주일 뒤에도 좋아 보이면 그때 결정하는 게 안전해요.' },
+      detail: '투자·계약·이직 같은 큰 결정은 일단 일주일 미뤄주세요. 편인 달은 직관은 강하지만 분석은 약해지기 쉬워 큰 돈을 베팅하면 위험해요. 일주일 뒤에도 좋아 보이면 그때 결정하는 게 안전해요.' },
     { ic: '🎨', lbl: '창작·기획',       sub: '아이디어 메모',
       detail: '글·그림·기획·연구 같은 창작 작업에 좋은 달이에요. 자유로운 시간을 확보해서 진짜 좋은 아이디어 하나만 메모해도 그게 한 달 자산이 돼요. 반복 업무는 한 번 더 검토해주세요.' },
   ],
@@ -196,12 +196,12 @@ function fieldOneLine(field: 'overall' | 'work' | 'love' | 'money', score: numbe
     return tier === 'high' ? '활기 있는 흐름' : tier === 'mid' ? '안정적 흐름' : tier === 'low' ? '평이한 흐름' : '주의가 필요해요';
   }
   if (field === 'work') {
-    return tier === 'high' ? '성과·인정 ↑' : tier === 'mid' ? '꾸준히 쌓는 시기' : tier === 'low' ? '내실 다지기' : '번아웃 주의';
+    return tier === 'high' ? '성과·인정 상승' : tier === 'mid' ? '꾸준히 쌓는 시기' : tier === 'low' ? '내실 다지기' : '번아웃 주의';
   }
   if (field === 'love') {
     return tier === 'high' ? '강한 인연 신호' : tier === 'mid' ? '안정적 케미' : tier === 'low' ? '담담한 흐름' : '오해 주의';
   }
-  return tier === 'high' ? '들어옴 ↑' : tier === 'mid' ? '안정' : tier === 'low' ? '평이' : '큰 지출 주의';
+  return tier === 'high' ? '수입 흐름 상승' : tier === 'mid' ? '안정' : tier === 'low' ? '평이' : '큰 지출 주의';
 }
 
 export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): MonthForecast | null {
@@ -260,7 +260,7 @@ export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): M
     bestDay: {
       day: best.day,
       score: best.score,
-      hint: best.score >= 85 ? '큰 일 시도해도 OK' : '컨디션이 ↑인 날',
+      hint: best.score >= 85 ? '큰 일 시도해도 OK' : '컨디션이 좋은 날',
     },
     worstDay: {
       day: worst.day,

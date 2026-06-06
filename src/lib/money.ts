@@ -39,7 +39,7 @@ const MONEY_MOOD: Record<Sipsung, string> = {
   식신: '소소한 보상',
   상관: '아이디어 수익',
   정재: '안정 흐름',
-  편재: '기회 ↑',
+  편재: '기회 상승',
   정관: '꾸준한 수입',
   편관: '큰 지출 주의',
   정인: '자기계발 투자',
@@ -63,7 +63,7 @@ const MONEY_BODY: Record<Sipsung, string> = {
 /** 십성별 행운 행동 3개 — 클릭 시 펼쳐지는 detail 포함 */
 const MONEY_ACTIONS: Record<Sipsung, Array<{ ic: string; lbl: string; sub: string; detail: string }>> = {
   비견: [
-    { ic: '👥', lbl: '친구와 N빵',     sub: '분담이 운 ↑',
+    { ic: '👥', lbl: '친구와 N빵',     sub: '분담이 운을 키움',
       detail: '친구·동료와 같이 가는 자리에서 N빵·공동 구매로 분담해주세요. 비견 달은 함께 나누는 흐름이 강해서 혼자 결제할 때보다 평균 8% 정도 더 모이는 경향이에요. 큰 지출 전에 한 번 의논하면 더 좋은 가격이 나와요.' },
     { ic: '💸', lbl: '자투리 모으기',   sub: '평소보다 +8% 모일 흐름',
       detail: '잔돈·포인트·자투리 캐시를 한 통장에 모아주세요. 비견 달은 차곡차곡 쌓는 자체가 운으로 작용해요. 자동 저축 5천 원·1만 원 룰만 걸어둬도 한 달 합치면 의외로 큰 돈.' },
@@ -97,7 +97,7 @@ const MONEY_ACTIONS: Record<Sipsung, Array<{ ic: string; lbl: string; sub: strin
   정재: [
     { ic: '💰', lbl: '예금 만기 검토',   sub: '재예치·이율 비교',
       detail: '예금·적금 만기 일정과 이율을 한 번 비교해주세요. 정재 달은 안정·정리가 답이라 새 투자보단 기존 자산 재배치가 큰 이익. 5분 비교만 해도 한 달치 추가 수익이 돼요.' },
-    { ic: '📈', lbl: '꾸준한 적립',     sub: '소액 자동이체 ↑',
+    { ic: '📈', lbl: '꾸준한 적립',     sub: '소액 자동이체 추가',
       detail: '월 소액 자동이체 1~2개를 추가해보세요. 정재 달은 한 번에 큰 돈보다 매일 조금씩 모으는 흐름이 답이에요. 5만 원·10만 원 룰 하나면 1년 뒤 큰 자산.' },
     { ic: '🧾', lbl: '영수증 정리',     sub: '연말정산 미리',
       detail: '영수증·기부 영수증·의료비 서류를 미리 모아두세요. 연말 한 번에 몰리면 빠지는 게 생겨요. 정재 달은 차곡차곡 정리 자체가 그대로 환급으로 돌아와요.' },
@@ -105,7 +105,7 @@ const MONEY_ACTIONS: Record<Sipsung, Array<{ ic: string; lbl: string; sub: strin
   편재: [
     { ic: '🎯', lbl: '거래·영업 미팅',   sub: '외부 자리에서 운',
       detail: '거래처·고객·외부 미팅을 적극적으로 잡아주세요. 편재 달은 사무실 안에 갇혀 있으면 운 절반을 놓쳐요. 평소 연락 못 했던 사람한테도 한 번 연락해보면 의외의 거래로 이어질 수 있어요.' },
-    { ic: '💡', lbl: '횡재 안테나',     sub: '의외의 정보 ↑',
+    { ic: '💡', lbl: '횡재 안테나',     sub: '의외의 정보 증가',
       detail: '잊고 있던 환급·캐시백·당첨 알림·포인트를 한 번 정리해보세요. 편재 달은 작은 횡재 신호가 자주 와요. 단 큰 베팅은 X — 작은 돈만 받고 큰 결정은 한 번 더 검증해주세요.' },
     { ic: '📊', lbl: '투자 검토',       sub: '단 큰 결정은 내일로',
       detail: '관심 있던 종목·자산을 검토하기 좋은 달이에요. 편재 달은 정보·기회가 자주 들어와요. 단 충동 매수 X — "왠지 좋아 보여"는 위험. 일주일 뒤에도 좋으면 그때 결정.' },
@@ -136,7 +136,7 @@ const MONEY_ACTIONS: Record<Sipsung, Array<{ ic: string; lbl: string; sub: strin
   ],
   편인: [
     { ic: '🌙', lbl: '직관 따라가기',   sub: '느낌 좋은 곳에 베팅',
-      detail: '"왠지 이쪽이 끌려" 같은 직관 신호를 작은 돈으로만 시도해보세요. 편인 달은 직관이 ↑이지만 분석은 ↓이라 큰 베팅은 위험해요. 작은 시도 OK, 큰 결정은 일주일 미루기.' },
+      detail: '"왠지 이쪽이 끌려" 같은 직관 신호를 작은 돈으로만 시도해보세요. 편인 달은 직관은 강하지만 분석은 약해지기 쉬워 큰 베팅은 위험해요. 작은 시도 OK, 큰 결정은 일주일 미루기.' },
     { ic: '⏸️', lbl: '큰 결정 미루기',   sub: '내일 다시 보기',
       detail: '투자·계약·이직·큰 지출은 일단 일주일 미뤄주세요. 편인 달은 직감만 믿고 큰 돈 베팅하면 며칠 뒤 후회로 돌아와요. 일주일 뒤에도 좋아 보이면 그때 결정해도 늦지 않아요.' },
     { ic: '📊', lbl: '리서치만 하기',   sub: '실행은 다음 주',
@@ -157,23 +157,26 @@ export type MoneyForecast = {
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const HINT_BY_TIER = (s: number) =>
-  s >= 85 ? '들어옴 ↑' : s >= 78 ? '안정' : s >= 70 ? '평이' : s >= 62 ? '소비 주의' : '큰 지출 주의';
+  s >= 85 ? '수입 흐름 상승' : s >= 78 ? '안정' : s >= 70 ? '평이' : s >= 62 ? '소비 주의' : '큰 지출 주의';
 
 export function moneyForecast(myeongsik: Myeongsik, today: Date = new Date()): MoneyForecast | null {
   const myIlgan = myeongsik.ilgan.c;
   if (!isStem(myIlgan)) return null;
   const seed = myeongsikSeed(myeongsik);
+  const y = today.getFullYear();
+  const mo = today.getMonth() + 1;
+  const ym = `${y}-${String(mo).padStart(2, '0')}`;
 
   // 이번 달 월주 천간 → 십성
-  const m = calculateSaju(today.getFullYear(), today.getMonth() + 1, 15, 12, 0, {
+  const m = calculateSaju(y, mo, 15, 12, 0, {
     applyTimeCorrection: false,
   });
   const monthStem = m.monthPillarHanja[0];
   const monthSipsung = isStem(monthStem) ? getSipsung(myIlgan, monthStem) : null;
   const baseMonthScore = monthSipsung ? MONEY_SCORE[monthSipsung] : 70;
-  const monthScore = Math.max(50, Math.min(98, baseMonthScore + variance(seed, 'month', 3)));
+  const monthScore = Math.max(50, Math.min(98, baseMonthScore + variance(seed, `${ym}_month`, 3)));
   const mood = monthSipsung ? MONEY_MOOD[monthSipsung] : '평이';
-  const actions = monthSipsung ? rotateBySeed(seed, 'money_actions', MONEY_ACTIONS[monthSipsung], 3) : MONEY_ACTIONS['식신'];
+  const actions = monthSipsung ? rotateBySeed(seed, `${ym}_money_actions`, MONEY_ACTIONS[monthSipsung], 3) : MONEY_ACTIONS['식신'];
 
   // 이번 주 월~일 (오늘 기준 그 주 월요일부터)
   const dow = today.getDay();
@@ -190,7 +193,7 @@ export function moneyForecast(myeongsik: Myeongsik, today: Date = new Date()): M
     const dStem = r.dayPillarHanja[0];
     const sipsung = isStem(dStem) ? getSipsung(myIlgan, dStem) : null;
     const baseScore = sipsung ? MONEY_SCORE[sipsung] : 70;
-    const score = Math.max(50, Math.min(98, baseScore + variance(seed, `week_${i}`, 3)));
+    const score = Math.max(50, Math.min(98, baseScore + variance(seed, `${ym}_week_${i}`, 3)));
     week.push({
       day: DAY_LABELS[d.getDay()],
       score,

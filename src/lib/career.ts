@@ -207,7 +207,7 @@ const CAREER_TIPS: Record<
       detail: '커리어도 자산도 한 번에 큰 점프보단 매일 조금씩 쌓는 흐름이 답이에요. 매달 새로운 작은 결과·자격증·인증·작은 적금 — 차곡차곡 쌓이는 자체가 정재 사주의 가장 큰 무기.' },
   ],
   편재: [
-    { ic: '🎯', lbl: '활동량 ↑', sub: '외근·미팅·네트워크',
+    { ic: '🎯', lbl: '활동량 상승', sub: '외근·미팅·네트워크',
       detail: '편재는 사무실에 앉아 있을 때보다 외부에서 움직일 때 운이 와요. 미팅·외근·콘퍼런스·새 동네·낯선 자리 — 활동량 자체가 곧 실적이에요. 한 자리에만 있으면 운 절반을 놓쳐요.' },
     { ic: '💼', lbl: '거래·영업', sub: '돈 다루는 자리',
       detail: '편재 사주는 돈을 직접 다루는 자리에서 진짜 빛나요. 영업·세일즈·트레이딩·사업·중개 — 결과가 숫자로 즉시 보이는 환경. 정적인 사무직보다 활동적인 자리를 우선으로.' },
@@ -225,7 +225,7 @@ const CAREER_TIPS: Record<
   편관: [
     { ic: '⚡', lbl: '결단력 발휘', sub: '큰 결정 자리',
       detail: '편관은 시키는 일만 하는 자리에선 답답해져요. 결정권이 있는 자리·돌파해야 하는 자리·위기 관리 자리에서 진짜 실력이 발휘돼요. 책임이 무거울수록 더 빛나는 사주.' },
-    { ic: '🛡️', lbl: '평정심 챙기기', sub: '압박 ↑ 환경',
+    { ic: '🛡️', lbl: '평정심 챙기기', sub: '압박 강한 환경',
       detail: '편관 사주는 압박·과제가 평소보다 많은 환경에 강하지만 에너지 소진도 빨라요. 명상·산책·잠·휴식 — 회복 시간을 의식적으로 챙겨주세요. 잘 쉬는 게 곧 다음 결단력의 연료.' },
     { ic: '🎯', lbl: '도전적 목표', sub: '안전 자리 X',
       detail: '안정적이고 평이한 자리는 편관의 결을 살리지 못해요. 의사·법조·군경·CEO·창업 — 결정과 책임이 뚜렷한 자리에서 진짜 본인이 나와요. 평범한 자리에 있으면 답답해서 다 놓치게 돼요.' },
@@ -244,7 +244,7 @@ const CAREER_TIPS: Record<
     { ic: '🎨', lbl: '독창성 살리기', sub: '표준화 X',
       detail: '편인 사주는 표준화·매뉴얼·반복 업무에서는 직관이 막혀요. 본인만의 색·관점·독창성이 통하는 자리에서 진짜 실력이 나와요. 예술·디자인·연구·기획·심리 — 자유로운 자리.' },
     { ic: '⏸️', lbl: '큰 결정 미루기', sub: '일주일 뒤 다시',
-      detail: '이직·계약·창업 같은 큰 결정은 일단 일주일 미뤄주세요. 편인 달은 직관 ↑이지만 분석 ↓이라 큰 결정이 위험할 수 있어요. 일주일 뒤에도 좋아 보이면 그때 결정해도 늦지 않아요.' },
+      detail: '이직·계약·창업 같은 큰 결정은 일단 일주일 미뤄주세요. 편인 달은 직관은 강하지만 분석은 약해지기 쉬워 큰 결정이 위험할 수 있어요. 일주일 뒤에도 좋아 보이면 그때 결정해도 늦지 않아요.' },
   ],
 };
 
@@ -290,7 +290,7 @@ const MONTH_FLOW_BY_SIPSUNG: Record<Sipsung, string> = {
   식신: '이번 달은 표현·매력이 자연스럽게 빛나는 시기예요. 발표·기획·콘텐츠 작업이 평소보다 잘 통해요.',
   상관: '이번 달은 새 발상·아이디어가 평소 두 배로 또렷한 시기예요. 부업·사이드 프로젝트 검토에 좋아요.',
   정재: '이번 달은 꾸준히 쌓는 흐름이 답이에요. 새 시도보단 기존 일 마무리·정리·계약 갱신에 집중하기 좋아요.',
-  편재: '이번 달은 외부 미팅·거래·네트워킹이 평소보다 잘 풀려요. 활동량 ↑이 곧 실적으로 돌아와요.',
+  편재: '이번 달은 외부 미팅·거래·네트워킹이 평소보다 잘 풀려요. 활동량이 곧 실적으로 돌아와요.',
   정관: '이번 달은 윗사람·고객에게 인정받기 좋은 흐름이에요. 정공법·약속한 것 그대로 실행하면 평가가 따라와요.',
   편관: '이번 달은 압박·과제가 평소보다 많지만 정면 돌파하면 한 단계 성장하는 시기예요. 큰 결정 내리기 좋은 타이밍.',
   정인: '이번 달은 배우고 정리하는 흐름이 답이에요. 큰 도약보단 내공 쌓기·자료 정리·멘토 미팅에 집중하기 좋아요.',
@@ -302,7 +302,7 @@ function fieldOneLine(kind: 'create' | 'biz' | 'org' | 'study', score: number): 
   if (kind === 'create')
     return tier === 'high' ? '발상·표현이 강점' : tier === 'mid' ? '꾸준한 표현력' : tier === 'low' ? '연습으로 채우기' : '내면 다지기 시기';
   if (kind === 'biz')
-    return tier === 'high' ? '돈 흐름 감각 ↑' : tier === 'mid' ? '안정적 자산 감각' : tier === 'low' ? '학습·관찰 시기' : '큰 베팅 X';
+    return tier === 'high' ? '돈 흐름 감각 상승' : tier === 'mid' ? '안정적 자산 감각' : tier === 'low' ? '학습·관찰 시기' : '큰 베팅 X';
   if (kind === 'org')
     return tier === 'high' ? '체계·신뢰 강점' : tier === 'mid' ? '협력 균형 좋음' : tier === 'low' ? '체계 적응 중' : '자유 자리 우선';
   return tier === 'high' ? '학습·연구 강점' : tier === 'mid' ? '꾸준히 쌓는 시기' : tier === 'low' ? '실전 함께' : '실행 우선';
@@ -312,6 +312,7 @@ export function careerForecast(myeongsik: Myeongsik, today: Date = new Date()): 
   const myIlgan = myeongsik.ilgan.c;
   if (!isStem(myIlgan)) return null;
   const seed = myeongsikSeed(myeongsik);
+  const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
   // 명식 천간 4개 (일주 천간 = 본인 제외) → 십성 분포
   const sipsungCount: Partial<Record<Sipsung, number>> = {};
@@ -342,7 +343,7 @@ export function careerForecast(myeongsik: Myeongsik, today: Date = new Date()): 
     (ilganOhaeng === 'wood' ? 5 : 0) + (ilganOhaeng === 'metal' ? 5 : 0);
 
   const adjust = (key: string, v: number) =>
-    Math.max(50, Math.min(98, v + variance(seed, key, 3)));
+    Math.max(50, Math.min(98, v + variance(seed, `${ym}_${key}`, 3)));
 
   const create = adjust('create', baseCreate);
   const biz    = adjust('biz',    baseBiz);
@@ -389,11 +390,11 @@ export function careerForecast(myeongsik: Myeongsik, today: Date = new Date()): 
       { ic: '🏛️', lbl: '조직 적합', score: org,    color: '#4A90E2', oneLine: fieldOneLine('org',    org)    },
       { ic: '📚', lbl: '학습·연구', score: study,  color: '#9D7BFF', oneLine: fieldOneLine('study',  study)  },
     ],
-    jobs: rotateBySeed(seed, 'career_jobs', jobInfo.jobs, 3),
+    jobs: rotateBySeed(seed, `${ym}_career_jobs`, jobInfo.jobs, 3),
     fit: jobInfo.fit,
     avoid: jobInfo.avoid,
     keywords: STRENGTH_KEYWORDS[dominant],
     monthFlow: MONTH_FLOW_BY_SIPSUNG[monthSipsung],
-    tips: rotateBySeed(seed, 'career_tips', CAREER_TIPS[dominant], 3),
+    tips: rotateBySeed(seed, `${ym}_career_tips`, CAREER_TIPS[dominant], 3),
   };
 }

@@ -8,7 +8,11 @@
  * - 개발/QA에서는 공식 테스트 리워드 ID(ait-ad-test-rewarded-id)를 사용해야 함
  */
 
+/** 리워드(보상형) 광고 그룹 ID — .env 의 VITE_AD_GROUP_ID */
 export const AD_GROUP_ID = import.meta.env.VITE_AD_GROUP_ID || 'TEST_AD_GROUP';
+
+/** 전면형(interstitial) 광고 그룹 ID — 리워드와 별도 발급. .env 에 VITE_INTERSTITIAL_AD_GROUP_ID 로 작성(미설정 시 빈 값 → 전면광고 비활성). */
+export const INTERSTITIAL_AD_GROUP_ID = import.meta.env.VITE_INTERSTITIAL_AD_GROUP_ID || '';
 
 const AD_ENABLED = AD_GROUP_ID !== 'TEST_AD_GROUP' && AD_GROUP_ID.length > 0;
 
@@ -158,5 +162,53 @@ export async function showRewardedAdForResult(): Promise<RewardedAdResult> {
       console.warn('[ads] reward show threw', error);
       settle('failed');
     }
+  });
+}
+
+let lastInterstitialAt = 0;
+const INTERSTITIAL_COOLDOWN_MS = 60_000;
+
+/**
+ * 전면형(interstitial) 광고 1회 노출. 비차단(fire-and-forget). 쿨다운 내 재호출은 무시.
+ * INTERSTITIAL_AD_GROUP_ID 미설정/미지원 환경에선 조용히 패스.
+ */
+export async function showInterstitialAd(): Promise<void> {
+  if (!INTERSTITIAL_AD_GROUP_ID) return;
+  const t = Date.now();
+  if (t - lastInterstitialAt < INTERSTITIAL_COOLDOWN_MS) return;
+
+  const api = await loadAdApi();
+  const loadFn = api?.loadFullScreenAd;
+  const showFn = api?.showFullScreenAd;
+  if (!isSupported(loadFn) || !isSupported(showFn)) return;
+  lastInterstitialAt = t;
+
+  const loaded = await new Promise<boolean>((resolve) => {
+    let done = false;
+    let unregister: (() => void) | undefined;
+    const fin = (ok: boolean) => { if (done) return; done = true; unregister?.(); resolve(ok); };
+    try {
+      unregister = loadFn!({
+        options: { adGroupId: INTERSTITIAL_AD_GROUP_ID },
+        onEvent: (event) => { if (event.type === 'loaded') fin(true); },
+        onError: () => fin(false),
+      });
+      setTimeout(() => fin(false), 5000);
+    } catch { fin(false); }
+  });
+  if (!loaded) return;
+
+  await new Promise<void>((resolve) => {
+    let done = false;
+    let unregister: (() => void) | undefined;
+    const fin = () => { if (done) return; done = true; unregister?.(); resolve(); };
+    try {
+      unregister = showFn!({
+        options: { adGroupId: INTERSTITIAL_AD_GROUP_ID },
+        onEvent: (event) => { if (event.type === 'dismissed' || event.type === 'failedToShow') fin(); },
+        onError: () => fin(),
+      });
+      setTimeout(fin, 60_000);
+    } catch { fin(); }
   });
 }

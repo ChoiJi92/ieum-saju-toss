@@ -14,10 +14,10 @@ import {
   HeaderPill, ActionCard, CareAction, FilterChip, ActionRow,
   circleButtonStyle, speechStyle,
 } from './v2/_kit';
-import { type Tab, type Route, type FlowScreen, FORTUNE_MENU, PAID_ROUTES, ROUTE_TITLE } from './v2/nav';
+import { type Tab, type Route, type FlowScreen, FORTUNE_MENU, REWARDED_ROUTES, INTERSTITIAL_ROUTES, ROUTE_TITLE } from './v2/nav';
 import { AppChrome } from './v2/_kit_tabbar';
 import RewardedGate from './v2/RewardedGate';
-import { hasActiveAdPass } from '../lib/ad-pass';
+import InterstitialView from './v2/InterstitialView';
 import ScreenMonth from './v2/ScreenMonth';
 import ScreenYear from './v2/ScreenYear';
 import ScreenLove from './v2/ScreenLove';
@@ -38,6 +38,8 @@ export default function V2Clone() {
   const [stacks, setStacks] = useState<Record<Tab, Route[]>>({
     home: ['home'], grow: ['grow'], collection: ['collection'], profile: ['profile'],
   });
+  const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() => new Set());
+  const unlock = (r: Route) => setAdUnlocked((s) => new Set(s).add(r));
 
   const goFlow = (s: FlowScreen) => setFlow((f) => (f ? [...f, s] : [s]));
   const enterApp = () => { setFlow(null); setTab('home'); };
@@ -77,8 +79,10 @@ export default function V2Clone() {
     case 'profile': screenEl = <ScreenProfile {...sp} />; break;
     default: screenEl = <ScreenHome {...sp} />;
   }
-  if (PAID_ROUTES.includes(route)) {
-    screenEl = <RewardedGate title={ROUTE_TITLE[route]} back={back} spirit={spirit}>{screenEl}</RewardedGate>;
+  if (REWARDED_ROUTES.includes(route)) {
+    screenEl = <RewardedGate title={ROUTE_TITLE[route]} back={back} spirit={spirit} unlocked={adUnlocked.has(route)} onUnlock={() => unlock(route)}>{screenEl}</RewardedGate>;
+  } else if (INTERSTITIAL_ROUTES.includes(route)) {
+    screenEl = <InterstitialView routeKey={route}>{screenEl}</InterstitialView>;
   }
   return <AppChrome routeKey={route} tab={tab} switchTab={switchTab}>{screenEl}</AppChrome>;
 }
@@ -373,7 +377,7 @@ function ScreenHome({ go, switchTab, spirit }: { go: (r: Route) => void; back: (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9 }}>
           {FORTUNE_MENU.map((m) => (
             <button key={m.route} onClick={() => go(m.route)} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 6px', borderRadius: 'var(--v2-r-md)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>
-              {m.route !== 'today' && !hasActiveAdPass() && <span style={{ position: 'absolute', top: 6, right: 6, fontSize: 10 }}>🔒</span>}
+              {REWARDED_ROUTES.includes(m.route) && <span style={{ position: 'absolute', top: 6, right: 6, fontSize: 10 }}>🔒</span>}
               <span style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, background: `${m.color}1f` }}>{m.ic}</span>
               <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{m.label}</span>
               <span style={{ fontSize: 9.5, color: 'var(--v2-ink-dim)' }}>{m.sub}</span>

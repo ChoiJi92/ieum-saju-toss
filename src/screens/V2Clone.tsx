@@ -413,6 +413,7 @@ function ScreenProfile({ go, spirit, resetApp }: { go: (r: Route) => void; back:
           <V2Glass onClick={() => go('personality')}>
             <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--v2-ink)' }}>{myeongsik?.ilgan.c}({ilganKr}) · {ilganElem.cn}{ilganElem.ko} 일간</div>
             <div style={{ fontSize: 12.5, color: 'var(--v2-ink-mid)', marginTop: 5, lineHeight: 1.55 }}>{card.identity}</div>
+            <div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginTop: 9, lineHeight: 1.5, background: 'rgba(183,156,255,.08)', borderRadius: 10, padding: '8px 10px' }}>✦ 정령 계열 <b style={{ color: spirit.elem.raw }}>{spirit.line}</b>은(는) 사주에서 가장 많은 기운이 아니라, ‘나’를 뜻하는 <b style={{ color: 'var(--v2-lavender)' }}>일간({ilganElem.ko})</b> 기준으로 정해져요.</div>
             <div style={{ fontSize: 11, color: 'var(--v2-lavender)', marginTop: 9, fontWeight: 700 }}>성격 분석 자세히 ›</div>
           </V2Glass>
         </>
@@ -568,6 +569,13 @@ function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; swit
             <SpiritSlot spirit={spirit} size={198 + (stage - 1) * 14} tag={false} stage={stage} />
           </div>
           {gain !== null && <div key={`g${pulseKey}`} style={{ position: 'absolute', top: 36, left: '50%', fontSize: 22, fontWeight: 900, color: 'var(--v2-mint)', textShadow: '0 0 12px var(--v2-mint)', animation: 'v2-float-up .95s ease forwards', pointerEvents: 'none' }}>+{gain}</div>}
+          {pulseKey > 0 && (
+            <div key={`burst${pulseKey}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+              {([['38%', '28%'], ['62%', '32%'], ['28%', '54%'], ['70%', '56%'], ['50%', '20%'], ['46%', '72%']] as const).map(([top, left], i) => (
+                <span key={i} style={{ position: 'absolute', top, left, fontSize: 13, color: spirit.rarity.raw, textShadow: `0 0 8px ${spirit.rarity.raw}`, animation: `v2-spark .7s ease ${i * 40}ms forwards` }}>✦</span>
+              ))}
+            </div>
+          )}
         </div>
       </div></Rise>
       <Rise delay={100}>{canEvolve
@@ -596,6 +604,9 @@ function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; swit
       {evolving && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16,11,28,.82)' }}>
           <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 42%, ${spirit.elem.raw}66, transparent 60%)`, animation: 'v2-flash 1.5s ease forwards', pointerEvents: 'none' }} />
+          {[0, 320, 640].map((d, i) => (
+            <div key={i} style={{ position: 'absolute', top: '42%', left: '50%', width: 130, height: 130, borderRadius: '50%', border: `2px solid ${spirit.elem.raw}`, animation: `v2-ring 1.4s ease ${d}ms forwards`, pointerEvents: 'none' }} />
+          ))}
           <div style={{ textAlign: 'center', position: 'relative' }}>
             <div style={{ animation: 'v2-evolve-in 1.2s cubic-bezier(.2,.9,.3,1)' }}>
               <SpiritSlot spirit={spirit} size={230} tag={false} stage={nextStage} floating={false} />

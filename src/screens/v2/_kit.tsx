@@ -175,8 +175,8 @@ export function BondMeter({ value = 64, max = 100, label = '교감', color = 'va
             width: `${(value / max) * 100}%`,
             height: '100%',
             borderRadius: 999,
-            background: `linear-gradient(90deg, ${color}bb, ${color})`,
-            boxShadow: `0 0 10px ${color}99`,
+            background: `linear-gradient(90deg, ${color}, var(--v2-peach))`,
+            boxShadow: `0 0 10px ${color}`,
             transition: 'width .5s cubic-bezier(.3,.9,.3,1)',
           }}
         />

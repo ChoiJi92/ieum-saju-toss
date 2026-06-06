@@ -552,8 +552,9 @@ function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; swit
   const [pulseKey, setPulseKey] = useState(0);
   const [gain, setGain] = useState<number | null>(null);
   const [evolving, setEvolving] = useState(false);
+  const [burstIcon, setBurstIcon] = useState('✦');
   const scrollTop = () => { (anchorRef.current?.closest('.ie-scroll') as HTMLElement | null)?.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const care = (amt: number) => { scrollTop(); bondUp(spirit.key, amt); setGain(amt); setPulseKey((k) => k + 1); window.setTimeout(() => setGain(null), 950); };
+  const care = (amt: number, icon: string) => { scrollTop(); bondUp(spirit.key, amt); setGain(amt); setBurstIcon(icon); setPulseKey((k) => k + 1); window.setTimeout(() => setGain(null), 950); };
   const doEvolve = () => { scrollTop(); setEvolving(true); window.setTimeout(() => { evolve(spirit.key); setEvolving(false); }, 1500); };
   return (
     <V2Screen seed={15} style={{ paddingBottom: 0 }}>
@@ -571,8 +572,11 @@ function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; swit
           {gain !== null && <div key={`g${pulseKey}`} style={{ position: 'absolute', top: 36, left: '50%', fontSize: 22, fontWeight: 900, color: 'var(--v2-mint)', textShadow: '0 0 12px var(--v2-mint)', animation: 'v2-float-up .95s ease forwards', pointerEvents: 'none' }}>+{gain}</div>}
           {pulseKey > 0 && (
             <div key={`burst${pulseKey}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-              {([['38%', '28%'], ['62%', '32%'], ['28%', '54%'], ['70%', '56%'], ['50%', '20%'], ['46%', '72%']] as const).map(([top, left], i) => (
-                <span key={i} style={{ position: 'absolute', top, left, fontSize: 13, color: spirit.rarity.raw, textShadow: `0 0 8px ${spirit.rarity.raw}`, animation: `v2-spark .7s ease ${i * 40}ms forwards` }}>✦</span>
+              {(['42%', '50%', '58%'] as const).map((left, i) => (
+                <span key={`f${i}`} style={{ position: 'absolute', bottom: '40%', left, fontSize: 22, filter: 'drop-shadow(0 0 6px rgba(255,255,255,.5))', animation: `v2-float-up 1s ease ${i * 120}ms forwards` }}>{burstIcon}</span>
+              ))}
+              {([['36%', '26%'], ['64%', '30%'], ['26%', '52%'], ['72%', '56%'], ['48%', '18%'], ['54%', '70%']] as const).map(([top, left], i) => (
+                <span key={`s${i}`} style={{ position: 'absolute', top, left, fontSize: 13, color: spirit.rarity.raw, textShadow: `0 0 8px ${spirit.rarity.raw}`, animation: `v2-spark .7s ease ${i * 40}ms forwards` }}>✦</span>
               ))}
             </div>
           )}
@@ -596,9 +600,9 @@ function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; swit
         );
       })}</div></Rise>
       <Rise delay={260}><V2Label>오늘의 교감</V2Label><div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <CareAction onClick={() => care(25)} ic="🍃" title="기운 먹이주기" sub="오행의 기운을 나눠줘요" amt="+25" color="var(--v2-mint)" />
-        <CareAction onClick={() => care(20)} ic="✨" title="쓰다듬기" sub="정령과 눈을 맞춰요" amt="+20" color="var(--v2-peach)" />
-        <CareAction onClick={() => care(30)} ic="☾" title="함께 명상하기" sub="고요히 기운을 모아요" amt="+30" color="var(--v2-lavender)" />
+        <CareAction onClick={() => care(25, '🍃')} ic="🍃" title="기운 먹이주기" sub="오행의 기운을 나눠줘요" amt="+25" color="var(--v2-mint)" />
+        <CareAction onClick={() => care(20, '💗')} ic="💗" title="쓰다듬기" sub="정령과 눈을 맞춰요" amt="+20" color="var(--v2-peach)" />
+        <CareAction onClick={() => care(30, '🌙')} ic="🌙" title="함께 명상하기" sub="고요히 기운을 모아요" amt="+30" color="var(--v2-lavender)" />
       </div></Rise>
       <div style={{ height: 96 }} />
       {evolving && (

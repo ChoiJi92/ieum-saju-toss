@@ -69,7 +69,7 @@ export async function preloadRewardedAdForResult() {
     };
 
     try {
-      unregister = loadFn({
+      unregister = loadFn!({
         options: { adGroupId: AD_GROUP_ID },
         onEvent: (event) => {
           if (event.type === 'loaded') {
@@ -126,7 +126,7 @@ export async function showRewardedAdForResult(): Promise<RewardedAdResult> {
     };
 
     try {
-      unregister = showFn({
+      unregister = showFn!({
         options: { adGroupId: AD_GROUP_ID },
         onEvent: (event) => {
           switch (event.type) {

@@ -16,6 +16,13 @@ export type Route =
 /** 탭 진입 전 온보딩 플로우 (탭 바깥) */
 export type FlowScreen = 'onboarding' | 'input' | 'reveal';
 
+/** 리워드 광고 게이트 대상(오늘 제외 프리미엄 운세) */
+export const PAID_ROUTES: Route[] = ['month', 'year', 'love', 'money', 'career', 'health', 'gunghap', 'sinsal', 'personality'];
+export const ROUTE_TITLE: Record<string, string> = {
+  month: '이달의 운세', year: '올해의 운세', love: '연애운', money: '금전운', career: '직업운',
+  health: '건강운', gunghap: '궁합', sinsal: '신살', personality: '성격 분석',
+};
+
 /** 홈 "운세 더보기" 그리드 항목 (다음 태스크에서 사용) */
 export const FORTUNE_MENU: { route: Route; ic: string; label: string; sub: string; color: string }[] = [
   { route: 'today', ic: '☀', label: '오늘의 운세', sub: '하루 흐름', color: 'var(--v2-lavender)' },

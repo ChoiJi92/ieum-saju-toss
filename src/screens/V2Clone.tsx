@@ -14,8 +14,10 @@ import {
   HeaderPill, ActionCard, CareAction, FilterChip, ActionRow,
   circleButtonStyle, speechStyle,
 } from './v2/_kit';
-import { type Tab, type Route, type FlowScreen, FORTUNE_MENU } from './v2/nav';
+import { type Tab, type Route, type FlowScreen, FORTUNE_MENU, PAID_ROUTES, ROUTE_TITLE } from './v2/nav';
 import { AppChrome } from './v2/_kit_tabbar';
+import RewardedGate from './v2/RewardedGate';
+import { hasActiveAdPass } from '../lib/ad-pass';
 import ScreenMonth from './v2/ScreenMonth';
 import ScreenYear from './v2/ScreenYear';
 import ScreenLove from './v2/ScreenLove';
@@ -74,6 +76,9 @@ export default function V2Clone() {
     case 'collection': screenEl = <ScreenCollection {...sp} />; break;
     case 'profile': screenEl = <ScreenProfile {...sp} />; break;
     default: screenEl = <ScreenHome {...sp} />;
+  }
+  if (PAID_ROUTES.includes(route)) {
+    screenEl = <RewardedGate title={ROUTE_TITLE[route]} back={back} spirit={spirit}>{screenEl}</RewardedGate>;
   }
   return <AppChrome routeKey={route} tab={tab} switchTab={switchTab}>{screenEl}</AppChrome>;
 }
@@ -367,7 +372,8 @@ function ScreenHome({ go, switchTab, spirit }: { go: (r: Route) => void; back: (
         <V2Label>운세 더보기</V2Label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9 }}>
           {FORTUNE_MENU.map((m) => (
-            <button key={m.route} onClick={() => go(m.route)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 6px', borderRadius: 'var(--v2-r-md)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>
+            <button key={m.route} onClick={() => go(m.route)} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 6px', borderRadius: 'var(--v2-r-md)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>
+              {m.route !== 'today' && !hasActiveAdPass() && <span style={{ position: 'absolute', top: 6, right: 6, fontSize: 10 }}>🔒</span>}
               <span style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, background: `${m.color}1f` }}>{m.ic}</span>
               <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{m.label}</span>
               <span style={{ fontSize: 9.5, color: 'var(--v2-ink-dim)' }}>{m.sub}</span>

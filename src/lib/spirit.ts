@@ -54,11 +54,11 @@ export const RARITY = {
 /** 표시 단계 → 한글 라벨 (이미지 파일명 규칙과 일치) */
 export const STAGE_LABEL: Record<Stage, string> = { 1: '아기', 2: '어린', 3: '성체', 4: '영험' };
 
-/** 이미지 보유 조합 (계열별 보유 띠). 누끼 완료분 = 새싹/노을 전 띠, 언덕 쥐만. */
+/** 이미지 보유 조합 (계열별 보유 띠). 누끼 완료분 = 새싹/노을/언덕 전 띠. 달빛/이슬 미생성. */
 const AVAILABLE: Partial<Record<ElementKey, ZodiacKey[]>> = {
   wood: [...ZOD_ORDER],
   fire: [...ZOD_ORDER],
-  earth: ['rat'],
+  earth: [...ZOD_ORDER],
 };
 
 /** 년주 지지 한자(子..亥) → ZodiacKey */

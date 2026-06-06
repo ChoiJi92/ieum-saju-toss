@@ -53,9 +53,9 @@ export function V2TopBar({ onBack, title = '', right = null }: { onBack?: () => 
         minHeight: 52,
         paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
         paddingBottom: 10,
-        background: 'linear-gradient(180deg, rgba(20,14,34,.96) 0%, rgba(20,14,34,.72) 70%, transparent)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
+        background: 'transparent',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
       }}
     >
       <div style={{ width: 44 }}>

@@ -11,7 +11,8 @@ export const TABS: { key: Tab; ic: string; label: string }[] = [
 export type Route =
   | Tab
   | 'today' | 'month' | 'year' | 'love' | 'money' | 'career' | 'health'
-  | 'gunghap' | 'sinsal' | 'personality';
+  | 'gunghap' | 'sinsal' | 'personality'
+  | 'profiles' | 'addProfile' | 'terms' | 'privacy';
 
 /** 탭 진입 전 온보딩 플로우 (탭 바깥) */
 export type FlowScreen = 'onboarding' | 'input' | 'reveal';

@@ -27,10 +27,13 @@ import ScreenHealth from './v2/ScreenHealth';
 import ScreenGunghap from './v2/ScreenGunghap';
 import ScreenPersonality from './v2/ScreenPersonality';
 import ScreenSinsal from './v2/ScreenSinsal';
+import ScreenProfiles from './v2/ScreenProfiles';
+import ScreenAddProfile from './v2/ScreenAddProfile';
+import ScreenLegal from './v2/ScreenLegal';
 
 
 export default function V2Clone() {
-  const { myeongsik } = useSaju();
+  const { myeongsik, reset } = useSaju();
   const spirit = useMemo(() => spiritFromMyeongsik(myeongsik), [myeongsik]);
 
   const [flow, setFlow] = useState<FlowScreen[] | null>(myeongsik ? null : ['onboarding']);
@@ -40,6 +43,15 @@ export default function V2Clone() {
   });
   const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() => new Set());
   const unlock = (r: Route) => setAdUnlocked((s) => new Set(s).add(r));
+
+  const resetApp = () => {
+    reset();
+    try { localStorage.removeItem('ieum-saju.spirit.v2'); } catch { /* ignore */ }
+    setAdUnlocked(new Set());
+    setStacks({ home: ['home'], grow: ['grow'], collection: ['collection'], profile: ['profile'] });
+    setTab('home');
+    setFlow(['onboarding']);
+  };
 
   const goFlow = (s: FlowScreen) => setFlow((f) => (f ? [...f, s] : [s]));
   const enterApp = () => { setFlow(null); setTab('home'); };
@@ -61,7 +73,7 @@ export default function V2Clone() {
 
   // 2) 탭 앱 — 활성 탭 스택 top 라우트를 AppChrome(고정 탭바)로 감싸 렌더
   const route = stacks[tab][stacks[tab].length - 1];
-  const sp = { go, back, switchTab, spirit, tab };
+  const sp = { go, back, switchTab, spirit, tab, resetApp };
   let screenEl: React.ReactNode;
   switch (route) {
     case 'today': screenEl = <ScreenToday {...sp} />; break;
@@ -77,6 +89,10 @@ export default function V2Clone() {
     case 'grow': screenEl = <ScreenGrow {...sp} />; break;
     case 'collection': screenEl = <ScreenCollection {...sp} />; break;
     case 'profile': screenEl = <ScreenProfile {...sp} />; break;
+    case 'profiles': screenEl = <ScreenProfiles {...sp} />; break;
+    case 'addProfile': screenEl = <ScreenAddProfile {...sp} />; break;
+    case 'terms': screenEl = <ScreenLegal kind="terms" {...sp} />; break;
+    case 'privacy': screenEl = <ScreenLegal kind="privacy" {...sp} />; break;
     default: screenEl = <ScreenHome {...sp} />;
   }
   if (REWARDED_ROUTES.includes(route)) {
@@ -312,17 +328,19 @@ function RevealCaption({ cap, title, color = 'var(--v2-lavender)' }: { cap: stri
   );
 }
 
-function ScreenProfile({ go, back, switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
-  const { myeongsik } = useSaju();
+function ScreenProfile({ go, spirit, resetApp }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab; resetApp: () => void }) {
+  const { myeongsik, profile, profiles } = useSaju();
+  const [confirmReset, setConfirmReset] = useState(false);
   const LABEL: Record<string, string> = { 연주: '年', 월주: '月', 일주: '日', 시주: '時' };
   const cols = (myeongsik?.pillars ?? []).map((p) => ({
     l: LABEL[p.label] ?? p.label.slice(0, 1),
     top: p.top.c, bot: p.bot.c, color: ELEMENTS[p.top.ohaeng].raw, isSelf: p.isSelf,
   }));
+  const rowBtn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 15px', borderRadius: 'var(--v2-r-md)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)', textAlign: 'left', width: '100%' };
   return (
     <V2Screen seed={9}>
-      <V2TopBar onBack={back} title="정령 프로필" />
-      <Rise><SpiritSlot spirit={spirit} size={230} stage={1} /></Rise>
+      <V2TopBar title="내 정보" />
+      <Rise><SpiritSlot spirit={spirit} size={210} stage={1} /></Rise>
       <Rise delay={120}>
         <V2Glass glow="0 0 28px rgba(183,156,255,.2)" style={{ textAlign: 'center' }}>
           <div className="v2-cap" style={{ color: spirit.elem.raw }}>{spirit.formula}</div>
@@ -338,25 +356,48 @@ function ScreenProfile({ go, back, switchTab, spirit }: { go: (r: Route) => void
           {cols.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--v2-ink-dim)', fontSize: 13, padding: 12 }}>사주 정보를 입력하면 명식이 나타나요</div>}
         </div>
       </V2Glass>
-      <div style={{ marginTop: 22 }}><V2Button onClick={() => switchTab('home')}>홈으로 가기 ✦</V2Button></div>
+      <V2Label>사주</V2Label>
+      <ActionRow ic="🔮" label="다른 사주 보기" sub={`현재: ${profile?.name ?? '나'} · 총 ${profiles.length}명`} onClick={() => go('profiles')} />
       <V2Label>더 알아보기</V2Label>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         <ActionRow ic="🪞" label="성격 분석" sub="일간으로 보는 나" onClick={() => go('personality')} />
         <ActionRow ic="🔮" label="신살" sub="8가지 특별한 기운" onClick={() => go('sinsal')} />
       </div>
+      <V2Label>설정</V2Label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <ActionRow ic="📋" label="서비스 이용약관" sub="" onClick={() => go('terms')} />
+        <ActionRow ic="🔒" label="개인정보 처리방침" sub="" onClick={() => go('privacy')} />
+        {!confirmReset ? (
+          <button onClick={() => setConfirmReset(true)} style={rowBtn}>
+            <span style={{ fontSize: 20 }}>🚪</span>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--v2-rose)' }}>회원 탈퇴 · 정보 초기화</div><div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)' }}>입력한 모든 사주·정령 데이터 삭제</div></div>
+            <span style={{ color: 'var(--v2-ink-dim)' }}>›</span>
+          </button>
+        ) : (
+          <V2Glass style={{ border: '1px solid var(--v2-rose)' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--v2-ink)', marginBottom: 4 }}>정말 초기화할까요?</div>
+            <div style={{ fontSize: 12, color: 'var(--v2-ink-dim)', lineHeight: 1.5, marginBottom: 12 }}>입력한 사주와 정령·도감 데이터가 모두 삭제되고 처음 화면으로 돌아가요.</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}><V2Button kind="glass" onClick={() => setConfirmReset(false)}>취소</V2Button></div>
+              <div style={{ flex: 1 }}><V2Button onClick={resetApp} style={{ background: 'var(--v2-rose)', color: '#1b1230' }}>탈퇴하기</V2Button></div>
+            </div>
+          </V2Glass>
+        )}
+      </div>
+      <div style={{ textAlign: 'center', marginTop: 18, fontSize: 11, color: 'var(--v2-ink-mute)' }}>이음사주 v2</div>
       <div style={{ height: 96 }} />
     </V2Screen>
   );
 }
 
 function ScreenHome({ go, switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
-  const { myeongsik, selfProfile } = useSaju();
+  const { myeongsik, profile } = useSaju();
   const fortune = myeongsik ? todayFortune(myeongsik) : null;
   const { progressOf } = useSpiritState();
   const prog = progressOf(spirit.key);
   const now = new Date();
   const dateLabel = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
-  const name = selfProfile?.name ?? '나';
+  const name = profile?.name ?? '나';
   return (
     <V2Screen seed={11} style={{ paddingBottom: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 58 }}>
@@ -436,7 +477,7 @@ function ScreenToday({ back, switchTab, spirit }: { go: (r: Route) => void; back
   );
 }
 
-function ScreenGrow({ back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { progressOf, bondUp, evolve } = useSpiritState();
   const prog = progressOf(spirit.key);
   const stage = prog.stage;
@@ -446,7 +487,7 @@ function ScreenGrow({ back, spirit }: { go: (r: Route) => void; back: () => void
   const nextKo = stage < 4 ? STAGE_KO[stage + 1] : '';
   return (
     <V2Screen seed={15} style={{ paddingBottom: 0 }}>
-      <V2TopBar onBack={back} title="키우기" />
+      <V2TopBar title="키우기" />
       <Rise><div style={{ textAlign: 'center', position: 'relative' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 999, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', marginBottom: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)' }}>Lv.{4 + stage}</span>
@@ -484,7 +525,7 @@ function ScreenGrow({ back, spirit }: { go: (r: Route) => void; back: () => void
   );
 }
 
-function ScreenCollection({ back, switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+function ScreenCollection({ switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profiles } = useSaju();
   const [filter, setFilter] = useState<ElementKey | 'all'>('all');
   const unlocked = useMemo(() => {
@@ -501,7 +542,7 @@ function ScreenCollection({ back, switchTab, spirit }: { go: (r: Route) => void;
   const ownedCount = unlocked.size;
   return (
     <V2Screen seed={17} style={{ paddingBottom: 0 }}>
-      <V2TopBar onBack={back} title="정령 도감" />
+      <V2TopBar title="정령 도감" />
       <Rise><V2Glass style={{ display: 'flex', alignItems: 'center', gap: 14 }} glow="0 0 24px rgba(255,210,122,.16)"><ScoreRing score={Math.round((ownedCount / 60) * 100)} color="var(--v2-butter)" /><div style={{ flex: 1 }}><div style={{ fontSize: 15, fontWeight: 800 }}>{ownedCount}종의 정령을 만났어요</div><div style={{ fontSize: 12, color: 'var(--v2-ink-dim)', marginTop: 3, lineHeight: 1.5 }}>궁합으로 다른 사람의 사주를 풀면 그 정령이 도감에 담겨요 ✦</div></div></V2Glass></Rise>
       <Rise delay={80}><div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '18px 0 14px' }} className="ie-scroll"><FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label="전체" color="var(--v2-lavender)" />{ELEM_ORDER.map((ek) => <FilterChip key={ek} active={filter === ek} onClick={() => setFilter(ek)} label={`${ELEMENTS[ek].cn} ${ELEMENTS[ek].ko}`} color={ELEMENTS[ek].raw} />)}</div></Rise>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got && switchTab('profile')} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: c.got ? 'pointer' : 'default', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5) }}>

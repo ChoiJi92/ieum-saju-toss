@@ -112,7 +112,7 @@ export default function ScreenAddProfile() {
       day: parseInt(day, 10),
       calendar,
       leapMonth: calendar === 'lunar' ? leapMonth : false,
-      hour: unknownTime ? undefined : SIJIN_HOUR[sijin],
+      hour: unknownTime ? undefined : SIJIN_HOUR[sijin as keyof typeof SIJIN_HOUR],
       minute: 0,
       gender,
     };

@@ -189,7 +189,7 @@ function oneLineForField(
 /** 분야별 풍부 풀이 (3~4줄) — 십성 dominant + 평균 점수 기반 */
 function fieldBody(
   field: 'love' | 'money' | 'career' | 'health',
-  dominant: Sipsung,
+  _dominant: Sipsung,
   bestMonth: number,
   worstMonth: number,
   avg: number

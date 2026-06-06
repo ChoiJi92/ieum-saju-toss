@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
-import { computeMyeongsik } from '../lib/saju';
+import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune } from '../lib/today';
 import {
   ELEMENTS, ELEM_ORDER, ZOD_ORDER,
@@ -334,7 +334,7 @@ function ScreenProfile({ go, spirit, resetApp }: { go: (r: Route) => void; back:
   const LABEL: Record<string, string> = { 연주: '年', 월주: '月', 일주: '日', 시주: '時' };
   const cols = (myeongsik?.pillars ?? []).map((p) => ({
     l: LABEL[p.label] ?? p.label.slice(0, 1),
-    top: p.top.c, bot: p.bot.c, color: ELEMENTS[p.top.ohaeng].raw, isSelf: p.isSelf,
+    top: p.top.c, bot: p.bot.c, topKr: TG_KR[p.top.c] ?? '', botKr: DZ_KR[p.bot.c] ?? '', color: ELEMENTS[p.top.ohaeng].raw, isSelf: p.isSelf,
   }));
   const rowBtn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 15px', borderRadius: 'var(--v2-r-md)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)', textAlign: 'left', width: '100%' };
   return (
@@ -352,7 +352,7 @@ function ScreenProfile({ go, spirit, resetApp }: { go: (r: Route) => void; back:
       <V2Label>명식의 결</V2Label>
       <V2Glass>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(cols.length, 1)},1fr)`, gap: 8 }}>
-          {cols.map((c, i) => <div key={i} style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: c.isSelf ? 'var(--v2-lavender)' : 'var(--v2-ink-dim)', fontWeight: 800 }}>{c.l}</div><div className="v2-serif" style={{ padding: '10px 0', borderRadius: '14px 14px 6px 6px', background: `${c.color}22`, color: c.color, fontSize: 24, fontWeight: 800 }}>{c.top}</div><div className="v2-serif" style={{ padding: '10px 0', marginTop: 3, borderRadius: '6px 6px 14px 14px', background: `${c.color}15`, color: c.color, fontSize: 24, fontWeight: 800 }}>{c.bot}</div></div>)}
+          {cols.map((c, i) => <div key={i} style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: c.isSelf ? 'var(--v2-lavender)' : 'var(--v2-ink-dim)', fontWeight: 800 }}>{c.l}</div><div className="v2-serif" style={{ padding: '9px 0 5px', borderRadius: '14px 14px 6px 6px', background: `${c.color}22`, color: c.color, fontSize: 23, fontWeight: 800, lineHeight: 1.05 }}>{c.top}<div style={{ fontSize: 9.5, fontWeight: 700, fontFamily: 'var(--v2-font)', color: 'var(--v2-ink-dim)', marginTop: 2 }}>{c.topKr}</div></div><div className="v2-serif" style={{ padding: '9px 0 5px', marginTop: 3, borderRadius: '6px 6px 14px 14px', background: `${c.color}15`, color: c.color, fontSize: 23, fontWeight: 800, lineHeight: 1.05 }}>{c.bot}<div style={{ fontSize: 9.5, fontWeight: 700, fontFamily: 'var(--v2-font)', color: 'var(--v2-ink-dim)', marginTop: 2 }}>{c.botKr}</div></div></div>)}
           {cols.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--v2-ink-dim)', fontSize: 13, padding: 12 }}>사주 정보를 입력하면 명식이 나타나요</div>}
         </div>
       </V2Glass>
@@ -467,7 +467,7 @@ function ScreenToday({ back, switchTab, spirit }: { go: (r: Route) => void; back
   return (
     <V2Screen seed={13} style={{ paddingBottom: 0 }}>
       <V2TopBar onBack={back} title="오늘의 운세" right={<button style={circleButtonStyle}>↗</button>} />
-      <Rise><div style={{ textAlign: 'center' }}><div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>{dateLabel} · {myeongsik?.ilgan.c}일</div><SpiritSlot spirit={spirit} size={172} tag={false} /><h1 className="v2-hero" style={{ margin: '2px 0 0' }}>{fortune.mood}</h1></div></Rise>
+      <Rise><div style={{ textAlign: 'center' }}><div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>{dateLabel} · {myeongsik?.ilgan.c}{myeongsik ? `(${TG_KR[myeongsik.ilgan.c]})` : ''}일</div><SpiritSlot spirit={spirit} size={172} tag={false} /><h1 className="v2-hero" style={{ margin: '2px 0 0' }}>{fortune.mood}</h1></div></Rise>
       <Rise delay={120}><div style={speechStyle}><div style={{ fontSize: 11, color: 'var(--v2-lavender)', fontWeight: 800, marginBottom: 6 }}>{spirit.name}의 한 마디</div><div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.55 }}>{fortune.oneLine}</div></div></Rise>
       <Rise delay={200}><div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}><ScoreRing score={ring} color="var(--v2-lavender)" /><div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{dims.map(([l, v, c, ic]) => <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 14, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}><span style={{ color: c, fontSize: 14, fontWeight: 800, width: 16 }}>{ic}</span><span style={{ fontSize: 11, color: 'var(--v2-ink-dim)', flex: 1 }}>{l}</span><span style={{ fontSize: 14, fontWeight: 800 }}>{v}</span></div>)}</div></div></Rise>
       <Rise delay={280}><V2Label>오늘의 풀이</V2Label><div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{bodies.map(([l, body]) => <V2Glass key={l}><div style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', marginBottom: 6 }}>{l}</div><div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--v2-ink-mid)' }}>{body}</div></V2Glass>)}</div></Rise>

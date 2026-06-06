@@ -572,11 +572,11 @@ function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; swit
           {gain !== null && <div key={`g${pulseKey}`} style={{ position: 'absolute', top: 36, left: '50%', fontSize: 22, fontWeight: 900, color: 'var(--v2-mint)', textShadow: '0 0 12px var(--v2-mint)', animation: 'v2-float-up .95s ease forwards', pointerEvents: 'none' }}>+{gain}</div>}
           {pulseKey > 0 && (
             <div key={`burst${pulseKey}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-              {(['42%', '50%', '58%'] as const).map((left, i) => (
-                <span key={`f${i}`} style={{ position: 'absolute', bottom: '40%', left, fontSize: 22, filter: 'drop-shadow(0 0 6px rgba(255,255,255,.5))', animation: `v2-float-up 1s ease ${i * 120}ms forwards` }}>{burstIcon}</span>
+              {(['16%', '84%'] as const).map((left, i) => (
+                <span key={`f${i}`} style={{ position: 'absolute', bottom: '28%', left, fontSize: 24, filter: 'drop-shadow(0 0 7px rgba(255,255,255,.55))', animation: `v2-float-up 1.1s ease ${i * 150}ms forwards` }}>{burstIcon}</span>
               ))}
-              {([['36%', '26%'], ['64%', '30%'], ['26%', '52%'], ['72%', '56%'], ['48%', '18%'], ['54%', '70%']] as const).map(([top, left], i) => (
-                <span key={`s${i}`} style={{ position: 'absolute', top, left, fontSize: 13, color: spirit.rarity.raw, textShadow: `0 0 8px ${spirit.rarity.raw}`, animation: `v2-spark .7s ease ${i * 40}ms forwards` }}>✦</span>
+              {([['12%', '14%'], ['12%', '84%'], ['48%', '4%'], ['48%', '94%'], ['86%', '20%'], ['86%', '80%']] as const).map(([top, left], i) => (
+                <span key={`s${i}`} style={{ position: 'absolute', top, left, fontSize: 12, color: spirit.rarity.raw, textShadow: `0 0 8px ${spirit.rarity.raw}`, animation: `v2-spark .8s ease ${i * 50}ms forwards` }}>✦</span>
               ))}
             </div>
           )}

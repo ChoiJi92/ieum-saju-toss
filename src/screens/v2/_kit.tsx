@@ -174,20 +174,24 @@ export function RarityStars({ rarity, showLabel = true }: { rarity: Spirit['rari
   );
 }
 
-export function BondMeter({ value = 64, max = 100, label = '교감', color = 'var(--v2-lavender)', sub }: { value?: number; max?: number; label?: string; color?: string; sub?: string }) {
+export function BondMeter({ value = 64, max = 100, label = '교감', color = 'var(--v2-lavender)', sub, percent }: { value?: number; max?: number; label?: string; color?: string; sub?: string; percent?: number }) {
+  const pct = percent != null ? Math.max(0, Math.min(100, percent)) : (value / max) * 100;
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--v2-ink-mid)' }}>{label}</span>
         <span style={{ fontSize: 13, fontWeight: 800, color, fontVariantNumeric: 'tabular-nums' }}>
-          {value}
-          <span style={{ color: 'var(--v2-ink-mute)', fontWeight: 600, fontSize: 11 }}>/{max}</span>
+          {percent != null ? (
+            <>{Math.round(pct)}<span style={{ color: 'var(--v2-ink-mute)', fontWeight: 600, fontSize: 11 }}>%</span></>
+          ) : (
+            <>{value}<span style={{ color: 'var(--v2-ink-mute)', fontWeight: 600, fontSize: 11 }}>/{max}</span></>
+          )}
         </span>
       </div>
       <div style={{ height: 7, borderRadius: 999, background: 'rgba(255,255,255,.08)', overflow: 'hidden' }}>
         <div
           style={{
-            width: `${(value / max) * 100}%`,
+            width: `${pct}%`,
             height: '100%',
             borderRadius: 999,
             background: `linear-gradient(90deg, ${color}, var(--v2-peach))`,

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
+import { showRewardedAdForResult } from '../lib/ads';
+import { ACTION_GAIN, AD_GAIN, DAILY_CAP } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune } from '../lib/today';
 import {
@@ -498,6 +500,8 @@ function ScreenFortunes({ go, back }: { go: (r: Route) => void; back: () => void
 
 function ScreenToday({ back, switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { myeongsik } = useSaju();
+  const { claimBonus } = useSpiritState();
+  const [bonusMsg, setBonusMsg] = useState<string | null>(null);
   const fortune = myeongsik ? todayFortune(myeongsik) : null;
   const now = new Date();
   const dateLabel = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
@@ -518,6 +522,14 @@ function ScreenToday({ back, switchTab, spirit }: { go: (r: Route) => void; back
       ] as const)
     : [];
 
+  // 앱활동 보너스 — 오늘의 운세 확인 1회(멱등)
+  useEffect(() => {
+    if (!fortune) return;
+    const r = claimBonus(spirit.key, 'fortune');
+    if (r.ok && r.gained > 0) { setBonusMsg(`+${r.gained} 교감 ✦`); const t = window.setTimeout(() => setBonusMsg(null), 2200); return () => window.clearTimeout(t); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spirit.key]);
+
   if (!fortune) {
     return (
       <V2Screen seed={13} style={{ paddingBottom: 0 }}>
@@ -532,6 +544,7 @@ function ScreenToday({ back, switchTab, spirit }: { go: (r: Route) => void; back
   return (
     <V2Screen seed={13} style={{ paddingBottom: 0 }}>
       <V2TopBar onBack={back} title="오늘의 운세" right={<button style={circleButtonStyle}>↗</button>} />
+      {bonusMsg && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(91,217,172,.16)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🎁 {bonusMsg}</div>}
       <Rise><div style={{ textAlign: 'center' }}><div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>{dateLabel} · {myeongsik?.ilgan.c}{myeongsik ? `(${TG_KR[myeongsik.ilgan.c]})` : ''}일</div><SpiritSlot spirit={spirit} size={172} tag={false} /><h1 className="v2-hero" style={{ margin: '2px 0 0' }}>{fortune.mood}</h1></div></Rise>
       <Rise delay={120}><div style={speechStyle}><div style={{ fontSize: 11, color: 'var(--v2-lavender)', fontWeight: 800, marginBottom: 6 }}>{spirit.name}의 한 마디</div><div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.55 }}>{fortune.oneLine}</div></div></Rise>
       <Rise delay={200}><div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}><ScoreRing score={ring} color="var(--v2-lavender)" /><div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{dims.map(([l, v, c, ic]) => <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 14, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}><span style={{ color: c, fontSize: 14, fontWeight: 800, width: 16 }}>{ic}</span><span style={{ fontSize: 11, color: 'var(--v2-ink-dim)', flex: 1 }}>{l}</span><span style={{ fontSize: 14, fontWeight: 800 }}>{v}</span></div>)}</div></div></Rise>
@@ -545,11 +558,12 @@ function ScreenToday({ back, switchTab, spirit }: { go: (r: Route) => void; back
 function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profile } = useSaju();
   const name = profile?.name ?? '나';
-  const { progressOf, bondUp, evolve } = useSpiritState();
+  const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, evolve, remaining } = useSpiritState();
   const prog = progressOf(spirit.key);
   const stage = prog.stage;
-  const bond = prog.bond;
-  const canEvolve = bond >= 100 && stage < 4;
+  const pct = percent(spirit.key);
+  const rem = remaining(spirit.key);
+  const canEvolve = stage < 4 && prog.bond >= thresholdOf(stage);
   const STAGE_KO = ['', '아기 정령', '어린 정령', '성체 정령', '영험한 정령'];
   const nextKo = stage < 4 ? STAGE_KO[stage + 1] : '';
   const nextStage = Math.min(4, stage + 1) as Stage;
@@ -558,9 +572,29 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   const [gain, setGain] = useState<number | null>(null);
   const [evolving, setEvolving] = useState(false);
   const [burstIcon, setBurstIcon] = useState('✦');
+  const [adLoading, setAdLoading] = useState(false);
+  const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const canBypass = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false' && isLocalhost;
   const scrollTop = () => { (anchorRef.current?.closest('.ie-scroll') as HTMLElement | null)?.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const care = (amt: number, icon: string) => { bondUp(spirit.key, amt); setGain(amt); setBurstIcon(icon); setPulseKey((k) => k + 1); window.setTimeout(() => setGain(null), 1800); };
+  const playFx = (gained: number, icon: string) => { setGain(gained); setBurstIcon(icon); setPulseKey((k) => k + 1); window.setTimeout(() => setGain(null), 1800); };
+  // 무료 교감 — 하루 1회씩, 하루 상한 내에서
+  const doCare = (kind: 'feed' | 'pet' | 'meditate', icon: string) => { const r = careAct(spirit.key, kind); if (r.ok && r.gained > 0) playFx(r.gained, icon); };
+  // 광고 가속 — 보상형 광고 성공 후 adBoost (하루 상한·횟수 내)
+  const doAd = async () => {
+    if (adLoading) return;
+    if (canBypass) { const r = adBoost(spirit.key); if (r.ok && r.gained > 0) playFx(r.gained, '✨'); return; }
+    setAdLoading(true);
+    const res = await showRewardedAdForResult();
+    setAdLoading(false);
+    if (res === 'rewarded') { const r = adBoost(spirit.key); if (r.ok && r.gained > 0) playFx(r.gained, '✨'); }
+  };
   const doEvolve = () => { scrollTop(); setEvolving(true); window.setTimeout(() => { evolve(spirit.key); setEvolving(false); }, 2000); };
+  // 출석 보너스 — 그날 첫 진입 1회 (멱등). 첫 적립이면 +N 연출.
+  useEffect(() => {
+    const r = claimBonus(spirit.key, 'attend');
+    if (r.ok && r.gained > 0) { const t = window.setTimeout(() => playFx(r.gained, '🎁'), 500); return () => window.clearTimeout(t); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spirit.key]);
   return (
     <V2Screen seed={15} style={{ paddingBottom: 0 }}>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 48px)', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
@@ -760,21 +794,31 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
       <Rise delay={180} style={{ marginTop: 12 }}>{canEvolve
         ? <button onClick={doEvolve} className="v2-press" style={{ width: '100%', padding: 16, borderRadius: 'var(--v2-r-md)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: 'linear-gradient(100deg, #FFD27A, #5BD9AC)', color: '#1b1230', fontSize: 16, fontWeight: 900, boxShadow: '0 8px 28px #FFD27A66' }}>✦ {nextKo}(으)로 진화하기 ✦</button>
         : <V2Glass style={{ padding: '12px 16px' }}>
-            <BondMeter value={bond} label={stage >= 4 ? '기운' : '다음 진화까지'} sub={stage >= 4 ? '최종 진화 완료 — 가장 영험한 모습이에요 ✦' : `${100 - bond} 더 채우면 ${nextKo}로 진화해요`} />
+            <BondMeter percent={stage >= 4 ? 100 : pct} label={stage >= 4 ? '기운' : '다음 진화까지'} sub={stage >= 4 ? '최종 진화 완료 — 가장 영험한 모습이에요 ✦' : `오늘 +${prog.gainedToday}/${DAILY_CAP} 자람 · ${nextKo}까지 ${Math.max(0, 100 - pct)}%`} />
             <div style={{ height: 1, background: 'var(--v2-glass-line2)', margin: '10px -16px' }} />
             <div style={{ display: 'flex', gap: 6 }}>
-              {[
-                { ic: '🍃', t: '먹이주기', amt: '+25', c: '#5BD9AC', fn: () => care(25, '🍃') },
-                { ic: '💗', t: '쓰다듬기', amt: '+20', c: '#FF9E82', fn: () => care(20, '💗') },
-                { ic: '🌙', t: '명상하기', amt: '+30', c: '#B79CFF', fn: () => care(30, '🌙') },
-              ].map((a) => (
-                <button key={a.t} onClick={a.fn} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '2px 2px', borderRadius: 14, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none' }}>
-                  <span style={{ width: 42, height: 42, borderRadius: 14, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: `0 0 16px ${a.c}26` }}>{a.ic}</span>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
-                  <span style={{ fontSize: 11.5, fontWeight: 800, color: a.c }}>{a.amt}</span>
-                </button>
-              ))}
+              {([
+                { kind: 'feed', ic: '🍃', t: '먹이주기', amt: ACTION_GAIN.feed, c: '#5BD9AC' },
+                { kind: 'pet', ic: '💗', t: '쓰다듬기', amt: ACTION_GAIN.pet, c: '#FF9E82' },
+                { kind: 'meditate', ic: '🌙', t: '명상하기', amt: ACTION_GAIN.meditate, c: '#B79CFF' },
+              ] as const).map((a) => {
+                const used = rem.actions[a.kind];
+                const off = used || rem.capLeft === 0 || stage >= 4;
+                return (
+                  <button key={a.kind} onClick={() => doCare(a.kind, a.ic)} disabled={off} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '2px 2px', borderRadius: 14, cursor: off ? 'default' : 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none', opacity: off ? 0.4 : 1 }}>
+                    <span style={{ width: 42, height: 42, borderRadius: 14, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: off ? 'none' : `0 0 16px ${a.c}26` }}>{a.ic}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: used ? 'var(--v2-ink-mute)' : a.c }}>{used ? '완료' : `+${a.amt}`}</span>
+                  </button>
+                );
+              })}
             </div>
+            {stage < 4 && rem.capLeft > 0 && rem.adsLeft > 0 && (
+              <button onClick={doAd} disabled={adLoading} className="v2-press" style={{ marginTop: 11, width: '100%', padding: '10px', borderRadius: 12, border: '1px dashed var(--v2-glass-line2)', background: 'rgba(255,210,122,.08)', color: 'var(--v2-butter)', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>{adLoading ? '광고 여는 중…' : `🎬 광고 보고 +${AD_GAIN} 교감 (오늘 ${rem.adsLeft}회 가능)`}</button>
+            )}
+            {stage < 4 && rem.capLeft === 0 && (
+              <div style={{ marginTop: 11, textAlign: 'center', fontSize: 11.5, color: 'var(--v2-ink-dim)' }}>오늘은 충분히 자랐어요 🌙 내일 또 만나요</div>
+            )}
           </V2Glass>}
       </Rise>
       </div>

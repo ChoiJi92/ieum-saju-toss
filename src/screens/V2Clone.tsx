@@ -11,12 +11,11 @@ import {
 import {
   V2Screen, Rise, V2TopBar, V2Button, V2Glass, V2Label,
   SpiritSlot, Sparkles, RarityStars, BondMeter, StatPill, ScoreRing,
-  HeaderPill, ActionCard, CareAction, FilterChip, ActionRow,
+  HeaderPill, FilterChip, ActionRow, BIRTH_YEARS, selectChevron,
   circleButtonStyle, speechStyle,
 } from './v2/_kit';
 import { type Tab, type Route, type FlowScreen, FORTUNE_MENU, REWARDED_ROUTES, INTERSTITIAL_ROUTES, ROUTE_TITLE } from './v2/nav';
 import { personalityCard } from '../lib/personality';
-import { AppChrome } from './v2/_kit_tabbar';
 import RewardedGate from './v2/RewardedGate';
 import InterstitialView from './v2/InterstitialView';
 import ScreenMonth from './v2/ScreenMonth';
@@ -38,10 +37,8 @@ export default function V2Clone() {
   const spirit = useMemo(() => spiritFromMyeongsik(myeongsik), [myeongsik]);
 
   const [flow, setFlow] = useState<FlowScreen[] | null>(myeongsik ? null : ['onboarding']);
-  const [tab, setTab] = useState<Tab>('home');
-  const [stacks, setStacks] = useState<Record<Tab, Route[]>>({
-    home: ['home'], grow: ['grow'], collection: ['collection'], profile: ['profile'],
-  });
+  // 단일 네비게이션 스택 — 펫 화면(home)이 루트. 탭바 없음, 상단 아이콘으로 이동.
+  const [stack, setStack] = useState<Route[]>(['home']);
   const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() => new Set());
   const unlock = (r: Route) => setAdUnlocked((s) => new Set(s).add(r));
 
@@ -49,18 +46,19 @@ export default function V2Clone() {
     reset();
     try { localStorage.removeItem('ieum-saju.spirit.v2'); } catch { /* ignore */ }
     setAdUnlocked(new Set());
-    setStacks({ home: ['home'], grow: ['grow'], collection: ['collection'], profile: ['profile'] });
-    setTab('home');
+    setStack(['home']);
     setFlow(['onboarding']);
   };
 
   const goFlow = (s: FlowScreen) => setFlow((f) => (f ? [...f, s] : [s]));
-  const enterApp = () => { setFlow(null); setTab('home'); };
-  const go = (r: Route) => setStacks((s) => ({ ...s, [tab]: [...s[tab], r] }));
-  const switchTab = (t: Tab) => setTab(t);
+  const enterApp = () => { setFlow(null); setStack(['home']); };
+  const go = (r: Route) => setStack((s) => [...s, r]);
+  const goHome = () => setStack(['home']);
+  // 구 화면 호환 shim — 탭 개념 제거. home/grow→루트, 그 외→push.
+  const switchTab = (t: Tab) => { if (t === 'home' || t === 'grow') goHome(); else go(t as Route); };
   const back = () => {
     if (flow) { setFlow((f) => (f && f.length > 1 ? f.slice(0, -1) : f)); return; }
-    setStacks((s) => (s[tab].length > 1 ? { ...s, [tab]: s[tab].slice(0, -1) } : s));
+    setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
   };
 
   // 1) 온보딩 플로우 (탭 바깥)
@@ -72,9 +70,9 @@ export default function V2Clone() {
     return <ScreenOnboard {...fp} />;
   }
 
-  // 2) 탭 앱 — 활성 탭 스택 top 라우트를 AppChrome(고정 탭바)로 감싸 렌더
-  const route = stacks[tab][stacks[tab].length - 1];
-  const sp = { go, back, switchTab, spirit, tab, resetApp };
+  // 2) 단일 스택 top 라우트 렌더 (탭바 없음 — 펫 메인 + 상단 아이콘 네비)
+  const route = stack[stack.length - 1];
+  const sp = { go, back, switchTab, spirit, tab: 'home' as Tab, resetApp };
   let screenEl: React.ReactNode;
   switch (route) {
     case 'today': screenEl = <ScreenToday {...sp} />; break;
@@ -87,21 +85,25 @@ export default function V2Clone() {
     case 'gunghap': screenEl = <ScreenGunghap {...sp} />; break;
     case 'sinsal': screenEl = <ScreenSinsal {...sp} />; break;
     case 'personality': screenEl = <ScreenPersonality {...sp} />; break;
-    case 'grow': screenEl = <ScreenGrow {...sp} />; break;
+    case 'fortunes': screenEl = <ScreenFortunes {...sp} />; break;
     case 'collection': screenEl = <ScreenCollection {...sp} />; break;
     case 'profile': screenEl = <ScreenProfile {...sp} />; break;
     case 'profiles': screenEl = <ScreenProfiles {...sp} />; break;
     case 'addProfile': screenEl = <ScreenAddProfile {...sp} />; break;
     case 'terms': screenEl = <ScreenLegal kind="terms" {...sp} />; break;
     case 'privacy': screenEl = <ScreenLegal kind="privacy" {...sp} />; break;
-    default: screenEl = <ScreenHome {...sp} />;
+    default: screenEl = <ScreenPetHome {...sp} />;
   }
   if (REWARDED_ROUTES.includes(route)) {
     screenEl = <RewardedGate title={ROUTE_TITLE[route]} back={back} spirit={spirit} unlocked={adUnlocked.has(route)} onUnlock={() => unlock(route)}>{screenEl}</RewardedGate>;
   } else if (INTERSTITIAL_ROUTES.includes(route)) {
     screenEl = <InterstitialView routeKey={route}>{screenEl}</InterstitialView>;
   }
-  return <AppChrome routeKey={route} tab={tab} switchTab={switchTab}>{screenEl}</AppChrome>;
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+      <div key={route} style={{ position: 'absolute', inset: 0 }}>{screenEl}</div>
+    </div>
+  );
 }
 
 function ScreenOnboard({ goFlow }: { goFlow: (s: FlowScreen) => void; back: () => void; enterApp: () => void; spirit: Spirit }) {
@@ -171,9 +173,9 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
   return (
     <V2Screen seed={5}>
       <V2TopBar onBack={back} />
-      <div style={{ display: 'flex', gap: 5, marginTop: 20, marginBottom: 26 }}>{[1, 2, 3].map((i) => <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= 2 ? 'var(--v2-lavender)' : 'rgba(255,255,255,.12)', boxShadow: i <= 2 ? '0 0 10px var(--v2-lavender)' : 'none' }} />)}</div>
+      <div style={{ display: 'flex', gap: 5, marginTop: 20, marginBottom: 26 }}>{[1, 2].map((i) => <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= 1 ? 'var(--v2-lavender)' : 'rgba(255,255,255,.12)', boxShadow: i <= 1 ? '0 0 10px var(--v2-lavender)' : 'none' }} />)}</div>
       <Rise>
-        <div className="v2-cap" style={{ color: 'var(--v2-peach)' }}>STEP 2 / 3 · 사주 정보</div>
+        <div className="v2-cap" style={{ color: 'var(--v2-peach)' }}>STEP 1 / 2 · 사주 정보</div>
         <h2 className="v2-hero" style={{ margin: '10px 0 6px' }}>언제, 이 세상에<br />오셨나요?</h2>
         <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 0 24px' }}>태어난 시각이 정확할수록 정령이 또렷해져요 ✦</p>
       </Rise>
@@ -184,9 +186,9 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <input style={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="이름" />
           <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr', gap: 8 }}>
-            <input style={field} value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder="년(4자리)" />
-            <select style={field} value={month} onChange={(e) => setMonth(e.target.value)}><option value="">월</option>{Array.from({ length: 12 }, (_, i) => <option key={i} value={String(i + 1).padStart(2, '0')}>{i + 1}월</option>)}</select>
-            <select style={field} value={day} onChange={(e) => setDay(e.target.value)}><option value="">일</option>{Array.from({ length: 31 }, (_, i) => <option key={i} value={String(i + 1).padStart(2, '0')}>{i + 1}일</option>)}</select>
+            <select style={{ ...field, ...selectChevron }} value={year} onChange={(e) => setYear(e.target.value)}><option value="">년</option>{BIRTH_YEARS.map((y) => <option key={y} value={y}>{y}년</option>)}</select>
+            <select style={{ ...field, ...selectChevron }} value={month} onChange={(e) => setMonth(e.target.value)}><option value="">월</option>{Array.from({ length: 12 }, (_, i) => <option key={i} value={String(i + 1).padStart(2, '0')}>{i + 1}월</option>)}</select>
+            <select style={{ ...field, ...selectChevron }} value={day} onChange={(e) => setDay(e.target.value)}><option value="">일</option>{Array.from({ length: 31 }, (_, i) => <option key={i} value={String(i + 1).padStart(2, '0')}>{i + 1}일</option>)}</select>
           </div>
           {cal === 'lunar' && <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--v2-ink-dim)' }}><input type="checkbox" checked={leap} onChange={(e) => setLeap(e.target.checked)} />윤달</label>}
           <button onClick={() => setSijinOpen(true)} style={{ ...field, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span>{unknownTime ? '태어난 시간 — 모름' : SIJIN_LIST_V2.find(([k]) => k === sijin)?.[1]}</span><span style={{ color: 'var(--v2-ink-dim)' }}>▾</span></button>
@@ -195,7 +197,6 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
           </div>
         </div>
       </Rise>
-      <Rise delay={240}><div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '14px 16px', marginTop: 16, borderRadius: 'var(--v2-r-md)', background: 'rgba(183,156,255,.08)', border: '1px solid var(--v2-glass-line)' }}><span style={{ fontSize: 18 }}>🔒</span><span style={{ fontSize: 12, color: 'var(--v2-ink-dim)', lineHeight: 1.5 }}>입력 정보는 정령을 빚는 데만 쓰이고 안전하게 보관돼요.</span></div></Rise>
       <div style={{ marginTop: 24 }}><V2Button onClick={submit} style={{ opacity: canNext ? 1 : 0.4, cursor: canNext ? 'pointer' : 'not-allowed' }}>정령 깨우기 ✦</V2Button></div>
 
       {sijinOpen && (
@@ -216,15 +217,19 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
 function ScreenReveal({ enterApp, spirit }: { goFlow: (s: FlowScreen) => void; back: () => void; enterApp: () => void; spirit: Spirit }) {
   const { myeongsik } = useSaju();
   const [phase, setPhase] = useState(0);
+  const timersRef = useRef<number[]>([]);
 
   useEffect(() => {
     setPhase(0);
     const seq = [1700, 1600, 1600];
-    const timers: number[] = [];
     let acc = 0;
-    seq.forEach((ms, i) => { acc += ms; timers.push(window.setTimeout(() => setPhase(i + 1), acc)); });
-    return () => timers.forEach(window.clearTimeout);
+    timersRef.current = [];
+    seq.forEach((ms, i) => { acc += ms; timersRef.current.push(window.setTimeout(() => setPhase(i + 1), acc)); });
+    return () => timersRef.current.forEach(window.clearTimeout);
   }, []);
+
+  // 건너뛰기: 대기 중인 타이머를 모두 취소해야 phase 3 가 다시 되돌아가지 않음
+  const skip = () => { timersRef.current.forEach(window.clearTimeout); timersRef.current = []; setPhase(3); };
 
   const elems = ELEM_ORDER.map((k) => ELEMENTS[k]);
   const glyphs = myeongsik
@@ -257,12 +262,12 @@ function ScreenReveal({ enterApp, spirit }: { goFlow: (s: FlowScreen) => void; b
 
   return (
     <V2Screen seed={7} pad={false}>
-      <div style={{ minHeight: 780, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', position: 'relative' }}>
+      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', position: 'relative' }}>
         {phase < 3 && (
-          <button onClick={() => setPhase(3)} style={{ position: 'absolute', top: 54, right: 18, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', color: 'var(--v2-ink-dim)', fontSize: 12, fontWeight: 700, padding: '7px 14px', borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'var(--v2-font)' }}>건너뛰기</button>
+          <button onClick={skip} style={{ position: 'absolute', top: 54, right: 18, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', color: 'var(--v2-ink-dim)', fontSize: 12, fontWeight: 700, padding: '7px 14px', borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'var(--v2-font)' }}>건너뛰기</button>
         )}
 
-        <div style={{ position: 'relative', width: 300, height: 300, marginBottom: 24 }}>
+        <div style={{ position: 'relative', width: 280, height: 280, marginBottom: 16 }}>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
             <div style={{ width: core.size, height: core.size, borderRadius: '50%', background: core.bg, boxShadow: core.glow === 'transparent' ? 'none' : `0 0 60px ${core.glow}`, transition: 'width .8s cubic-bezier(.3,.8,.3,1), height .8s cubic-bezier(.3,.8,.3,1), box-shadow .8s ease', animation: 'v2-breathe 2.6s ease-in-out infinite', opacity: phase === 3 ? 0 : 1 }} />
           </div>
@@ -292,12 +297,12 @@ function ScreenReveal({ enterApp, spirit }: { goFlow: (s: FlowScreen) => void; b
 
           <div style={layer(phase === 3)}>
             <div style={{ animation: 'v2-pop-tf .8s cubic-bezier(.2,1.3,.4,1) both' }}>
-              <SpiritSlot spirit={spirit} size={250} tag={false} />
+              <SpiritSlot spirit={spirit} size={228} tag={false} />
             </div>
           </div>
         </div>
 
-        <div style={{ minHeight: 150, maxWidth: 340, position: 'relative' }}>
+        <div style={{ minHeight: 128, maxWidth: 340, position: 'relative' }}>
           {phase === 0 && <RevealCaption cap="여덟 글자를 읽는 중" title="당신의 사주를 펼쳐요" />}
           {phase === 1 && <RevealCaption cap="오행을 응축하는 중" title={<>木·火·土·金·水<br />기운이 모여요</>} color="var(--v2-mint)" />}
           {phase === 2 && <RevealCaption cap="12지를 불어넣는 중" title={<>{spirit.zod.ko}({spirit.zod.cn})의<br />기운이 깃들어요</>} color="var(--v2-peach)" />}
@@ -311,7 +316,7 @@ function ScreenReveal({ enterApp, spirit }: { goFlow: (s: FlowScreen) => void; b
           )}
         </div>
 
-        {phase === 3 && <div style={{ width: '100%', maxWidth: 340, marginTop: 26, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={() => enterApp()}>{spirit.name} 만나러 가기 →</V2Button></div>}
+        {phase === 3 && <div style={{ width: '100%', maxWidth: 340, marginTop: 20, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={() => enterApp()}>{spirit.name} 만나러 가기 →</V2Button></div>}
       </div>
     </V2Screen>
   );
@@ -329,8 +334,11 @@ function RevealCaption({ cap, title, color = 'var(--v2-lavender)' }: { cap: stri
   );
 }
 
-function ScreenProfile({ go, spirit, resetApp }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab; resetApp: () => void }) {
+function ScreenProfile({ go, back, spirit, resetApp }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab; resetApp: () => void }) {
   const { myeongsik, profile, profiles } = useSaju();
+  const { progressOf } = useSpiritState();
+  const stage = progressOf(spirit.key).stage;
+  const STAGE_KO = ['', '아기 정령', '어린 정령', '성체 정령', '영험한 정령'];
   const [confirmReset, setConfirmReset] = useState(false);
   const LABEL: Record<string, string> = { 연주: '年', 월주: '月', 일주: '日', 시주: '時' };
   const cols = (myeongsik?.pillars ?? []).map((p) => ({
@@ -348,7 +356,7 @@ function ScreenProfile({ go, spirit, resetApp }: { go: (r: Route) => void; back:
   const rowBtn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 15px', borderRadius: 'var(--v2-r-md)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)', textAlign: 'left', width: '100%' };
   return (
     <V2Screen seed={9}>
-      <V2TopBar title="내 정보" />
+      <V2TopBar onBack={back} title="내 정보" />
       <Rise><SpiritSlot spirit={spirit} size={210} stage={1} /></Rise>
       <Rise delay={120}>
         <V2Glass glow="0 0 28px rgba(183,156,255,.2)" style={{ textAlign: 'center' }}>
@@ -358,6 +366,21 @@ function ScreenProfile({ go, spirit, resetApp }: { go: (r: Route) => void; back:
           <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', marginTop: 14 }}>{spirit.persona}</p>
         </V2Glass>
       </Rise>
+      <V2Label>진화의 결</V2Label>
+      <V2Glass>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>{([1, 2, 3, 4] as Stage[]).map((st) => {
+          const reached = st <= stage;
+          const url = spirit.imageFor(st);
+          return (
+            <div key={st} style={{ flex: 1, textAlign: 'center', opacity: reached ? 1 : 0.9 }}>
+              <div style={{ width: 54, height: 54, margin: '0 auto', borderRadius: '50%', position: 'relative', overflow: 'hidden', background: reached ? `radial-gradient(circle,${spirit.elem.raw}55,${spirit.rarity.raw}33)` : 'var(--v2-glass)', border: `1.5px solid ${st === stage ? spirit.elem.raw : 'var(--v2-glass-line2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {reached ? (url ? <img src={url} alt={STAGE_KO[st]} style={{ width: '128%', height: '128%', objectFit: 'contain' }} /> : <span style={{ fontSize: 24 }}>{spirit.zod.emoji}</span>) : <span style={{ fontSize: 20, color: 'var(--v2-ink-mute)' }}>?</span>}
+              </div>
+              <div style={{ fontSize: 9.5, fontWeight: 700, marginTop: 5, color: st === stage ? 'var(--v2-ink)' : 'var(--v2-ink-mute)' }}>{reached ? STAGE_KO[st] : '???'}</div>
+            </div>
+          );
+        })}</div>
+      </V2Glass>
       <V2Label>명식의 결</V2Label>
       <V2Glass>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(cols.length, 1)},1fr)`, gap: 8 }}>
@@ -452,43 +475,23 @@ function ScreenProfile({ go, spirit, resetApp }: { go: (r: Route) => void; back:
   );
 }
 
-function ScreenHome({ go, switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
-  const { myeongsik, profile } = useSaju();
-  const fortune = myeongsik ? todayFortune(myeongsik) : null;
-  const { progressOf } = useSpiritState();
-  const prog = progressOf(spirit.key);
-  const now = new Date();
-  const dateLabel = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
-  const name = profile?.name ?? '나';
+function ScreenFortunes({ go, back }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   return (
-    <V2Screen seed={11} style={{ paddingBottom: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 58 }}>
-        <div><div style={{ fontSize: 12, color: 'var(--v2-ink-dim)', whiteSpace: 'nowrap' }}>{dateLabel}</div><div style={{ fontSize: 17, fontWeight: 800, color: 'var(--v2-ink)' }}>{name}님의 정령</div></div>
-        <div style={{ display: 'flex', gap: 8 }}><HeaderPill>{spirit.rarity.ko}</HeaderPill></div>
-      </div>
-      <Rise delay={80}><div style={{ position: 'relative', marginTop: 8 }}><SpiritSlot spirit={spirit} size={250} stage={1} /><div style={speechStyle}>{fortune ? fortune.oneLine : '사주를 입력하면 오늘의 기운을 전해드릴게요 ✦'}</div></div></Rise>
-      <Rise delay={160}><V2Glass style={{ marginTop: 18 }} onClick={() => switchTab('grow')}><BondMeter value={prog.bond} label={`${spirit.name} 교감`} sub={prog.stage >= 4 ? '최종 진화 완료 ✦' : `${100 - prog.bond} 더 채우면 진화해요`} /></V2Glass></Rise>
-      <Rise delay={240}>
-        <V2Label>오늘 함께 할 수 있는 것</V2Label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <ActionCard onClick={() => go('today')} ic="☾" title="오늘의 운세" sub={fortune ? `총운 ${fortune.sections.overall.score}점` : '정령이 전해요'} color="var(--v2-lavender)" badge="NEW" />
-          <ActionCard onClick={() => switchTab('collection')} ic="◈" title="정령 도감" sub="모아보기" color="var(--v2-butter)" />
-        </div>
-      </Rise>
-      <Rise delay={300}>
-        <V2Label>운세 더보기</V2Label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9 }}>
+    <V2Screen seed={11}>
+      <V2TopBar onBack={back} title="운세 더보기" />
+      <Rise>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9, marginTop: 6 }}>
           {FORTUNE_MENU.map((m) => (
-            <button key={m.route} onClick={() => go(m.route)} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 6px', borderRadius: 'var(--v2-r-md)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>
+            <button key={m.route} onClick={() => go(m.route)} className="v2-press" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '16px 6px', borderRadius: 'var(--v2-r-md)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>
               {REWARDED_ROUTES.includes(m.route) && <span style={{ position: 'absolute', top: 6, right: 6, fontSize: 10 }}>🔒</span>}
-              <span style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, background: `${m.color}1f` }}>{m.ic}</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{m.label}</span>
-              <span style={{ fontSize: 9.5, color: 'var(--v2-ink-dim)' }}>{m.sub}</span>
+              <span style={{ width: 40, height: 40, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, background: 'rgba(255,255,255,.06)' }}>{m.ic}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--v2-ink)' }}>{m.label}</span>
+              <span style={{ fontSize: 10, color: 'var(--v2-ink-dim)' }}>{m.sub}</span>
             </button>
           ))}
         </div>
       </Rise>
-      <div style={{ height: 96 }} />
+      <div style={{ height: 44 }} />
     </V2Screen>
   );
 }
@@ -539,7 +542,9 @@ function ScreenToday({ back, switchTab, spirit }: { go: (r: Route) => void; back
   );
 }
 
-function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+  const { profile } = useSaju();
+  const name = profile?.name ?? '나';
   const { progressOf, bondUp, evolve } = useSpiritState();
   const prog = progressOf(spirit.key);
   const stage = prog.stage;
@@ -554,69 +559,251 @@ function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; swit
   const [evolving, setEvolving] = useState(false);
   const [burstIcon, setBurstIcon] = useState('✦');
   const scrollTop = () => { (anchorRef.current?.closest('.ie-scroll') as HTMLElement | null)?.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const care = (amt: number, icon: string) => { scrollTop(); bondUp(spirit.key, amt); setGain(amt); setBurstIcon(icon); setPulseKey((k) => k + 1); window.setTimeout(() => setGain(null), 950); };
-  const doEvolve = () => { scrollTop(); setEvolving(true); window.setTimeout(() => { evolve(spirit.key); setEvolving(false); }, 1500); };
+  const care = (amt: number, icon: string) => { bondUp(spirit.key, amt); setGain(amt); setBurstIcon(icon); setPulseKey((k) => k + 1); window.setTimeout(() => setGain(null), 1800); };
+  const doEvolve = () => { scrollTop(); setEvolving(true); window.setTimeout(() => { evolve(spirit.key); setEvolving(false); }, 2000); };
   return (
     <V2Screen seed={15} style={{ paddingBottom: 0 }}>
-      <V2TopBar title="키우기" />
-      <Rise><div ref={anchorRef} style={{ textAlign: 'center', position: 'relative' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 999, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', marginBottom: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)' }}>Lv.{4 + stage}</span>
-          <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--v2-ink-mute)' }} />
-          <span style={{ fontSize: 12, color: 'var(--v2-ink-mid)' }}>{STAGE_KO[stage]}</span>
-        </div>
-        <div style={{ height: 248, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-          <div key={pulseKey} style={{ animation: pulseKey ? 'v2-bond-pop .5s ease' : 'none' }}>
-            <SpiritSlot spirit={spirit} size={198 + (stage - 1) * 14} tag={false} stage={stage} />
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 48px)', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
+      {/* 상단: 인사 + 기능 아이콘 (탭바 대체) */}
+      <Rise style={{ paddingTop: 38 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--v2-ink-dim)' }}>오늘도 함께해요 ✦</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--v2-ink)' }}>{name}님의 정령</div>
           </div>
-          {gain !== null && <div key={`g${pulseKey}`} style={{ position: 'absolute', top: 36, left: '50%', fontSize: 22, fontWeight: 900, color: 'var(--v2-mint)', textShadow: '0 0 12px var(--v2-mint)', animation: 'v2-float-up .95s ease forwards', pointerEvents: 'none' }}>+{gain}</div>}
+          <HeaderPill>{spirit.rarity.ko}</HeaderPill>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[
+            { r: 'today' as Route, ic: '☀️', label: '오늘 운세' },
+            { r: 'fortunes' as Route, ic: '🔮', label: '운세 더보기' },
+            { r: 'collection' as Route, ic: '📖', label: '도감' },
+            { r: 'profile' as Route, ic: '👤', label: '내정보' },
+          ].map((n) => (
+            <button key={n.r} onClick={() => go(n.r)} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 4px', borderRadius: 16, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}>
+              <span style={{ fontSize: 20, lineHeight: 1 }}>{n.ic}</span>
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--v2-ink-mid)', whiteSpace: 'nowrap' }}>{n.label}</span>
+            </button>
+          ))}
+        </div>
+      </Rise>
+      <Rise style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}><div ref={anchorRef} style={{ textAlign: 'center', position: 'relative' }}>
+        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', marginTop: 10 }}>
+
+          {/* LAYER 0: 원소 글로우 플래시 — spirit.elem.raw는 실제 hex('#5BD9AC')이므로 alpha concat 유효 */}
           {pulseKey > 0 && (
-            <div key={`burst${pulseKey}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-              {(['16%', '84%'] as const).map((left, i) => (
-                <span key={`f${i}`} style={{ position: 'absolute', bottom: '28%', left, fontSize: 24, filter: 'drop-shadow(0 0 7px rgba(255,255,255,.55))', animation: `v2-float-up 1.1s ease ${i * 150}ms forwards` }}>{burstIcon}</span>
-              ))}
-              {([['12%', '14%'], ['12%', '84%'], ['48%', '4%'], ['48%', '94%'], ['86%', '20%'], ['86%', '80%']] as const).map(([top, left], i) => (
-                <span key={`s${i}`} style={{ position: 'absolute', top, left, fontSize: 12, color: spirit.rarity.raw, textShadow: `0 0 8px ${spirit.rarity.raw}`, animation: `v2-spark .8s ease ${i * 50}ms forwards` }}>✦</span>
-              ))}
+            <div
+              key={`flash${pulseKey}`}
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                width: 260,
+                height: 260,
+                borderRadius: '50%',
+                background: `radial-gradient(circle at 50% 50%, ${spirit.elem.raw}55 0%, ${spirit.elem.raw}22 44%, transparent 70%)`,
+                animation: 'v2-bond-flash 0.55s cubic-bezier(.2,.8,.3,1) forwards',
+                pointerEvents: 'none',
+                zIndex: 1,
+              }}
+            />
+          )}
+
+          {/* LAYER 1: 교감 탭 링 펄스 — 진화 링(130px)보다 작은 160px 기준 */}
+          {pulseKey > 0 && (
+            <div
+              key={`tapring${pulseKey}`}
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                width: 160,
+                height: 160,
+                borderRadius: '50%',
+                border: `2px solid ${spirit.elem.raw}`,
+                boxShadow: `0 0 12px ${spirit.elem.raw}66`,
+                animation: 'v2-tap-ring 0.9s cubic-bezier(.2,.8,.4,1) forwards',
+                pointerEvents: 'none',
+                zIndex: 2,
+              }}
+            />
+          )}
+
+          {/* LAYER 2: 스쿼시 래퍼 — elastic spring cubic-bezier, 850ms */}
+          <div
+            key={pulseKey}
+            style={{
+              transformOrigin: '50% 85%',
+              animation: pulseKey ? 'v2-bond-squash 0.85s cubic-bezier(.34,1.56,.64,1)' : 'none',
+              position: 'relative',
+              zIndex: 3,
+            }}
+          >
+            <SpiritSlot spirit={spirit} size={178 + (stage - 1) * 8} tag={false} stage={stage} />
+          </div>
+
+          {/* LAYER 3: +N 히어로 숫자 — 38px, 1750ms HOLD arc, 위로 드리프트 */}
+          {gain !== null && (
+            <div
+              key={`g${pulseKey}`}
+              style={{
+                position: 'absolute',
+                top: 56,
+                left: '50%',
+                fontSize: 38,
+                fontWeight: 900,
+                color: 'var(--v2-mint)',
+                textShadow: `0 0 18px var(--v2-mint), 0 0 36px rgba(61,199,149,.6), 0 0 52px ${spirit.elem.raw}88, 0 2px 0 rgba(0,0,0,.25)`,
+                letterSpacing: '-0.5px',
+                animation: 'v2-bond-gain 1.75s cubic-bezier(.2,.8,.4,1) forwards',
+                pointerEvents: 'none',
+                zIndex: 6,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              +{gain}
             </div>
           )}
+
+          {/* LAYER 4: 13-particle 방사형 버스트 */}
+          {pulseKey > 0 && (
+            <div
+              key={`burst${pulseKey}`}
+              style={{
+                position: 'absolute',
+                top: '46%',
+                left: '50%',
+                width: 0,
+                height: 0,
+                pointerEvents: 'none',
+                zIndex: 4,
+              }}
+            >
+              {Array.from({ length: 13 }, (_, i) => {
+                // i=0,6  → contextual emoji (burstIcon)
+                // i=3,7,10 → tiny white sparkle dots
+                // i=1,4,8,11 → elem-colored orbs (larger)
+                // i=2,5,9,12 → rarity-colored orbs (smaller)
+                const isEmoji   = i === 0 || i === 6;
+                const isSparkle = i === 3 || i === 7 || i === 10;
+                const isElemOrb = i === 1 || i === 4 || i === 8 || i === 11;
+                const angle = (360 / 13) * i;
+                const delayMs = isEmoji ? i * 18 : isSparkle ? 60 + i * 20 : i * 28;
+                const orbSize = isElemOrb ? 10 : isSparkle ? 3 : 6;
+                const dur = isEmoji ? '1.3s' : isSparkle ? '1.05s' : '1.2s';
+                const easing = 'cubic-bezier(.25,.46,.45,.94)';
+                const orbColor = isElemOrb ? spirit.elem.raw : spirit.rarity.raw;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      transform: `rotate(${angle}deg)`,
+                      transformOrigin: '0 0',
+                    }}
+                  >
+                    {isEmoji ? (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          fontSize: 20,
+                          transform: 'translateX(-50%)',
+                          animation: `v2-particle-fly ${dur} ${easing} ${delayMs}ms forwards`,
+                          filter: 'drop-shadow(0 0 6px rgba(255,255,255,.65))',
+                        }}
+                      >
+                        {burstIcon}
+                      </span>
+                    ) : isSparkle ? (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          width: orbSize,
+                          height: orbSize,
+                          borderRadius: '50%',
+                          background: '#FFFFFF',
+                          boxShadow: '0 0 6px #FFFFFF, 0 0 12px rgba(255,255,255,.55)',
+                          transform: 'translateX(-50%)',
+                          animation: `v2-particle-fly ${dur} ${easing} ${delayMs}ms forwards`,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          width: orbSize,
+                          height: orbSize,
+                          borderRadius: '50%',
+                          background: orbColor,
+                          boxShadow: isElemOrb
+                            ? `0 0 10px ${orbColor}, 0 0 20px ${orbColor}88`
+                            : `0 0 8px ${orbColor}, 0 0 16px ${orbColor}66`,
+                          transform: 'translateX(-50%)',
+                          animation: `v2-particle-fly ${dur} ${easing} ${delayMs}ms forwards`,
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
         </div>
+        <div className="v2-display" style={{ fontSize: 20, fontWeight: 800, color: 'var(--v2-ink)', marginTop: 8 }}>{spirit.name}</div>
       </div></Rise>
-      <Rise delay={100}>{canEvolve
-        ? <button onClick={doEvolve} style={{ width: '100%', marginTop: 6, padding: 16, borderRadius: 'var(--v2-r-md)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: 'linear-gradient(100deg, #FFD27A, #5BD9AC)', color: '#1b1230', fontSize: 16, fontWeight: 900, boxShadow: '0 8px 28px #FFD27A66' }}>✦ {nextKo}(으)로 진화하기 ✦</button>
-        : <V2Glass style={{ marginTop: 6 }}><BondMeter value={bond} label={stage >= 4 ? '기운' : '다음 진화까지'} sub={stage >= 4 ? '최종 진화 완료 — 가장 영험한 모습이에요 ✦' : `${100 - bond} 더 채우면 ${nextKo}로 진화해요`} /></V2Glass>}</Rise>
-      <Rise delay={180}><V2Label>진화의 결</V2Label><div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>{([1, 2, 3, 4] as Stage[]).map((st) => {
-        const reached = st <= stage;
-        const url = spirit.imageFor(st);
-        return (
-          <div key={st} style={{ flex: 1, textAlign: 'center', opacity: reached ? 1 : 0.9 }}>
-            <div style={{ width: 58, height: 58, margin: '0 auto', borderRadius: '50%', position: 'relative', overflow: 'hidden', background: reached ? `radial-gradient(circle,${spirit.elem.raw}55,${spirit.rarity.raw}33)` : 'var(--v2-glass)', border: `1.5px solid ${st === stage ? spirit.elem.raw : 'var(--v2-glass-line2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {reached
-                ? (url ? <img src={url} alt={STAGE_KO[st]} style={{ width: '128%', height: '128%', objectFit: 'contain' }} /> : <span style={{ fontSize: 26 }}>{spirit.zod.emoji}</span>)
-                : <span style={{ fontSize: 22, color: 'var(--v2-ink-mute)' }}>?</span>}
+
+      {/* 진화의 결은 메인에서 제외 (내정보에서 확인) — 한 화면 우선 */}
+      {/* 하단 카드 — 기운 게이지 + 교감 (펫과 한 화면) */}
+      <Rise delay={180} style={{ marginTop: 12 }}>{canEvolve
+        ? <button onClick={doEvolve} className="v2-press" style={{ width: '100%', padding: 16, borderRadius: 'var(--v2-r-md)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: 'linear-gradient(100deg, #FFD27A, #5BD9AC)', color: '#1b1230', fontSize: 16, fontWeight: 900, boxShadow: '0 8px 28px #FFD27A66' }}>✦ {nextKo}(으)로 진화하기 ✦</button>
+        : <V2Glass style={{ padding: '12px 16px' }}>
+            <BondMeter value={bond} label={stage >= 4 ? '기운' : '다음 진화까지'} sub={stage >= 4 ? '최종 진화 완료 — 가장 영험한 모습이에요 ✦' : `${100 - bond} 더 채우면 ${nextKo}로 진화해요`} />
+            <div style={{ height: 1, background: 'var(--v2-glass-line2)', margin: '10px -16px' }} />
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[
+                { ic: '🍃', t: '먹이주기', amt: '+25', c: '#5BD9AC', fn: () => care(25, '🍃') },
+                { ic: '💗', t: '쓰다듬기', amt: '+20', c: '#FF9E82', fn: () => care(20, '💗') },
+                { ic: '🌙', t: '명상하기', amt: '+30', c: '#B79CFF', fn: () => care(30, '🌙') },
+              ].map((a) => (
+                <button key={a.t} onClick={a.fn} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '2px 2px', borderRadius: 14, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none' }}>
+                  <span style={{ width: 42, height: 42, borderRadius: 14, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: `0 0 16px ${a.c}26` }}>{a.ic}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: a.c }}>{a.amt}</span>
+                </button>
+              ))}
             </div>
-            <div style={{ fontSize: 9.5, fontWeight: 700, marginTop: 5, color: st === stage ? 'var(--v2-ink)' : 'var(--v2-ink-mute)' }}>{reached ? STAGE_KO[st] : '???'}</div>
-          </div>
-        );
-      })}</div></Rise>
-      <Rise delay={260}><V2Label>오늘의 교감</V2Label><div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <CareAction onClick={() => care(25, '🍃')} ic="🍃" title="기운 먹이주기" sub="오행의 기운을 나눠줘요" amt="+25" color="var(--v2-mint)" />
-        <CareAction onClick={() => care(20, '💗')} ic="💗" title="쓰다듬기" sub="정령과 눈을 맞춰요" amt="+20" color="var(--v2-peach)" />
-        <CareAction onClick={() => care(30, '🌙')} ic="🌙" title="함께 명상하기" sub="고요히 기운을 모아요" amt="+30" color="var(--v2-lavender)" />
-      </div></Rise>
-      <div style={{ height: 96 }} />
+          </V2Glass>}
+      </Rise>
+      </div>
       {evolving && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16,11,28,.82)' }}>
-          <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 42%, ${spirit.elem.raw}66, transparent 60%)`, animation: 'v2-flash 1.5s ease forwards', pointerEvents: 'none' }} />
-          {[0, 320, 640].map((d, i) => (
-            <div key={i} style={{ position: 'absolute', top: '42%', left: '50%', width: 130, height: 130, borderRadius: '50%', border: `2px solid ${spirit.elem.raw}`, animation: `v2-ring 1.4s ease ${d}ms forwards`, pointerEvents: 'none' }} />
-          ))}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16,11,28,.86)' }}>
+          <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 44%, ${spirit.elem.raw}55, transparent 60%)`, animation: 'v2-flash 1.8s ease forwards', pointerEvents: 'none' }} />
           <div style={{ textAlign: 'center', position: 'relative' }}>
-            <div style={{ animation: 'v2-evolve-in 1.2s cubic-bezier(.2,.9,.3,1)' }}>
-              <SpiritSlot spirit={spirit} size={230} tag={false} stage={nextStage} floating={false} />
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              {/* 360° 광선 (conic sunburst) */}
+              <div style={{ position: 'absolute', left: '50%', top: '50%', width: 360, height: 360, transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 0,
+                background: 'conic-gradient(from 0deg, #FFE3A0 0deg 8deg, transparent 8deg 30deg, #FFE3A0 30deg 38deg, transparent 38deg 60deg, #FFE3A0 60deg 68deg, transparent 68deg 90deg, #FFE3A0 90deg 98deg, transparent 98deg 120deg, #FFE3A0 120deg 128deg, transparent 128deg 150deg, #FFE3A0 150deg 158deg, transparent 158deg 180deg, #FFE3A0 180deg 188deg, transparent 188deg 210deg, #FFE3A0 210deg 218deg, transparent 218deg 240deg, #FFE3A0 240deg 248deg, transparent 248deg 270deg, #FFE3A0 270deg 278deg, transparent 278deg 300deg, #FFE3A0 300deg 308deg, transparent 308deg 330deg, #FFE3A0 330deg 338deg, transparent 338deg 360deg)',
+                WebkitMaskImage: 'radial-gradient(circle, transparent 30%, #000 55%, transparent 78%)',
+                maskImage: 'radial-gradient(circle, transparent 30%, #000 55%, transparent 78%)',
+                animation: 'v2-evo-rays 1.4s ease-out forwards' }} />
+              {/* 코어 플래시 */}
+              <div style={{ position: 'absolute', left: '50%', top: '50%', width: 240, height: 240, transform: 'translate(-50%,-50%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0,
+                background: 'radial-gradient(circle, #fff 0%, #FFE9A8 35%, transparent 70%)',
+                animation: 'v2-evo-flash 1.1s ease-out forwards' }} />
+              {/* 원소색 충격파 링 */}
+              {[0, 320, 640].map((d, i) => (
+                <div key={i} style={{ position: 'absolute', left: '50%', top: '50%', width: 150, height: 150, borderRadius: '50%', border: `2px solid ${spirit.elem.raw}`, transform: 'translate(-50%,-50%)', animation: `v2-bond-ring 1.1s cubic-bezier(.2,.8,.4,1) ${d}ms forwards`, pointerEvents: 'none', zIndex: 0 }} />
+              ))}
+              {/* 정령 */}
+              <div style={{ position: 'relative', zIndex: 1, animation: 'v2-evolve-in 1.2s cubic-bezier(.2,.9,.3,1)' }}>
+                <SpiritSlot spirit={spirit} size={230} tag={false} stage={nextStage} floating={false} />
+              </div>
             </div>
-            <div className="v2-display" style={{ marginTop: 10, color: 'var(--v2-ink)', textShadow: '0 0 18px rgba(183,156,255,.8)' }}>✦ 진화! ✦</div>
-            <div className="v2-cap" style={{ color: 'var(--v2-lavender)', marginTop: 4 }}>{STAGE_KO[nextStage]}</div>
+            <div className="v2-display" style={{ marginTop: 10, color: 'var(--v2-ink)', textShadow: '0 0 18px rgba(255,227,160,.85)', position: 'relative', zIndex: 2 }}>✦ 진화! ✦</div>
+            <div className="v2-cap" style={{ color: '#FFD27A', marginTop: 4, position: 'relative', zIndex: 2 }}>{STAGE_KO[nextStage]}</div>
           </div>
         </div>
       )}
@@ -624,7 +811,7 @@ function ScreenGrow({ spirit }: { go: (r: Route) => void; back: () => void; swit
   );
 }
 
-function ScreenCollection({ switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+function ScreenCollection({ switchTab, back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profiles } = useSaju();
   const [filter, setFilter] = useState<ElementKey | 'all'>('all');
   const unlocked = useMemo(() => {
@@ -641,7 +828,7 @@ function ScreenCollection({ switchTab, spirit }: { go: (r: Route) => void; back:
   const ownedCount = unlocked.size;
   return (
     <V2Screen seed={17} style={{ paddingBottom: 0 }}>
-      <V2TopBar title="정령 도감" />
+      <V2TopBar onBack={back} title="정령 도감" />
       <Rise><V2Glass style={{ display: 'flex', alignItems: 'center', gap: 14 }} glow="0 0 24px rgba(255,210,122,.16)"><ScoreRing score={Math.round((ownedCount / 60) * 100)} color="var(--v2-butter)" /><div style={{ flex: 1 }}><div style={{ fontSize: 15, fontWeight: 800 }}>{ownedCount}종의 정령을 만났어요</div><div style={{ fontSize: 12, color: 'var(--v2-ink-dim)', marginTop: 3, lineHeight: 1.5 }}>궁합으로 다른 사람의 사주를 풀면 그 정령이 도감에 담겨요 ✦</div></div></V2Glass></Rise>
       <Rise delay={80}><div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '18px 0 14px' }} className="ie-scroll"><FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label="전체" color="var(--v2-lavender)" />{ELEM_ORDER.map((ek) => <FilterChip key={ek} active={filter === ek} onClick={() => setFilter(ek)} label={`${ELEMENTS[ek].cn} ${ELEMENTS[ek].ko}`} color={ELEMENTS[ek].raw} />)}</div></Rise>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got && switchTab('profile')} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: c.got ? 'pointer' : 'default', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5) }}>

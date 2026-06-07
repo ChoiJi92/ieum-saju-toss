@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type Spirit, type Stage } from '../../lib/spirit';
 
+/** 출생연도 선택 옵션 — 현재 연도부터 1930년까지 내림차순 */
+export const BIRTH_YEARS: number[] = (() => {
+  const now = new Date().getFullYear();
+  return Array.from({ length: now - 1929 }, (_, i) => now - i);
+})();
+
+/** select 공통 — 네이티브 화살표 제거 + 커스텀 셰브론(우측 14px, 텍스트와 적당히 떨어짐) */
+export const selectChevron: React.CSSProperties = {
+  appearance: 'none',
+  WebkitAppearance: 'none',
+  MozAppearance: 'none',
+  paddingRight: 40,
+  background: `var(--v2-glass) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239b93b5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 14px center / 14px`,
+};
+
 export function V2Screen({ children, seed = 1, pad = true, style = {} }: { children: React.ReactNode; seed?: number; pad?: boolean; style?: React.CSSProperties }) {
   return (
     <div className="v2-cosmos-bg ie-scroll" style={{ position: 'relative', width: '100%', height: '100%', overflowY: 'auto', color: 'var(--v2-ink)', fontFamily: 'var(--v2-font)', ...style }}>

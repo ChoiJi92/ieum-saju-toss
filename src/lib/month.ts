@@ -89,7 +89,7 @@ const MONTH_BODY: Record<Sipsung, string> = {
 const MONTH_ACTIONS: Record<Sipsung, Array<{ ic: string; lbl: string; sub: string; detail: string }>> = {
   비견: [
     { ic: '🤝', lbl: '동료와 함께',     sub: '협업 자리에 운',
-      detail: '오늘부터 같이 일하는 동료에게 점심·커피를 먼저 제안해보세요. 비견이 강한 달은 같은 결의 사람들과 손 잡으면 두 배로 풀려요. 단 책임 분배는 처음부터 명확히 정해두세요 — 모호하면 나중에 갈등이 돼요.' },
+      detail: '이번 달 같이 일하는 동료에게 점심·커피를 먼저 제안해보세요. 비견이 강한 달은 같은 결의 사람들과 손 잡으면 두 배로 풀려요. 단 책임 분배는 처음부터 명확히 정해두세요 — 모호하면 나중에 갈등이 돼요.' },
     { ic: '👥', lbl: '모임 참여',       sub: '의외의 인연 상승',
       detail: '친구·동호회·동창회 같은 모임에 한 번이라도 참여해보세요. 친구의 친구를 통해 의외의 인연·정보·기회가 들어오는 흐름이에요. 새 사람 만날 자리에 한 번만 가도 한 달 운이 풀려요.' },
     { ic: '📋', lbl: '책임 분배 명확',   sub: '나중에 불씨 차단',
@@ -250,7 +250,7 @@ export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): M
     monthScore: overall,
     mood: MOOD[sipsung],
     tagline: TAGLINE[sipsung],
-    monthBody: `${MONTH_BODY[sipsung]} ${profileHint(myeongsik)}`,
+    monthBody: `${MONTH_BODY[sipsung]} ${profileHint(myeongsik, 'month')}`,
     fields: [
       { ic: '☁️', lbl: '총운',     score: overall, color: '#9D7BFF', oneLine: fieldOneLine('overall', overall) },
       { ic: '💼', lbl: '일·커리어', score: work,    color: '#5B8DEF', oneLine: fieldOneLine('work',    work)    },
@@ -268,6 +268,6 @@ export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): M
       hint: worst.score < 65 ? '중요 결정 피해주세요' : '평소처럼 차분히',
     },
     keywords: KEYWORDS[sipsung],
-    actions: rotateBySeed(seed, `${ym}_actions`, MONTH_ACTIONS[sipsung], 3),
+    actions: rotateBySeed(seed, `${ym}_d${today.getDate()}_actions`, MONTH_ACTIONS[sipsung], 3),
   };
 }

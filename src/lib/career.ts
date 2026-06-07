@@ -383,18 +383,18 @@ export function careerForecast(myeongsik: Myeongsik, today: Date = new Date()): 
     score: overall,
     mood: moodMap[dominant],
     tagline,
-    body: `${CAREER_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik)}`,
+    body: `${CAREER_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik, 'career')}`,
     axes: [
       { ic: '🎨', lbl: '창작·표현', score: create, color: '#FF8B6C', oneLine: fieldOneLine('create', create) },
       { ic: '💼', lbl: '사업·재물', score: biz,    color: '#3DC795', oneLine: fieldOneLine('biz',    biz)    },
       { ic: '🏛️', lbl: '조직 적합', score: org,    color: '#4A90E2', oneLine: fieldOneLine('org',    org)    },
       { ic: '📚', lbl: '학습·연구', score: study,  color: '#9D7BFF', oneLine: fieldOneLine('study',  study)  },
     ],
-    jobs: rotateBySeed(seed, `${ym}_career_jobs`, jobInfo.jobs, 3),
+    jobs: rotateBySeed(seed, `${ym}_d${today.getDate()}_career_jobs`, jobInfo.jobs, 3),
     fit: jobInfo.fit,
     avoid: jobInfo.avoid,
     keywords: STRENGTH_KEYWORDS[dominant],
     monthFlow: MONTH_FLOW_BY_SIPSUNG[monthSipsung],
-    tips: rotateBySeed(seed, `${ym}_career_tips`, CAREER_TIPS[dominant], 3),
+    tips: rotateBySeed(seed, `${ym}_d${today.getDate()}_career_tips`, CAREER_TIPS[dominant], 3),
   };
 }

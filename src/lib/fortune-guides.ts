@@ -57,30 +57,45 @@ const DO_MAP: Record<string, string[]> = {
     '해야 할 일 3개만 남기고 나머지는 과감히 미뤄도 괜찮아요.',
     '오늘의 기준을 한 문장으로 적고 그 기준에 맞는 일부터 처리하세요.',
     '오전에는 시작, 오후에는 정리처럼 하루 역할을 나눠보세요.',
+    '오늘 끝낼 일 딱 하나만 정해두면 나머지가 자연히 따라와요.',
+    '어제 못 마친 일 하나를 오전에 먼저 닫아두면 하루가 가벼워져요.',
+    '5분짜리 작은 시작이 오늘 흐름을 통째로 바꿔줄 수 있어요.',
   ],
   love: [
     '고마운 사람에게 짧은 안부를 먼저 보내보세요.',
     '표현을 아끼기보다 짧게라도 진심을 말해보세요.',
     '대화할 때 결론보다 상대 감정을 먼저 한 번 받아주세요.',
     '오늘 떠오른 사람에게 부담 없는 한 줄을 남겨보세요.',
+    '먼저 연락하는 게 어색해도 오늘은 용기 내봐도 좋아요.',
+    '상대가 어떤 하루를 보냈는지 먼저 물어봐 주세요.',
+    '말보다 작은 행동 하나가 마음을 더 크게 전달해요.',
   ],
   money: [
     '오늘 결제 전 10초 멈춤 규칙을 써보세요.',
     '자동이체·구독 1개만 점검해도 흐름이 좋아져요.',
     '작은 환급·포인트·캐시백을 하나만 확인해보세요.',
     '오늘 쓸 금액 상한선을 숫자로 먼저 정하고 움직이세요.',
+    '오늘 영수증 3개만 훑어봐도 새는 돈이 보여요.',
+    '카드 명세 한 줄 점검이 이달 예산 관리의 시작이에요.',
+    '필요한 것과 갖고 싶은 것을 딱 5초만 구분해보세요.',
   ],
   work: [
     '가장 어려운 업무를 오전에 먼저 처리해보세요.',
     '회의 전 핵심 2줄만 미리 정리해두면 훨씬 수월해져요.',
     '중요한 대화 전 목적·요청·마감일을 한 줄씩 적어보세요.',
     '오늘은 결과물 하나를 작게라도 보이게 만드는 쪽이 유리해요.',
+    '답변하기 전 목적을 한 줄로 정리하면 전달력이 확 달라져요.',
+    '오늘 배운 내용 한 줄을 메모로 남겨두면 내일 자산이 돼요.',
+    '협업할 때 기대 수준을 먼저 맞춰두면 나중에 훨씬 편해져요.',
   ],
   health: [
     '물을 조금 더 자주 마시고, 20분 정도 가볍게 걸어보세요.',
     '잠들기 1시간 전 화면 사용을 줄이면 컨디션이 달라져요.',
     '몸이 보내는 신호를 한 번 체크하고 무리한 일정은 줄여보세요.',
     '식사·수면·움직임 중 하나만 오늘 확실히 챙겨주세요.',
+    '오늘 한 끼만큼은 천천히, 맛을 느끼면서 먹어봐요.',
+    '1시간에 한 번만 5분 스트레칭해도 피로 회복이 달라져요.',
+    '오늘은 쉬는 것도 관리라는 걸 기억해주세요.',
   ],
 };
 
@@ -90,30 +105,45 @@ const AVOID_MAP: Record<string, string[]> = {
     '중요한 결정을 피곤한 시간대에 내리지 마세요.',
     '오늘은 확인 없이 바로 약속을 늘리는 흐름을 조심하세요.',
     '내가 감당할 수 있는 범위를 넘겨서 떠안지 마세요.',
+    '아직 확인 안 된 정보를 확정처럼 이야기하지 마세요.',
+    '감정이 불안정한 상태에서 큰 결정을 내리지 마세요.',
+    '일 벌리기보다 지금 진행 중인 것 마무리가 먼저예요.',
   ],
   love: [
     '감정이 올라온 상태에서 긴 메시지를 보내지 마세요.',
     '상대의 의도를 단정 짓는 말투는 오늘 특히 피해주세요.',
     '읽씹·답장 속도만 보고 마음을 예단하지 마세요.',
     '서운함을 농담처럼 돌려 말하면 오해가 커질 수 있어요.',
+    '비교하는 말투("다른 사람은~")는 오늘 금지예요.',
+    '대화 중 결론부터 말하는 방식은 상대를 지치게 할 수 있어요.',
+    '확인 전에 혼자 결론 내고 행동하면 오늘은 특히 역효과예요.',
   ],
   money: [
     '충동구매 앱 결제는 오늘 하루만 미뤄보세요.',
     '체면 지출(괜히 쏘기)은 예산 안에서만 하세요.',
     '할인율만 보고 필요 없는 물건을 담지 마세요.',
     '기분 전환용 결제가 반복되지 않게 한 번 멈춰주세요.',
+    '카드 한도를 올리거나 단기 대출을 늘리는 건 오늘 피해주세요.',
+    '타인의 추천만 믿고 바로 결제하는 흐름은 조심하세요.',
+    '지금 기분에 끌려서 평소보다 큰 지출을 하지 마세요.',
   ],
   work: [
     '완벽주의로 마감 자체를 늦추는 건 피해주세요.',
     '즉흥적인 말로 팀 분위기를 흔들지 않게 주의하세요.',
     '확인 안 된 정보를 확정처럼 말하지 마세요.',
     '피곤한 상태에서 바로 반박하기보다 메모 후 답하세요.',
+    '한꺼번에 여러 업무를 시작해서 모두 어정쩡하게 남기지 마세요.',
+    '급하다고 공유·검토 없이 바로 실행하는 건 피해주세요.',
+    '오늘 상대 입장을 고려하지 않은 직선적인 피드백은 아끼세요.',
   ],
   health: [
     '카페인 과다·야식은 오늘 피로를 키울 수 있어요.',
     '통증 신호를 무시하고 무리 운동하는 건 피해주세요.',
     '컨디션이 애매한데 일정을 꽉 채우는 건 피해주세요.',
     '쉬어야 할 때 죄책감 때문에 계속 버티지 마세요.',
+    '수면 빚을 카페인으로 때우는 패턴은 오늘 끊어야 해요.',
+    '식사 건너뛰고 나중에 폭식하는 흐름은 컨디션을 무너뜨려요.',
+    '오늘은 극단적인 다이어트나 무리한 루틴 변경은 피해주세요.',
   ],
 };
 
@@ -158,26 +188,41 @@ const NO_NO_MAP: Record<string, string[]> = {
     '오늘은 동시에 여러 결정을 한 번에 내리지 마세요.',
     '오늘은 할 일을 더 벌리기보다 하나를 닫는 쪽이 안전해요.',
     '오늘은 피곤한 시간대에 중요한 약속을 확정하지 마세요.',
+    '오늘은 확인 없이 “됐겠지”하고 넘기는 습관을 멈춰주세요.',
+    '오늘은 남의 우선순위에 끌려가느라 내 일을 미루지 마세요.',
+    '오늘은 압박에 이끌려 충분히 생각하지 않고 동의하지 마세요.',
   ],
   love: [
     '오늘은 답답함이 올라와도 단정적인 말투는 피해주세요.',
     '오늘은 상대 반응을 확인하기 전에 혼자 결론 내리지 마세요.',
     '오늘은 긴 메시지보다 짧고 다정한 확인이 좋아요.',
+    '오늘은 SNS에서 다른 관계와 내 것을 비교하지 마세요.',
+    '오늘은 기억 속 오해를 꺼내서 다시 따지는 흐름은 멈춰요.',
+    '오늘은 화가 난 채로 상대에게 핵심을 전하려 하지 마세요.',
   ],
   money: [
     '오늘은 할인 문구만 보고 바로 결제하지 마세요.',
     '오늘은 기분 따라 결제 한도를 올리지 마세요.',
     '오늘은 비교 없이 첫 번째 선택지로 결제하지 마세요.',
+    '오늘은 “언젠가 쓰겠지”로 필요 없는 것을 쟁여두지 마세요.',
+    '오늘은 친구 지출 따라가느라 예산을 초과하지 마세요.',
+    '오늘은 수익이 날 것 같은 느낌만으로 큰돈을 움직이지 마세요.',
   ],
   work: [
     '오늘은 감정 섞인 즉답보다 메모 후 답변이 안전해요.',
     '오늘은 확인 안 된 일정·숫자를 단정해서 말하지 마세요.',
     '오늘은 완벽하게 만들겠다고 공유 타이밍을 놓치지 마세요.',
+    '오늘은 급하다는 이유로 검토 단계를 건너뛰지 마세요.',
+    '오늘은 자신감 과잉으로 상대 의견을 흘려듣지 마세요.',
+    '오늘은 피로한 상태에서 복잡한 협상이나 합의를 하지 마세요.',
   ],
   health: [
     '오늘은 피곤한데도 무리한 운동 강행은 피해주세요.',
     '오늘은 수면 부족을 카페인으로만 버티지 마세요.',
     '오늘은 몸의 불편 신호를 “괜찮겠지”로 넘기지 마세요.',
+    '오늘은 배가 고프지 않아도 습관적으로 야식에 손대지 마세요.',
+    '오늘은 스트레스를 폭식이나 음주로 풀려 하지 마세요.',
+    '오늘은 “내일부터” 마인드로 지금 몸 신호를 무시하지 마세요.',
   ],
 };
 
@@ -309,19 +354,23 @@ export function buildTodayActionGuide({
   sections,
   date,
   personalSeed = 'anonymous',
+  dayStem = '',
 }: {
   sections: TodayGuideSection[];
   date: Date;
   personalSeed?: string;
+  /** 오늘 일진 천간(甲乙丙… 등) — 포함 시 매일 do/avoid/noNo 회전이 달라짐 */
+  dayStem?: string;
 }): TodayActionGuide | null {
   if (sections.length === 0) return null;
 
   const topSection = sections.reduce((best, cur) => (cur.score > best.score ? cur : best), sections[0]);
   const lowSection = sections.reduce((worst, cur) => (cur.score < worst.score ? cur : worst), sections[0]);
-  const seed = scopedSeed([personalSeed, dateKey(date), topSection.id, topSection.score, lowSection.id, lowSection.score]);
+  // dayStem + 일(日)을 시드에 포함 → 같은 사용자도 매일 다른 do/avoid/noNo
+  const seed = scopedSeed([personalSeed, dateKey(date), dayStem, String(date.getDate()), topSection.id, topSection.score, lowSection.id, lowSection.score]);
 
-  const topDo = rotateBySeed(seed, `do:${topSection.id}`, DO_MAP[topSection.id] ?? DO_MAP.overall, 2);
-  const lowAvoid = rotateBySeed(seed, `avoid:${lowSection.id}`, AVOID_MAP[lowSection.id] ?? AVOID_MAP.overall, 2);
+  const topDo = rotateBySeed(seed, `do:${topSection.id}:${dayStem}`, DO_MAP[topSection.id] ?? DO_MAP.overall, 2);
+  const lowAvoid = rotateBySeed(seed, `avoid:${lowSection.id}:${dayStem}`, AVOID_MAP[lowSection.id] ?? AVOID_MAP.overall, 2);
 
   const doList = [
     ...topDo,
@@ -344,9 +393,9 @@ export function buildTodayActionGuide({
   return {
     doList,
     avoidList,
-    luckyTime: pickBySeed(seed, `lucky:${topSection.id}`, LUCKY_TIME_MAP[topSection.id] ?? LUCKY_TIME_MAP.overall),
-    todayOneLine: pickBySeed(seed, `talk:${topSection.id}`, TALK_MAP[topSection.id] ?? TALK_MAP.overall),
-    todayNoNo: pickBySeed(seed, `nono:${lowSection.id}`, NO_NO_MAP[lowSection.id] ?? NO_NO_MAP.overall),
+    luckyTime: pickBySeed(seed, `lucky:${topSection.id}:${dayStem}`, LUCKY_TIME_MAP[topSection.id] ?? LUCKY_TIME_MAP.overall),
+    todayOneLine: pickBySeed(seed, `talk:${topSection.id}:${dayStem}`, TALK_MAP[topSection.id] ?? TALK_MAP.overall),
+    todayNoNo: pickBySeed(seed, `nono:${lowSection.id}:${dayStem}`, NO_NO_MAP[lowSection.id] ?? NO_NO_MAP.overall),
     missions: pickBySeed(seed, `mission:${topSection.id}`, [
       ...(MISSION_MAP[topSection.id] ?? MISSION_MAP.overall),
       ...CROSS_DOMAIN_MISSIONS,

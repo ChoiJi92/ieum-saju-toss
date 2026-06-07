@@ -43,7 +43,7 @@ export default function ScreenPersonality({ back, spirit }: { go: (r: Route) => 
       <V2Label>대화 팁</V2Label>
       <BulletList items={f.talkTips} />
 
-      <V2Label>오늘의 루틴</V2Label>
+      <V2Label>나의 루틴</V2Label>
       <BulletList items={f.todayRoutines} />
 
       <V2Glass style={{ marginTop: 22, textAlign: 'center', background: 'linear-gradient(135deg, rgba(183,156,255,.16), rgba(255,158,130,.12))' }}>

@@ -67,6 +67,8 @@ export type YearForecast = {
     career:  { score: number; oneLine: string; body: string };
     health:  { score: number; oneLine: string; body: string };
   };
+  /** 이번 달 포커스 — 보는 달마다 바뀜 */
+  monthFocus: { month: number; title: string; body: string };
 };
 
 /** 월주 천간 가져오기 — 매월 15일 정오 (절기 경계 안전) */
@@ -75,8 +77,32 @@ function monthStemAt(year: number, month: number): string {
   return r.monthPillarHanja[0];
 }
 
+/** 이번 달 포커스 문구 — 월별 score·십성 기반 */
+function buildMonthFocus(
+  months: MonthForecast[],
+  currentMonth: number
+): { month: number; title: string; body: string } {
+  const m = months.find((x) => x.month === currentMonth) ?? months[currentMonth - 1] ?? months[0];
+  const tone = m.score >= 78 ? '좋은' : m.score >= 68 ? '평온한' : '조심스러운';
+  const sipsungHint: Partial<Record<Sipsung, string>> = {
+    식신: '하고 싶은 걸 시도하기 좋아요.',
+    상관: '창의적인 아이디어가 빛나요.',
+    정재: '꾸준히 모으면 결과가 와요.',
+    편재: '예상치 못한 기회가 올 수 있어요.',
+    정관: '책임감 있게 움직이면 인정받아요.',
+    편관: '압박이 있어도 정면 돌파하면 성장해요.',
+    정인: '배우거나 공부하는 데 집중하기 좋아요.',
+    편인: '직감을 믿고 새로운 방향을 탐색해보세요.',
+    비견: '주변 사람과 함께 움직이면 힘이 돼요.',
+    겁재: '경쟁보단 자기 페이스를 지키는 게 답이에요.',
+  };
+  const hint = m.sipsung ? (sipsungHint[m.sipsung] ?? '') : '';
+  const body = `${currentMonth}월은 ${tone} 흐름이에요. ${hint}`.trim();
+  return { month: currentMonth, title: `${currentMonth}월 포커스`, body };
+}
+
 /** 본인 명식 × 한 해 → YearForecast (명식 시드 변동 포함) */
-export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast | null {
+export function yearForecast(myeongsik: Myeongsik, year: number, today: Date = new Date()): YearForecast | null {
   const myIlgan = myeongsik.ilgan.c;
   if (!isStem(myIlgan)) return null;
   const seed = myeongsikSeed(myeongsik);
@@ -156,6 +182,8 @@ export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast |
     (a, b) => b[1] - a[1]
   )[0]?.[0] ?? '식신';
 
+  const currentMonth = today.getMonth() + 1;
+
   return {
     year,
     months,
@@ -171,6 +199,7 @@ export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast |
       career: { score: avgWork,   oneLine: oneLineForField('career', bestMonth, avgWork),   body: fieldBody('career', dominant, bestMonth, worstMonth, avgWork) },
       health: { score: avgHealth, oneLine: oneLineForField('health', bestMonth, avgHealth), body: fieldBody('health', dominant, bestMonth, worstMonth, avgHealth) },
     },
+    monthFocus: buildMonthFocus(months, currentMonth),
   };
 }
 

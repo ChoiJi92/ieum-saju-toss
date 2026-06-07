@@ -294,7 +294,7 @@ export function healthForecast(
     score: overall,
     mood: MOOD_BY_WEAK[weakOhaeng],
     tagline,
-    body: `${HEALTH_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik)}`,
+    body: `${HEALTH_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik, 'health')}`,
     axes: [
       { ic: '💪', lbl: '체력',     score: vitality,  color: '#FF8B6C', oneLine: oneLine('vit', vitality) },
       { ic: '🧠', lbl: '정신',     score: mental,    color: '#9D7BFF', oneLine: oneLine('men', mental)   },
@@ -312,6 +312,6 @@ export function healthForecast(
     },
     keywords: KEYWORDS_BY_WEAK[weakOhaeng],
     monthFlow: MONTH_FLOW_BY_SIPSUNG[monthSipsung],
-    tips: rotateBySeed(seed, `${ym}_health_tips`, TIPS_BY_WEAK[weakOhaeng], 3),
+    tips: rotateBySeed(seed, `${ym}_w${Math.ceil(today.getDate() / 7)}_health_tips`, TIPS_BY_WEAK[weakOhaeng], 3),
   };
 }

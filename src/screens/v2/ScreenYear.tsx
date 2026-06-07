@@ -6,13 +6,17 @@ import type { Spirit } from '../../lib/spirit';
 
 export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { myeongsik } = useSaju();
-  const year = new Date().getFullYear();
-  const f = myeongsik ? yearForecast(myeongsik, year) : null;
+  const today = new Date();
+  const year = today.getFullYear();
+  const f = myeongsik ? yearForecast(myeongsik, year, today) : null;
   if (!f) return <DomainEmpty title="올해의 운세" back={back} />;
   return (
     <V2Screen seed={32}>
       <V2TopBar onBack={back} title="올해의 운세" />
       <DomainHeader spirit={spirit} score={f.yearScore} mood={f.mood} tagline={f.tagline} />
+
+      <V2Label>이번 달 포커스</V2Label>
+      <SectionCard title={`${f.monthFocus.month}월`} body={f.monthFocus.body} color="var(--v2-peach)" />
 
       <V2Label>12개월 흐름</V2Label>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, padding: '4px 2px' }}>

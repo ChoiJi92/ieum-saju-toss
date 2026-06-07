@@ -11,10 +11,11 @@ export default function ScreenYear({ copy }: { copy: IECopy }) {
   const [adDone, setAdDone] = useState(false);
 
   // 한 해 예측 — 명식 + 12개월 (명식 시드로 점수 ±3 변동)
-  const forecast = useMemo(
-    () => (myeongsik ? yearForecast(myeongsik, new Date().getFullYear()) : null),
-    [myeongsik]
-  );
+  const forecast = useMemo(() => {
+    if (!myeongsik) return null;
+    const today = new Date();
+    return yearForecast(myeongsik, today.getFullYear(), today);
+  }, [myeongsik]);
 
   if (!adDone)
     return (

@@ -11,7 +11,7 @@ import {
 import { useRouter } from '../lib/router';
 import { useSaju } from '../lib/saju-state';
 import { RewardedAdGate } from '../components/RewardedAdGate';
-import { todayFortune } from '../lib/today';
+import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
 import { pillarSeed } from '../lib/personalize';
 
@@ -52,12 +52,15 @@ export default function ScreenToday({ copy }: { copy: IECopy }) {
       ]
     : [];
 
+  const dayStem = todayDayStem(today);
+
   const actionGuide = useMemo(() => {
     if (!fortune || sections.length === 0) return null;
     return buildTodayActionGuide({
       sections,
       date: today,
       personalSeed: myeongsik ? pillarSeed(myeongsik) : 'anonymous',
+      dayStem,
     });
   }, [fortune, sections, myeongsik, today.toDateString()]);
 

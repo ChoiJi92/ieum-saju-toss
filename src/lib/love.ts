@@ -301,7 +301,7 @@ export function loveForecast(myeongsik: Myeongsik, today: Date = new Date()): Lo
     score: overall,
     mood: moodOf,
     tagline,
-    body: `${LOVE_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik)}`,
+    body: `${LOVE_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik, 'love')}`,
     axes: [
       { ic: '✨', lbl: '매력',     score: attraction, color: '#F495C9', oneLine: oneLine('attr', attraction) },
       { ic: '💞', lbl: '인연 신호', score: signal,    color: '#FF8B6C', oneLine: oneLine('sig',  signal)    },
@@ -311,6 +311,6 @@ export function loveForecast(myeongsik: Myeongsik, today: Date = new Date()): Lo
     dohwa: { count: dohwaCount, positions: dohwaPositions, line: dohwaLine },
     attractedTypes,
     timing: { month: bestM, reason: timingReason },
-    tips: rotateBySeed(seed, `${ym}_love_tips`, LOVE_TIPS[dominant], 3),
+    tips: rotateBySeed(seed, `${ym}_w${Math.ceil(today.getDate() / 7)}_love_tips`, LOVE_TIPS[dominant], 3),
   };
 }

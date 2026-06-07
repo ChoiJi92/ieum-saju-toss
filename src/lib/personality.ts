@@ -29,7 +29,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['처음엔 빠르고 강하게, 중반엔 묵직하게 버티는 패턴이 반복돼요.'],
     goodMatches: ['약속을 지키는 사람', '성장 의지가 있는 사람'],
     difficultMatches: ['말 바꾸기가 잦은 사람', '기준 없이 분위기만 타는 사람'],
-    mantra: '오늘은 서두르기보다, 방향을 다시 맞추는 데 힘을 써보세요.',
+    mantra: '서두르기보다, 방향을 다시 맞추는 데 힘을 쓰는 게 나다워요.',
   },
   乙: {
     identity: '부드러운 풀처럼, 상황에 맞춰 살아남는 감각이 좋은 사람이에요.',
@@ -39,7 +39,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['처음엔 관찰하고, 타이밍을 보면 정확히 움직이는 패턴이 있어요.'],
     goodMatches: ['배려가 자연스러운 사람', '감정 기복이 과하지 않은 사람'],
     difficultMatches: ['강압적으로 밀어붙이는 사람', '말보다 힘으로 해결하려는 사람'],
-    mantra: '오늘은 내 속도를 지키면서도, 필요한 말은 분명하게 전해보세요.',
+    mantra: '내 속도를 지키면서도, 필요한 말은 분명하게 전하는 게 나다워요.',
   },
   丙: {
     identity: '햇볕 같은 불기운으로, 주변 분위기를 밝게 바꾸는 힘이 있어요.',
@@ -49,7 +49,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['초반 몰입이 강하고, 관심이 식기 전에 변화를 주면 오래 가요.'],
     goodMatches: ['반응이 솔직한 사람', '함께 도전하는 걸 즐기는 사람'],
     difficultMatches: ['냉소가 습관인 사람', '계속 브레이크만 거는 사람'],
-    mantra: '오늘의 열정은 좋지만, 마무리 한 가지를 꼭 챙겨보세요.',
+    mantra: '열정이 강점이지만, 마무리 한 가지를 꼭 챙기는 게 나다워요.',
   },
   丁: {
     identity: '촛불 같은 불기운으로, 작지만 오래 가는 집중력이 강한 사람이에요.',
@@ -59,7 +59,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['한 번 마음이 가면 길게 책임지고, 아닌 건 빠르게 정리해요.'],
     goodMatches: ['말을 끝까지 들어주는 사람', '섬세함을 존중하는 사람'],
     difficultMatches: ['감정선을 무시하는 사람', '거친 말투를 당연하게 쓰는 사람'],
-    mantra: '오늘은 내 감각을 믿되, 피로 신호는 미루지 말고 쉬어가세요.',
+    mantra: '내 감각을 믿되, 피로 신호는 미루지 않고 쉬어가는 게 나다워요.',
   },
   戊: {
     identity: '넓은 흙처럼, 주변을 품고 버텨내는 힘이 큰 사람이에요.',
@@ -69,7 +69,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['급변보다 축적형 성장에 강하고, 꾸준함으로 결과를 만들어요.'],
     goodMatches: ['약속과 시간 개념이 확실한 사람', '현실 감각이 좋은 사람'],
     difficultMatches: ['즉흥적으로 판을 흔드는 사람', '책임 회피가 잦은 사람'],
-    mantra: '오늘은 완벽보다 진행을 택하면 흐름이 훨씬 가벼워져요.',
+    mantra: '완벽보다 진행을 택하면 흐름이 훨씬 가벼워지는 게 나다워요.',
   },
   己: {
     identity: '기름진 밭흙처럼, 현실적인 감각으로 결과를 키워내는 사람이에요.',
@@ -79,7 +79,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['크게 한 번보다, 작게 여러 번 고도화하는 패턴에 강해요.'],
     goodMatches: ['디테일을 존중하는 사람', '말보다 행동이 꾸준한 사람'],
     difficultMatches: ['큰 말만 하고 실행이 없는 사람', '기초를 무시하는 사람'],
-    mantra: '오늘은 작은 정리 하나가 다음 주의 여유를 만들어줘요.',
+    mantra: '작은 정리 하나가 큰 여유를 만들어주는 게 나다워요.',
   },
   庚: {
     identity: '단단한 쇠처럼, 결단과 실행에서 존재감이 강한 사람이에요.',
@@ -89,7 +89,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['결정 순간엔 빠르고, 실행 단계에선 단호하게 밀어붙여요.'],
     goodMatches: ['핵심을 정확히 말하는 사람', '약속을 실천으로 보여주는 사람'],
     difficultMatches: ['우유부단한 태도가 잦은 사람', '감정으로 규칙을 흔드는 사람'],
-    mantra: '오늘은 정답을 고르기보다, 덜 중요한 걸 먼저 덜어내세요.',
+    mantra: '정답을 고르기보다, 덜 중요한 걸 먼저 덜어내는 게 나다워요.',
   },
   辛: {
     identity: '정교한 보석 같은 쇠기운으로, 미감과 완성도 감각이 뛰어난 사람이에요.',
@@ -99,7 +99,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['처음엔 신중하고, 확신이 서면 완성도 높게 끝내는 패턴이 있어요.'],
     goodMatches: ['존중 있는 소통을 하는 사람', '디테일을 함께 맞춰주는 사람'],
     difficultMatches: ['막말이 습관인 사람', '대충 넘어가자는 태도가 강한 사람'],
-    mantra: '오늘은 기준을 지키되, 완벽주의는 10%만 내려놓아도 충분해요.',
+    mantra: '기준을 지키되, 완벽주의는 10%만 내려놓아도 충분한 게 나다워요.',
   },
   壬: {
     identity: '큰 물처럼, 시야가 넓고 변화에 강한 흐름형 사람이에요.',
@@ -109,7 +109,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['한곳에 묶이기보다, 흐름을 타며 큰 기회를 잡는 패턴이 반복돼요.'],
     goodMatches: ['유연하게 소통하는 사람', '가능성을 함께 키우는 사람'],
     difficultMatches: ['통제만 강한 사람', '변화를 무조건 막는 사람'],
-    mantra: '오늘은 확장보다 정리 한 번을 더하면 성과가 또렷해져요.',
+    mantra: '확장보다 정리 한 번을 더하면 성과가 또렷해지는 게 나다워요.',
   },
   癸: {
     identity: '이슬 같은 물기운으로, 조용하지만 깊게 스며드는 힘이 있는 사람이에요.',
@@ -119,7 +119,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['겉은 잔잔해도, 내면에서 충분히 숙성한 뒤 정확히 움직여요.'],
     goodMatches: ['경청이 되는 사람', '감정선의 결을 존중하는 사람'],
     difficultMatches: ['말로 압박하는 사람', '감정을 가볍게 소비하는 사람'],
-    mantra: '오늘은 내 감정의 결을 무시하지 말고, 필요한 거절을 연습해보세요.',
+    mantra: '내 감정의 결을 무시하지 않고, 필요한 거절을 하는 게 나다워요.',
   },
 };
 
@@ -153,7 +153,7 @@ const STEM_TALK_TIPS: Record<StemKey, string[]> = {
 };
 
 const OHAENG_ROUTINES: Record<OhaengKey, string[]> = {
-  wood: ['아침 10분 산책으로 생각을 깨워보세요.', '오늘 할 일 3개를 적고 순서대로 시작해보세요.'],
+  wood: ['아침 10분 산책으로 생각을 깨워보세요.', '할 일 3개를 적고 순서대로 시작해보세요.'],
   fire: ['햇볕 보는 시간을 15분 확보해보세요.', '고마운 사람 1명에게 짧은 메시지를 보내보세요.'],
   earth: ['책상/가방 한 칸만 정리해 안정감을 만드세요.', '식사 시간을 일정하게 맞춰 컨디션을 지켜보세요.'],
   metal: ['우선순위 1·2·3만 정하고 나머지는 미뤄두세요.', '불필요한 알림 3개를 꺼서 집중 환경을 만드세요.'],
@@ -263,7 +263,7 @@ export function personalityCard(myeongsik: Myeongsik): PersonalityCard {
   ].slice(0, 2);
 
   const enhancedDifficult = [mismatchTail, ...base.difficultMatches].slice(0, 2);
-  const enhancedMantra = `${base.mantra} ${variant === 0 ? '작은 약속 1개를 끝까지 지켜보세요.' : variant === 1 ? '중요한 일은 시작 시간을 먼저 고정해보세요.' : '오늘은 마무리 체크 1번만 더 해보세요.'}`;
+  const enhancedMantra = `${base.mantra} ${variant === 0 ? '작은 약속 1개를 끝까지 지켜보세요.' : variant === 1 ? '중요한 일은 시작 시간을 먼저 고정해보세요.' : '마무리 체크 1번이 습관이에요.'}`;
 
   return {
     title: '나의 사주 성격 카드',

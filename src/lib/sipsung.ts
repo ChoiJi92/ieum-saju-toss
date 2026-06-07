@@ -240,10 +240,74 @@ function seededVariance(seed: string, key: string, range = 3): number {
   return (Math.abs(h) % (range * 2 + 1)) - range;
 }
 
+/** 천간별 오행 기운 1문장 — 일진 동적 합성용 */
+const DAY_STEM_FLAVOR: Record<Stem, string> = {
+  甲: '오늘은 갑목(甲木) 기운이 들어와 새로운 시작에 힘이 실리는 날이에요.',
+  乙: '오늘은 을목(乙木) 기운이 들어와 부드럽게 스며드는 흐름의 날이에요.',
+  丙: '오늘은 병화(丙火) 기운이 들어와 활기차고 밝은 에너지가 가득한 날이에요.',
+  丁: '오늘은 정화(丁火) 기운이 들어와 내면의 따뜻함이 빛을 발하는 날이에요.',
+  戊: '오늘은 무토(戊土) 기운이 들어와 든든하게 중심을 잡아주는 날이에요.',
+  己: '오늘은 기토(己土) 기운이 들어와 차분하고 안정적인 하루가 펼쳐지는 날이에요.',
+  庚: '오늘은 경금(庚金) 기운이 들어와 결단력이 또렷해지는 날이에요.',
+  辛: '오늘은 신금(辛金) 기운이 들어와 섬세한 감각이 살아나는 날이에요.',
+  壬: '오늘은 임수(壬水) 기운이 들어와 흐름에 유연하게 올라타기 좋은 날이에요.',
+  癸: '오늘은 계수(癸水) 기운이 들어와 직관과 감수성이 예민해지는 날이에요.',
+};
+
+/** 섹션별 일일 tail 풀 — 매일 다른 문장이 뜨도록 7개 이상 */
+const TAIL_POOL: Record<string, string[]> = {
+  overall: [
+    '오늘은 속도보다 마무리 품질에 점수를 주세요.',
+    '작은 약속 하나를 지키는 게 전체 운을 안정시켜줘요.',
+    '중요한 선택은 메모로 남기면 내일 흐름이 더 좋아져요.',
+    '하루 한 가지만 제대로 끝내는 것만으로도 운이 정돈돼요.',
+    '오늘 흐름은 무리해서 당기기보다 자연스럽게 따라가는 쪽이 좋아요.',
+    '출발은 작게 해도 괜찮아요. 끝까지 가는 게 더 중요한 날이에요.',
+    '완벽보다 완료가 오늘의 키워드예요.',
+  ],
+  love: [
+    '오늘은 먼저 다가가는 쪽이 이득이에요.',
+    '상대의 감정을 먼저 들어주면 관계가 한 층 부드러워져요.',
+    '짧은 연락 하나가 오늘 관계 온도를 높여줘요.',
+    '말 한마디보다 표정과 태도가 더 크게 전달되는 날이에요.',
+    '기대보다 지금 이 순간을 즐기는 쪽이 더 잘 맞아요.',
+    '오해가 생기기 전에 확인 한 번이 훨씬 빠르게 풀어줘요.',
+    '솔직하게 마음 표현하는 것이 어색해도 오늘은 정답이에요.',
+  ],
+  money: [
+    '결제 전 한 번 멈추는 것만으로 오늘 지갑이 두꺼워져요.',
+    '작은 환급·포인트 하나를 확인하면 흐름이 좋아져요.',
+    '지금 쓰려는 돈이 나를 위한 건지 체면을 위한 건지 한 번 봐주세요.',
+    '오늘 아낀 소비가 다음 달 여유로 돌아와요.',
+    '고정지출 하나만 점검해도 돈 관리 흐름이 살아나요.',
+    '충동 결제는 24시간 미루면 절반은 안 해도 되더라고요.',
+    '예산 안에서 움직이면 돈이 쌓이는 속도가 달라져요.',
+  ],
+  work: [
+    '가장 중요한 일 하나만 오전에 끝내면 오후가 달라져요.',
+    '전달할 때 결론을 먼저 말하면 신뢰가 쌓여요.',
+    '오늘은 새로 벌리기보다 이미 시작한 일 마무리가 우선이에요.',
+    '메모 습관 하나가 오늘 실수를 막아줘요.',
+    '확인하고 답하는 리듬이 팀 안에서 당신 신뢰를 올려줘요.',
+    '작아도 보이는 결과물 하나를 오늘 남기세요.',
+    '복잡한 요청일수록 목적·기한·담당을 나눠서 처리하세요.',
+  ],
+  health: [
+    '물 한 잔 더 마시는 것부터 시작해도 충분해요.',
+    '20분 걷기로 머리와 몸을 동시에 리셋할 수 있어요.',
+    '잠들기 전 화면 줄이기가 내일 컨디션을 만들어요.',
+    '몸 신호를 무시하지 말고 오늘 한 번 들어봐주세요.',
+    '무리 없이 끝낸 하루가 장기적으로 더 좋은 결과를 만들어요.',
+    '식사 규칙 하나만 지켜도 컨디션이 다음 날 달라져요.',
+    '피로감을 느낀다면 강한 운동보다 충분한 수면이 먼저예요.',
+  ],
+};
+
 /**
  * 본인 명식(8자) + 오늘 일진 → DailyFortune.
  * 십성으로 base 결과 결정 + 명식 시드로 점수 ±3 변동.
- * 카피 oneLine에 일간 한자 자연 삽입.
+ * 카피 oneLine에 일간 한글 자연 삽입.
+ * tail 선택 시드에 일진 천간 + 날짜(일)를 포함해 매일 다른 문장이 나옴.
  */
 export function personalizedFortune(
   ilgan: Stem,
@@ -253,19 +317,23 @@ export function personalizedFortune(
   const base = fortuneBySipsung(ilgan, dayStem);
   // 시드 = 본인 명식 8자 + 오늘 일진 (날짜별로도 변동)
   const seed = myeongsikSeed + dayStem;
+
+  // tail 시드 키에 일진 천간을 포함 → 10일마다 다른 키 패턴 + 날짜(일)로 매일 회전
+  // myeongsikSeed 안에 이미 YYYY-MM-DD가 있으므로 getDate()가 포함됨
+  const tailSeed = `${seed}:day:${dayStem}`;
+
   const adjust = (key: string, score: number) =>
     Math.max(50, Math.min(98, score + seededVariance(seed, key, 3)));
 
-  const tail = (key: string) => pickBySeed(seed, key, [
-    '오늘은 속도보다 마무리 품질에 점수를 주세요.',
-    '작은 약속 하나를 지키는 게 전체 운을 안정시켜줘요.',
-    '중요한 선택은 메모로 남기면 내일 흐름이 더 좋아져요.',
-  ]);
+  const tail = (key: string) => pickBySeed(tailSeed, `tail:${key}:${dayStem}`, TAIL_POOL[key] ?? TAIL_POOL.overall);
+
+  // 일진 기운 1문장 — body 앞에 추가
+  const dayFlavor = DAY_STEM_FLAVOR[dayStem];
 
   return {
     ...base,
     sections: {
-      overall: { score: adjust('overall', base.sections.overall.score), body: `${base.sections.overall.body} ${tail('overall')}` },
+      overall: { score: adjust('overall', base.sections.overall.score), body: `${dayFlavor} ${base.sections.overall.body} ${tail('overall')}` },
       love:    { score: adjust('love',    base.sections.love.score),    body: `${base.sections.love.body} ${tail('love')}` },
       money:   { score: adjust('money',   base.sections.money.score),   body: `${base.sections.money.body} ${tail('money')}` },
       work:    { score: adjust('work',    base.sections.work.score),    body: `${base.sections.work.body} ${tail('work')}` },

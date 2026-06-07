@@ -436,7 +436,7 @@ function ScreenProfile({ go, back, spirit, resetApp }: { go: (r: Route) => void;
           <V2Glass onClick={() => go('personality')}>
             <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--v2-ink)' }}>{myeongsik?.ilgan.c}({ilganKr}) · {ilganElem.cn}{ilganElem.ko} 일간</div>
             <div style={{ fontSize: 12.5, color: 'var(--v2-ink-mid)', marginTop: 5, lineHeight: 1.55 }}>{card.identity}</div>
-            <div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginTop: 9, lineHeight: 1.5, background: 'rgba(183,156,255,.08)', borderRadius: 10, padding: '8px 10px' }}>✦ 정령 계열 <b style={{ color: spirit.elem.raw }}>{spirit.line}</b>은(는) 사주에서 가장 많은 기운이 아니라, ‘나’를 뜻하는 <b style={{ color: 'var(--v2-lavender)' }}>일간({ilganElem.ko})</b> 기준으로 정해져요.</div>
+            <div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginTop: 9, lineHeight: 1.5, background: 'rgba(183,156,255,.08)', borderRadius: 10, padding: '8px 10px' }}>✦ 정령은 태어난 해의 ‘띠’가 아니라, ‘나’를 뜻하는 <b style={{ color: 'var(--v2-lavender)' }}>일주(태어난 날)</b> 기준이에요. 계열 <b style={{ color: spirit.elem.raw }}>{spirit.line}</b>은(는) 일간({ilganElem.ko}), 동물은 일지로 정해져 띠와 다를 수 있어요.</div>
             <div style={{ fontSize: 11, color: 'var(--v2-lavender)', marginTop: 9, fontWeight: 700 }}>성격 분석 자세히 ›</div>
           </V2Glass>
         </>

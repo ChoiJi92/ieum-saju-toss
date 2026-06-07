@@ -15,12 +15,13 @@ export type ZodiacKey =
   | 'horse' | 'goat' | 'monkey' | 'rooster' | 'dog' | 'pig';
 export type Stage = 1 | 2 | 3 | 4;
 
+// word = 표시 계열명, imageWord = 이미지/저장 키용(디스크 폴더명). 보통 같지만 土는 분리(언덕 폴더 유지 + 황금 표시).
 export const ELEMENTS = {
-  wood: { key: 'wood', ko: '목', cn: '木', raw: '#5BD9AC', word: '새싹', trait: '자라나는', vibe: '생명력과 시작' },
-  fire: { key: 'fire', ko: '화', cn: '火', raw: '#FF9E82', word: '노을', trait: '타오르는', vibe: '열정과 표현' },
-  earth: { key: 'earth', ko: '토', cn: '土', raw: '#FFD27A', word: '언덕', trait: '품어주는', vibe: '안정과 신뢰' },
-  metal: { key: 'metal', ko: '금', cn: '金', raw: '#D6C6FF', word: '달빛', trait: '벼려진', vibe: '결단과 정제' },
-  water: { key: 'water', ko: '수', cn: '水', raw: '#7BA8FF', word: '이슬', trait: '흐르는', vibe: '지혜와 유연' },
+  wood: { key: 'wood', ko: '목', cn: '木', raw: '#5BD9AC', word: '새싹', imageWord: '새싹', trait: '자라나는', vibe: '생명력과 시작' },
+  fire: { key: 'fire', ko: '화', cn: '火', raw: '#FF9E82', word: '노을', imageWord: '노을', trait: '타오르는', vibe: '열정과 표현' },
+  earth: { key: 'earth', ko: '토', cn: '土', raw: '#FFD27A', word: '황금', imageWord: '언덕', trait: '품어주는', vibe: '안정과 신뢰' },
+  metal: { key: 'metal', ko: '금', cn: '金', raw: '#D6C6FF', word: '달빛', imageWord: '달빛', trait: '벼려진', vibe: '결단과 정제' },
+  water: { key: 'water', ko: '수', cn: '水', raw: '#7BA8FF', word: '이슬', imageWord: '이슬', trait: '흐르는', vibe: '지혜와 유연' },
 } as const;
 
 export const ZODIAC = {
@@ -76,9 +77,10 @@ export function makeSpirit(elemKey: ElementKey, zodKey: ZodiacKey) {
     KE[elemKey] === zElem ? RARITY.legend :
     RARITY.common;
 
-  const line = elem.word;   // 새싹/노을/언덕/달빛/이슬
-  const animal = zod.ko;    // 쥐~돼지
-  const key = `${line}${animal}`;
+  const line = elem.word;            // 표시 계열명 (황금/노을/새싹…)
+  const imageLine = elem.imageWord;  // 이미지·저장 키용 (언덕/노을/새싹…)
+  const animal = zod.ko;             // 쥐~돼지
+  const key = `${imageLine}${animal}`;     // 안정 키 — 이미지 경로·도감·교감 저장용 (표시명과 분리)
   const available = (AVAILABLE[elemKey] ?? []).includes(zodKey);
 
   /** 현재 단계 기준 이미지 경로 (없으면 null → 이모지 폴백) */
@@ -88,7 +90,7 @@ export function makeSpirit(elemKey: ElementKey, zodKey: ZodiacKey) {
   return {
     elemKey, zodKey, elem, zod, rarity,
     line, animal, key, available, imageFor,
-    name: key,
+    name: `${line}${animal}`,        // 표시 이름 (황금쥐) — key(언덕쥐)와 분리
     title: `${elem.trait} ${zod.trait} 정령`,
     formula: `${elem.cn}${elem.ko} + ${zod.ko}(${zod.cn})`,
     persona: `${elem.vibe}을 품은 ${zod.trait} 기질. ${line}처럼 ${elem.trait} 마음으로 세상을 대해요.`,
@@ -97,10 +99,11 @@ export function makeSpirit(elemKey: ElementKey, zodKey: ZodiacKey) {
 
 export type Spirit = ReturnType<typeof makeSpirit>;
 
-/** 명식 → 통합 영물 (일간 오행 = 계열, 년주 지지 = 띠). null이면 새싹쥐 기본값. */
+/** 명식 → 통합 영물 (일간 오행 = 계열, 일지 = 동물 → 일주 '나 자신' 기준). null이면 새싹쥐 기본값. */
 export function spiritFromMyeongsik(myeongsik: Myeongsik | null): Spirit {
   const elemKey = (myeongsik?.ilgan.ohaeng ?? 'wood') as ElementKey;
-  const branch = myeongsik?.pillars[0]?.bot.c ?? '子';
+  // 동물은 '띠'(년지)가 아니라 일주(일지) 기준 — 사주에서 일주가 '나 자신'을 나타냄 (예: 일간 금 + 일지 소 = "황금소" 류)
+  const branch = myeongsik?.pillars[2]?.bot.c ?? '子';
   const zodKey = BRANCH_TO_ZOD[branch] ?? 'rat';
   return makeSpirit(elemKey, zodKey);
 }

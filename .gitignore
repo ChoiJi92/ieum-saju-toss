@@ -78,3 +78,28 @@ Thumbs.db
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# ── 정령 이미지·디자인 작업물 (대용량·로컬 전용, git 미추적/미푸시) ──
+# 앱이 쓰는 정령 이미지(투명 PNG) — 로컬에서 빌드 시 포함, repo엔 안 올림
+/public/spirits/
+# 계열별 캐릭터 원본 폴더 (노을쥐/ 새싹용/ 달빛소/ 언덕호랑이/ 이슬…)
+/노을*/
+/새싹*/
+/달빛*/
+/언덕*/
+/이슬*/
+# 루트 디자인 시트 (계열별 캐릭터 HTML/PNG/PDF)
+/dalbit-*
+/eondeok-*
+/iseul-*
+/noeul-*
+/saessak-*
+# 작업 산출물·기획/핸드오프 문서
+/pending-*/
+/comparisons/
+/docs/
+/v2 자료/
+/SPIRIT_IMAGE_HANDOFF.md
+# 에이전트/오케스트레이션 로컬 상태
+/.omx/
+/.omc/

@@ -45,12 +45,36 @@ export const ZOD_ORDER: ZodiacKey[] = ['rat', 'ox', 'tiger', 'rabbit', 'dragon',
 const SHENG: Record<ElementKey, ElementKey> = { wood: 'fire', fire: 'earth', earth: 'metal', metal: 'water', water: 'wood' };
 const KE: Record<ElementKey, ElementKey> = { wood: 'earth', earth: 'water', water: 'fire', fire: 'metal', metal: 'wood' };
 
+// pct = 실제 출현율 (일주 60갑자 기준). 천을귀인=전설 7%, 괴강=영물 10%, 백호·간여지동=희귀 25%, 그 외 일반 58%.
 export const RARITY = {
   common: { key: 'common', ko: '일반', stars: 1, raw: '#9C8FC0', pct: '58%' },
-  rare: { key: 'rare', ko: '희귀', stars: 2, raw: '#5BD9AC', pct: '24%' },
-  spirit: { key: 'spirit', ko: '영물', stars: 3, raw: '#B79CFF', pct: '13%' },
-  legend: { key: 'legend', ko: '전설', stars: 4, raw: '#FFD27A', pct: '5%' },
+  rare: { key: 'rare', ko: '희귀', stars: 2, raw: '#5BD9AC', pct: '25%' },
+  spirit: { key: 'spirit', ko: '영물', stars: 3, raw: '#B79CFF', pct: '10%' },
+  legend: { key: 'legend', ko: '전설', stars: 4, raw: '#FFD27A', pct: '7%' },
 } as const;
+
+export type Rarity = (typeof RARITY)[keyof typeof RARITY];
+
+/**
+ * 실제 인구 희소성 기반 등급 — 일주(천간+지지)의 특수 일주로 판정 (60갑자 기준).
+ *   천을귀인(7%)→전설 · 괴강(10%)→영물 · 백호·간여지동(25%)→희귀 · 그 외(58%)→일반
+ */
+const CHEON_EUL: Record<string, string[]> = {
+  '甲': ['丑', '未'], '戊': ['丑', '未'], '庚': ['丑', '未'],
+  '乙': ['子', '申'], '己': ['子', '申'],
+  '丙': ['亥', '酉'], '丁': ['亥', '酉'],
+  '辛': ['寅', '午'], '壬': ['卯', '巳'], '癸': ['卯', '巳'],
+};
+const GOEGANG = new Set(['庚辰', '庚戌', '壬辰', '壬戌', '戊戌', '戊辰']);     // 괴강
+const BAEKHO = new Set(['甲辰', '乙未', '丙戌', '丁丑', '戊辰', '壬戌', '癸丑']); // 백호대살
+
+function rarityByIlju(stem: string, branch: string, stemElem: ElementKey, branchElem: ElementKey): Rarity {
+  const gz = stem + branch;
+  if ((CHEON_EUL[stem] ?? []).includes(branch)) return RARITY.legend;   // 천을귀인 ~7%
+  if (GOEGANG.has(gz)) return RARITY.spirit;                            // 괴강 ~10%
+  if (BAEKHO.has(gz) || stemElem === branchElem) return RARITY.rare;    // 백호·간여지동 ~25%
+  return RARITY.common;                                                 // ~58%
+}
 
 /** 표시 단계 → 한글 라벨 (이미지 파일명 규칙과 일치) */
 export const STAGE_LABEL: Record<Stage, string> = { 1: '아기', 2: '어린', 3: '성체', 4: '영험' };
@@ -67,15 +91,17 @@ const BRANCH_TO_ZOD: Record<string, ZodiacKey> = Object.fromEntries(
   (Object.keys(ZODIAC) as ZodiacKey[]).map((k) => [ZODIAC[k].cn, k])
 ) as Record<string, ZodiacKey>;
 
-export function makeSpirit(elemKey: ElementKey, zodKey: ZodiacKey) {
+export function makeSpirit(elemKey: ElementKey, zodKey: ZodiacKey, rarityOverride?: Rarity) {
   const elem = ELEMENTS[elemKey];
   const zod = ZODIAC[zodKey];
   const zElem = zod.elem as ElementKey;
-  const rarity =
+  // 본인 정령은 일주 기준 등급(rarityOverride), 도감 그리드 등 일반 호출은 오행 관계 기준
+  const rarity = rarityOverride ?? (
     elemKey === zElem ? RARITY.spirit :
     SHENG[zElem] === elemKey ? RARITY.rare :
     KE[elemKey] === zElem ? RARITY.legend :
-    RARITY.common;
+    RARITY.common
+  );
 
   const line = elem.word;            // 표시 계열명 (황금/노을/새싹…)
   const imageLine = elem.imageWord;  // 이미지·저장 키용 (언덕/노을/새싹…)
@@ -105,5 +131,8 @@ export function spiritFromMyeongsik(myeongsik: Myeongsik | null): Spirit {
   // 동물은 '띠'(년지)가 아니라 일주(일지) 기준 — 사주에서 일주가 '나 자신'을 나타냄 (예: 일간 금 + 일지 소 = "황금소" 류)
   const branch = myeongsik?.pillars[2]?.bot.c ?? '子';
   const zodKey = BRANCH_TO_ZOD[branch] ?? 'rat';
-  return makeSpirit(elemKey, zodKey);
+  // 등급은 실제 일주(천간+지지) 기준 — 특수 일주(천을귀인/괴강/백호/간여지동)로 인구 희소성 산출
+  const stem = myeongsik?.ilgan.c;
+  const rarity = myeongsik && stem ? rarityByIlju(stem, branch, elemKey, ZODIAC[zodKey].elem as ElementKey) : undefined;
+  return makeSpirit(elemKey, zodKey, rarity);
 }

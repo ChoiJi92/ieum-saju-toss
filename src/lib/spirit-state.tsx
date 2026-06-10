@@ -1,8 +1,8 @@
 import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 import {
   type SpiritProgress, type ActionKind, type BonusKind, type DayActions, type DayBonuses, type StreakState,
-  THRESHOLD, DAILY_CAP, ACTION_GAIN, BONUS_GAIN, AD_GAIN, AD_MAX_PER_DAY, STREAK_REWARD,
-  normalize, applyGain, percentOf, doEvolve, makeStreakDefault, tickStreak as tickStreakPure,
+  THRESHOLD, DAILY_CAP, ACTION_GAIN, BONUS_GAIN, AD_GAIN, AD_MAX_PER_DAY, STREAK_REWARD, TIME_BONUS,
+  normalize, applyGain, percentOf, doEvolve, makeStreakDefault, tickStreak as tickStreakPure, inActionWindow,
 } from './spirit-economy';
 import type { Stage } from './spirit';
 
@@ -69,7 +69,9 @@ export function SpiritStateProvider({ children }: { children: ReactNode }) {
 
   const care = useCallback((k: string, kind: ActionKind): CareResult => update(k, (p) => {
     if (p.actions[kind]) return { p, res: { ok: false, gained: 0, reason: 'used' } };
-    const { next, gained } = applyGain(p, ACTION_GAIN[kind]);
+    // 시간대가 맞는 교감(아침 먹이/낮 쓰다듬기/밤 명상)은 보너스
+    const amount = ACTION_GAIN[kind] + (inActionWindow(kind, new Date()) ? TIME_BONUS : 0);
+    const { next, gained } = applyGain(p, amount);
     const p2 = { ...next, actions: { ...next.actions, [kind]: true } };
     return { p: p2, res: { ok: true, gained, reason: gained === 0 ? 'capped' : undefined } };
   }), [update]);

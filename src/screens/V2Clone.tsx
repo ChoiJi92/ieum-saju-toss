@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
 import { showRewardedAdForResult } from '../lib/ads';
-import { ACTION_GAIN, AD_GAIN, DAILY_CAP } from '../lib/spirit-economy';
+import { ACTION_GAIN, AD_GAIN, DAILY_CAP, TIME_BONUS, ACTION_WINDOW, inActionWindow } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
@@ -987,6 +987,9 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
                 const used = tgtRem.actions[a.kind];
                 const noTarget = stage >= 4 && !mentee;
                 const off = used || tgtRem.capLeft === 0 || noTarget;
+                // 시간대 보너스 — 아침 먹이/낮 쓰다듬기/밤 명상이면 +6
+                const inWin = inActionWindow(a.kind);
+                const win = ACTION_WINDOW[a.kind];
                 // disabled 대신 탭 피드백 — 무반응(버그 체감) 제거
                 const onTap = () => {
                   if (noTarget) { showNotice('가장 영험한 모습이에요 — 새 정령을 만나 기운을 나눠보세요 ✦'); return; }
@@ -995,14 +998,23 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
                   doCare(a.kind, a.ic);
                 };
                 return (
-                  <button key={a.kind} onClick={onTap} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '2px 2px', minHeight: 44, borderRadius: 14, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none', opacity: off ? 0.4 : 1 }}>
-                    <span style={{ width: 44, height: 44, borderRadius: 15, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, boxShadow: off ? 'none' : `0 0 16px ${a.c}26` }}>{a.ic}</span>
+                  <button key={a.kind} onClick={onTap} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '2px 2px', minHeight: 44, borderRadius: 14, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none', opacity: off ? 0.4 : 1, position: 'relative' }}>
+                    {inWin && !off && <span style={{ position: 'absolute', top: -7, right: '50%', transform: 'translateX(34px)', fontSize: 8.5, fontWeight: 900, color: '#1b1230', background: 'var(--v2-butter)', padding: '2px 6px', borderRadius: 7, whiteSpace: 'nowrap', boxShadow: '0 0 10px rgba(255,210,122,.5)' }}>{win.emoji} 지금</span>}
+                    <span style={{ width: 44, height: 44, borderRadius: 15, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, boxShadow: off ? 'none' : inWin ? `0 0 18px ${a.c}55, 0 0 8px rgba(255,210,122,.35)` : `0 0 16px ${a.c}26`, border: inWin && !off ? '1.5px solid rgba(255,210,122,.55)' : '1.5px solid transparent' }}>{a.ic}</span>
                     <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
-                    <span style={{ fontSize: 11.5, fontWeight: 800, color: used ? 'var(--v2-ink-mute)' : a.c }}>{used ? '완료' : `+${a.amt}`}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: used ? 'var(--v2-ink-mute)' : inWin ? 'var(--v2-butter)' : a.c }}>{used ? '완료' : `+${a.amt + (inWin ? TIME_BONUS : 0)}${inWin ? ' ✨' : ''}`}</span>
                   </button>
                 );
               })}
             </div>
+            {/* 시간대 안내 — 제철 교감에 보너스 */}
+            {(stage < 4 || mentee) && (() => {
+              const nowKind = (['feed', 'pet', 'meditate'] as const).find((k) => inActionWindow(k));
+              if (!nowKind || tgtRem.actions[nowKind]) return null;
+              const w = ACTION_WINDOW[nowKind];
+              const nm = { feed: '먹이주기', pet: '쓰다듬기', meditate: '명상하기' }[nowKind];
+              return <div style={{ marginTop: 8, textAlign: 'center', fontSize: 10.5, color: 'var(--v2-ink-dim)' }}>{w.emoji} 지금은 {w.label} — <b style={{ color: 'var(--v2-butter)' }}>{nm}</b>에 +{TIME_BONUS} 보너스가 붙어요</div>;
+            })()}
             {notice && <div style={{ marginTop: 9, textAlign: 'center', fontSize: 11.5, fontWeight: 700, color: 'var(--v2-lavender)', animation: 'v2-rise-soft .3s ease' }}>{notice}</div>}
             {/* 영험인데 나눠줄 정령이 없음 → 새 정령 만나기 CTA */}
             {stage >= 4 && !mentee && (

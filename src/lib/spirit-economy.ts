@@ -10,8 +10,22 @@ import type { Stage } from './spirit';
 export const THRESHOLD: Record<Stage, number> = { 1: 100, 2: 400, 3: 1000, 4: 0 };
 /** 하루 성장 상한 (모든 출처 합산 최대) */
 export const DAILY_CAP = 70;
-/** 무료 교감 1회 획득량 */
-export const ACTION_GAIN = { feed: 14, pet: 12, meditate: 12 } as const;
+/** 무료 교감 1회 기본 획득량 — 셋 다 동일(공정), 차이는 시간대 보너스로 */
+export const ACTION_GAIN = { feed: 12, pet: 12, meditate: 12 } as const;
+/** 시간대가 맞는 교감 보너스 (아침 먹이 / 낮 쓰다듬기 / 밤 명상) — 하루 3번 올 이유 */
+export const TIME_BONUS = 6;
+/** 교감별 제철 시간대 (시작시, 끝시) — 끝시 미만. meditate는 자정 넘어감 */
+export const ACTION_WINDOW: Record<'feed' | 'pet' | 'meditate', { from: number; to: number; label: string; emoji: string }> = {
+  feed: { from: 5, to: 12, label: '아침', emoji: '🌅' },
+  pet: { from: 12, to: 18, label: '낮', emoji: '☀️' },
+  meditate: { from: 18, to: 5, label: '밤', emoji: '🌙' },
+};
+/** 지금이 해당 교감의 제철 시간대인가 */
+export function inActionWindow(kind: 'feed' | 'pet' | 'meditate', now: Date = new Date()): boolean {
+  const h = now.getHours();
+  const w = ACTION_WINDOW[kind];
+  return w.from < w.to ? h >= w.from && h < w.to : h >= w.from || h < w.to;
+}
 /** 앱활동 보너스 획득량 */
 export const BONUS_GAIN = { fortune: 8, attend: 4 } as const;
 /** 보상형 광고 1회 획득량 / 하루 최대 횟수 */

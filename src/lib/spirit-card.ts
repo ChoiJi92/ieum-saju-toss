@@ -111,26 +111,27 @@ async function drawCard(spirit: Spirit, stage: Stage, oneLine?: string): Promise
   ctx.fillStyle = '#FFD27A';
   ctx.fillText(`${spirit.formula} · ${STAGE_LABEL[stage]} 정령`, W / 2, 766);
 
-  // 오늘 한 줄 (말풍선 카드)
+  // 오늘 한 줄 (말풍선 카드) — 푸터와 겹치지 않게 위쪽 배치 (최대 2줄 = y896에서 끝)
   if (oneLine) {
-    ctx.font = '600 26px -apple-system, sans-serif';
+    ctx.font = '600 25px -apple-system, sans-serif';
     const lines = wrapText(ctx, oneLine, W - 200, 2);
-    const boxH = 44 + lines.length * 38;
+    const boxY = 786;
+    const boxH = 38 + lines.length * 36;
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    roundRect(ctx, 70, 800, W - 140, boxH, 22);
+    roundRect(ctx, 70, boxY, W - 140, boxH, 22);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx.lineWidth = 1.5;
-    roundRect(ctx, 70, 800, W - 140, boxH, 22);
+    roundRect(ctx, 70, boxY, W - 140, boxH, 22);
     ctx.stroke();
     ctx.fillStyle = '#CFC4E8';
-    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, 846 + i * 38));
+    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, boxY + 44 + i * 36));
   }
 
-  // 푸터
+  // 푸터 — 한 줄 박스 최대 하단(896)과 충분한 간격
   ctx.font = '700 22px -apple-system, sans-serif';
   ctx.fillStyle = 'rgba(244,239,255,0.45)';
-  ctx.fillText('이음사주 ✦ 나의 사주 정령', W / 2, H - 28);
+  ctx.fillText('이음사주 ✦ 나의 사주 정령', W / 2, H - 20);
 
   return canvas;
 }

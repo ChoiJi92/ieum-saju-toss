@@ -660,7 +660,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
 }
 
 function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
-  const { profile, myeongsik } = useSaju();
+  const { profile, myeongsik, profiles } = useSaju();
   const name = profile?.name ?? '나';
   const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, evolve, remaining, streak, tickStreak } = useSpiritState();
   const prog = progressOf(spirit.key);
@@ -678,24 +678,51 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   const [burstIcon, setBurstIcon] = useState('✦');
   const [adLoading, setAdLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // 첫 교감 가이드 — 최초 1회 코치마크 (교감하면 영구 해제)
+  const [careGuide, setCareGuide] = useState(() => { try { return !localStorage.getItem('ieum-saju.guide.care.v1'); } catch { return false; } });
+  const dismissCareGuide = () => { setCareGuide(false); try { localStorage.setItem('ieum-saju.guide.care.v1', '1'); } catch { /* ignore */ } };
   const showNotice = (msg: string) => { setNotice(msg); window.setTimeout(() => setNotice(null), 2200); };
   // 진화 ETA — 자연 페이스(~50/일) 기준 예상일. "내일 또 와야지" 동기 한 줄.
   const remainBond = Math.max(0, thresholdOf(stage) - prog.bond);
   const etaDays = Math.max(1, Math.ceil(remainBond / 50));
+  // 영험 엔드게임: 멘토 모드 — 다 키운 정령이 도감의 다음 정령에게 기운을 나눠줌
+  const menteeCands = useMemo(() => {
+    if (stage < 4) return [] as { key: string; sp: Spirit }[];
+    const seen = new Set<string>([spirit.key]);
+    const out: { key: string; sp: Spirit }[] = [];
+    for (const pr of profiles) {
+      try {
+        const sp = spiritFromMyeongsik(computeMyeongsik(pr));
+        if (seen.has(sp.key)) continue;
+        seen.add(sp.key);
+        if (progressOf(sp.key).stage < 4) out.push({ key: sp.key, sp });
+      } catch { /* skip */ }
+    }
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, profiles, spirit.key]);
+  const [menteeKey, setMenteeKey] = useState<string | null>(() => { try { return localStorage.getItem('ieum-saju.mentor.v1'); } catch { return null; } });
+  const mentee = menteeCands.find((c) => c.key === menteeKey) ?? menteeCands[0] ?? null;
+  const pickMentee = (k: string) => { setMenteeKey(k); try { localStorage.setItem('ieum-saju.mentor.v1', k); } catch { /* ignore */ } };
+  // 교감/광고가 향하는 대상 — 영험+멘티 있으면 멘티, 아니면 본인
+  const targetKey = stage >= 4 && mentee ? mentee.key : spirit.key;
+  const tgtProg = progressOf(targetKey);
+  const tgtRem = remaining(targetKey);
+  const tgtPct = percent(targetKey);
   const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const canBypass = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false' && isLocalhost;
   const scrollTop = () => { (anchorRef.current?.closest('.ie-scroll') as HTMLElement | null)?.scrollTo({ top: 0, behavior: 'smooth' }); };
   const playFx = (gained: number, icon: string) => { setGain(gained); setBurstIcon(icon); setPulseKey((k) => k + 1); window.setTimeout(() => setGain(null), 1800); };
-  // 무료 교감 — 하루 1회씩, 하루 상한 내에서
-  const doCare = (kind: 'feed' | 'pet' | 'meditate', icon: string) => { const r = careAct(spirit.key, kind); if (r.ok && r.gained > 0) playFx(r.gained, icon); };
-  // 광고 가속 — 보상형 광고 성공 후 adBoost (하루 상한·횟수 내)
+  // 무료 교감 — 하루 1회씩, 하루 상한 내에서 (영험이면 멘티에게)
+  const doCare = (kind: 'feed' | 'pet' | 'meditate', icon: string) => { const r = careAct(targetKey, kind); if (r.ok && r.gained > 0) { playFx(r.gained, icon); dismissCareGuide(); } };
+  // 광고 가속 — 보상형 광고 성공 후 adBoost (하루 상한·횟수 내, 영험이면 멘티에게)
   const doAd = async () => {
     if (adLoading) return;
-    if (canBypass) { const r = adBoost(spirit.key); if (r.ok && r.gained > 0) playFx(r.gained, '✨'); return; }
+    if (canBypass) { const r = adBoost(targetKey); if (r.ok && r.gained > 0) playFx(r.gained, '✨'); return; }
     setAdLoading(true);
     const res = await showRewardedAdForResult();
     setAdLoading(false);
-    if (res === 'rewarded') { const r = adBoost(spirit.key); if (r.ok && r.gained > 0) playFx(r.gained, '✨'); }
+    if (res === 'rewarded') { const r = adBoost(targetKey); if (r.ok && r.gained > 0) playFx(r.gained, '✨'); }
   };
   const doEvolve = () => { scrollTop(); setEvolving(true); window.setTimeout(() => { evolve(spirit.key); setEvolving(false); }, 2000); };
   // 출석 보너스 — 그날 첫 진입 1회 (멱등). 첫 적립이면 +N 연출.
@@ -921,11 +948,35 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
       </div></Rise>
 
       {/* 진화의 결은 메인에서 제외 (내정보에서 확인) — 한 화면 우선 */}
+      {/* 첫 교감 코치마크 — 최초 1회, 교감하면 해제 */}
+      {careGuide && stage < 4 && !rem.actions.feed && (
+        <div style={{ textAlign: 'center', marginTop: 8, animation: 'v2-float 2.2s ease-in-out infinite' }}>
+          <span style={{ display: 'inline-block', padding: '8px 16px', borderRadius: 999, background: 'rgba(91,217,172,.14)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12, fontWeight: 800 }}>👇 아래 버튼으로 첫 교감을 해보세요 — 매일 교감하면 자라요</span>
+        </div>
+      )}
       {/* 하단 카드 — 기운 게이지 + 교감 (펫과 한 화면) */}
       <Rise delay={180} style={{ marginTop: 12 }}>{canEvolve
         ? <button onClick={doEvolve} className="v2-press" style={{ width: '100%', padding: 16, borderRadius: 'var(--v2-r-md)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: 'linear-gradient(100deg, #FFD27A, #5BD9AC)', color: '#1b1230', fontSize: 16, fontWeight: 900, boxShadow: '0 8px 28px #FFD27A66' }}>✦ {nextKo}(으)로 진화하기 ✦</button>
         : <V2Glass style={{ padding: '12px 16px' }}>
-            <BondMeter percent={stage >= 4 ? 100 : pct} label={stage >= 4 ? '기운' : '다음 진화까지'} sub={stage >= 4 ? '최종 진화 완료 — 가장 영험한 모습이에요 ✦' : `오늘 +${prog.gainedToday}/${DAILY_CAP} · 이 속도면 ${etaDays <= 1 ? '내일' : `약 ${etaDays}일 뒤`} ${nextKo}(으)로 진화해요`} />
+            <BondMeter
+              percent={stage >= 4 ? (mentee ? tgtPct : 100) : pct}
+              label={stage >= 4 ? (mentee ? `🧙 멘토 모드 — ${mentee.sp.name}` : '기운') : '다음 진화까지'}
+              sub={stage >= 4
+                ? (mentee ? `제자 정령에게 기운을 나눠요 · 오늘 +${tgtProg.gainedToday}/${DAILY_CAP}` : '최종 진화 완료 — 새 정령을 만나면 기운을 나눠줄 수 있어요 ✦')
+                : `오늘 +${prog.gainedToday}/${DAILY_CAP} · 이 속도면 ${etaDays <= 1 ? '내일' : `약 ${etaDays}일 뒤`} ${nextKo}(으)로 진화해요`}
+            />
+            {/* 멘티 선택 (영험 + 후보 2명 이상) */}
+            {stage >= 4 && menteeCands.length > 1 && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 9, overflowX: 'auto' }} className="ie-scroll">
+                {menteeCands.map((c) => (
+                  <button key={c.key} onClick={() => pickMentee(c.key)} style={{ flexShrink: 0, padding: '6px 11px', borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--v2-font)', fontSize: 11.5, fontWeight: 800, background: mentee?.key === c.key ? 'var(--v2-lavender)' : 'var(--v2-glass)', color: mentee?.key === c.key ? '#1b1230' : 'var(--v2-ink-mid)', border: '1px solid var(--v2-glass-line2)' }}>{c.sp.name}</button>
+                ))}
+              </div>
+            )}
+            {/* 멘티 진화 준비 완료 힌트 */}
+            {stage >= 4 && mentee && tgtProg.bond >= thresholdOf(tgtProg.stage) && tgtProg.stage < 4 && (
+              <button onClick={() => go('profiles')} className="v2-press" style={{ marginTop: 9, width: '100%', padding: '9px', borderRadius: 11, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(100deg, rgba(255,210,122,.2), rgba(91,217,172,.2))', color: 'var(--v2-butter)', fontSize: 12, fontWeight: 800 }}>✨ {mentee.sp.name} 진화 준비 완료 — 사주 전환해서 진화시키기 ›</button>
+            )}
             <div style={{ height: 1, background: 'var(--v2-glass-line2)', margin: '10px -16px' }} />
             <div style={{ display: 'flex', gap: 6 }}>
               {([
@@ -933,13 +984,14 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
                 { kind: 'pet', ic: '💗', t: '쓰다듬기', amt: ACTION_GAIN.pet, c: '#FF9E82' },
                 { kind: 'meditate', ic: '🌙', t: '명상하기', amt: ACTION_GAIN.meditate, c: '#B79CFF' },
               ] as const).map((a) => {
-                const used = rem.actions[a.kind];
-                const off = used || rem.capLeft === 0 || stage >= 4;
+                const used = tgtRem.actions[a.kind];
+                const noTarget = stage >= 4 && !mentee;
+                const off = used || tgtRem.capLeft === 0 || noTarget;
                 // disabled 대신 탭 피드백 — 무반응(버그 체감) 제거
                 const onTap = () => {
-                  if (stage >= 4) { showNotice('가장 영험한 모습이에요 — 이제 함께 지내요 ✦'); return; }
-                  if (used) { showNotice('오늘은 이미 교감했어요 · 내일 또 만나요 🌙'); return; }
-                  if (rem.capLeft === 0) { showNotice('오늘은 다 컸어요 🌙 내일 또 만나요'); return; }
+                  if (noTarget) { showNotice('가장 영험한 모습이에요 — 새 정령을 만나 기운을 나눠보세요 ✦'); return; }
+                  if (used) { showNotice(mentee ? `${mentee.sp.name}는 오늘 이 교감을 받았어요 🌙` : '오늘은 이미 교감했어요 · 내일 또 만나요 🌙'); return; }
+                  if (tgtRem.capLeft === 0) { showNotice(mentee ? `${mentee.sp.name}는 오늘 충분히 자랐어요 🌙` : '오늘은 다 컸어요 🌙 내일 또 만나요'); return; }
                   doCare(a.kind, a.ic);
                 };
                 return (
@@ -952,10 +1004,17 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               })}
             </div>
             {notice && <div style={{ marginTop: 9, textAlign: 'center', fontSize: 11.5, fontWeight: 700, color: 'var(--v2-lavender)', animation: 'v2-rise-soft .3s ease' }}>{notice}</div>}
-            {stage < 4 && rem.capLeft > 0 && rem.adsLeft > 0 && (
-              <button onClick={doAd} disabled={adLoading} className="v2-press" style={{ marginTop: 11, width: '100%', padding: '10px', borderRadius: 12, border: '1px dashed var(--v2-glass-line2)', background: 'rgba(255,210,122,.08)', color: 'var(--v2-butter)', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>{adLoading ? '광고 여는 중…' : `🎬 광고 보고 +${AD_GAIN} 교감 (오늘 ${rem.adsLeft}회 가능)`}</button>
+            {/* 영험인데 나눠줄 정령이 없음 → 새 정령 만나기 CTA */}
+            {stage >= 4 && !mentee && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 11 }}>
+                <button onClick={() => go('addProfile')} className="v2-press" style={{ padding: '11px 8px', borderRadius: 12, border: '1px solid var(--v2-glass-line2)', background: 'var(--v2-glass)', color: 'var(--v2-ink)', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>🔮 다른 사주 추가</button>
+                <button onClick={() => go('gunghap')} className="v2-press" style={{ padding: '11px 8px', borderRadius: 12, border: '1px solid var(--v2-glass-line2)', background: 'var(--v2-glass)', color: 'var(--v2-ink)', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>💑 궁합으로 만나기</button>
+              </div>
             )}
-            {stage < 4 && rem.capLeft === 0 && (
+            {(stage < 4 || mentee) && tgtRem.capLeft > 0 && tgtRem.adsLeft > 0 && (
+              <button onClick={doAd} disabled={adLoading} className="v2-press" style={{ marginTop: 11, width: '100%', padding: '10px', borderRadius: 12, border: '1px dashed var(--v2-glass-line2)', background: 'rgba(255,210,122,.08)', color: 'var(--v2-butter)', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>{adLoading ? '광고 여는 중…' : `🎬 광고 보고 +${AD_GAIN} 교감 (오늘 ${tgtRem.adsLeft}회 가능)`}</button>
+            )}
+            {(stage < 4 || mentee) && tgtRem.capLeft === 0 && (
               <div style={{ marginTop: 11, textAlign: 'center', fontSize: 11.5, color: 'var(--v2-ink-dim)' }}>오늘은 충분히 자랐어요 🌙 내일 또 만나요</div>
             )}
           </V2Glass>}
@@ -994,9 +1053,10 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   );
 }
 
-function ScreenCollection({ switchTab, back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profiles } = useSaju();
   const [filter, setFilter] = useState<ElementKey | 'all'>('all');
+  const [wish, setWish] = useState<ReturnType<typeof makeSpirit> | null>(null); // 미수집 셀 탭 → 획득 CTA
   const unlocked = useMemo(() => {
     const s = new Set<string>();
     for (const p of profiles) {
@@ -1009,12 +1069,17 @@ function ScreenCollection({ switchTab, back, spirit }: { go: (r: Route) => void;
     return { ek, key: sp.key, sp, got: unlocked.has(sp.key), ready: sp.available };
   })).filter((c) => filter === 'all' || c.ek === filter);
   const ownedCount = unlocked.size;
+  const nextGoal = [3, 5, 10, 20, 40, 60].find((n) => n > ownedCount) ?? 60;
   return (
     <V2Screen seed={17} style={{ paddingBottom: 0 }}>
       <V2TopBar onBack={back} title="정령 도감" />
-      <Rise><V2Glass style={{ display: 'flex', alignItems: 'center', gap: 14 }} glow="0 0 24px rgba(255,210,122,.16)"><ScoreRing score={Math.round((ownedCount / 60) * 100)} color="var(--v2-butter)" /><div style={{ flex: 1 }}><div style={{ fontSize: 15, fontWeight: 800 }}>{ownedCount}종의 정령을 만났어요</div><div style={{ fontSize: 12, color: 'var(--v2-ink-dim)', marginTop: 3, lineHeight: 1.5 }}>궁합으로 다른 사람의 사주를 풀면 그 정령이 도감에 담겨요 ✦</div></div></V2Glass></Rise>
+      <Rise><V2Glass style={{ display: 'flex', alignItems: 'center', gap: 14 }} glow="0 0 24px rgba(255,210,122,.16)"><ScoreRing score={Math.round((ownedCount / 60) * 100)} color="var(--v2-butter)" /><div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>{ownedCount} / 60 정령을 만났어요</div>
+        <div style={{ height: 5, borderRadius: 999, background: 'rgba(255,255,255,.08)', margin: '8px 0 6px', overflow: 'hidden' }}><div style={{ width: `${(ownedCount / 60) * 100}%`, height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--v2-butter), var(--v2-peach))', transition: 'width .5s ease' }} /></div>
+        <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', lineHeight: 1.5 }}>{ownedCount >= 60 ? '도감 완성! 모든 정령을 만났어요 🎉' : `다음 목표 ${nextGoal}마리 — ${nextGoal - ownedCount}마리 남았어요. 못 만난 정령을 눌러보세요 ✦`}</div>
+      </div></V2Glass></Rise>
       <Rise delay={80}><div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '18px 0 14px' }} className="ie-scroll"><FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label="전체" color="var(--v2-lavender)" />{ELEM_ORDER.map((ek) => <FilterChip key={ek} active={filter === ek} onClick={() => setFilter(ek)} label={`${ELEMENTS[ek].cn} ${ELEMENTS[ek].ko}`} color={ELEMENTS[ek].raw} />)}</div></Rise>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got && switchTab('profile')} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: c.got ? 'pointer' : 'default', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5) }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got ? switchTab('profile') : setWish(c.sp)} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: 'pointer', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5) }}>
         <div style={{ width: 52, height: 52, margin: '0 auto 8px', borderRadius: '50%', overflow: 'hidden', background: c.got ? `radial-gradient(circle at 38% 34%, #fff8, ${c.sp.elem.raw}, ${c.sp.rarity.raw})` : 'rgba(255,255,255,.05)', boxShadow: c.got ? `0 0 16px ${c.sp.elem.raw}88` : 'none', border: c.got ? 'none' : '1px dashed var(--v2-glass-line2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: 'var(--v2-ink-mute)' }}>
           {c.got ? (c.sp.imageFor(1) ? <img src={c.sp.imageFor(1) as string} alt={c.sp.name} style={{ width: '118%', height: '118%', objectFit: 'contain' }} /> : c.sp.zod.emoji) : '?'}
         </div>
@@ -1024,6 +1089,26 @@ function ScreenCollection({ switchTab, back, spirit }: { go: (r: Route) => void;
         {c.key === spirit.key && <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 8, fontWeight: 800, color: '#1b1230', background: 'var(--v2-lavender)', padding: '2px 5px', borderRadius: 5 }}>내 정령</span>}
       </div></Rise>)}</div>
       <div style={{ height: 96 }} />
+      {/* 미수집 정령 — 어떻게 만나는지 + 획득 경로 CTA */}
+      {wish && (
+        <div onClick={() => setWish(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)', padding: '18px 20px calc(22px + env(safe-area-inset-bottom, 0px))' }}>
+            <div style={{ width: 36, height: 4, background: 'var(--v2-glass-line)', borderRadius: 2, margin: '0 auto 14px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+              <div style={{ width: 58, height: 58, borderRadius: '50%', background: `radial-gradient(circle, ${wish.elem.raw}33, var(--v2-glass))`, border: `1.5px dashed ${wish.elem.raw}66`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>❔</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--v2-ink)' }}>{wish.name} <span style={{ fontSize: 11, color: wish.rarity.raw, fontWeight: 800 }}>· 아직 못 만남</span></div>
+                <div style={{ fontSize: 12, color: 'var(--v2-ink-dim)', marginTop: 4, lineHeight: 1.55 }}>일간 <b style={{ color: wish.elem.raw }}>{wish.elem.cn}{wish.elem.ko}</b> · 일지 <b style={{ color: 'var(--v2-lavender)' }}>{wish.zod.ko}({wish.zod.cn})</b>인 사주에서 태어나요</div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginTop: 16 }}>
+              <button onClick={() => { setWish(null); go('gunghap'); }} className="v2-press" style={{ padding: '13px 8px', borderRadius: 13, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(120deg, var(--v2-lavender), var(--v2-peach))', color: '#1b1230', fontSize: 13, fontWeight: 900 }}>💑 궁합으로 찾기</button>
+              <button onClick={() => { setWish(null); go('addProfile'); }} className="v2-press" style={{ padding: '13px 8px', borderRadius: 13, border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'var(--v2-glass)', color: 'var(--v2-ink)', fontSize: 13, fontWeight: 800 }}>🔮 다른 사주 추가</button>
+            </div>
+            <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--v2-ink-dim)', marginTop: 11 }}>가족·친구 사주를 풀어보면 그 정령이 도감에 담겨요 ✦</div>
+          </div>
+        </div>
+      )}
     </V2Screen>
   );
 }

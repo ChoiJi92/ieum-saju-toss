@@ -42,7 +42,17 @@ export default function V2Clone() {
   // 단일 네비게이션 스택 — 펫 화면(home)이 루트. 탭바 없음, 상단 아이콘으로 이동.
   const [stack, setStack] = useState<Route[]>(['home']);
   const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() => new Set());
-  const unlock = (r: Route) => setAdUnlocked((s) => new Set(s).add(r));
+  const { adBoost } = useSpiritState();
+  const [adToast, setAdToast] = useState<string | null>(null);
+  // 보상형 광고로 운세를 열면 정령 기운도 함께 적립 (하루 광고 한도/상한 내) — 광고=보상 루프
+  const unlock = (r: Route) => {
+    setAdUnlocked((s) => new Set(s).add(r));
+    const res = adBoost(spirit.key);
+    if (res.ok && res.gained > 0) {
+      setAdToast(`정령 기운 +${res.gained} ✦`);
+      window.setTimeout(() => setAdToast(null), 2400);
+    }
+  };
 
   const resetApp = () => {
     reset();
@@ -104,6 +114,7 @@ export default function V2Clone() {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
       <div key={route} style={{ position: 'absolute', inset: 0 }}>{screenEl}</div>
+      {adToast && <div style={{ position: 'absolute', top: 96, left: '50%', transform: 'translateX(-50%)', zIndex: 95, background: 'rgba(255,210,122,.16)', border: '1px solid var(--v2-butter)', color: 'var(--v2-butter)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🎬 {adToast}</div>}
     </div>
   );
 }
@@ -223,7 +234,7 @@ function ScreenReveal({ enterApp, spirit }: { goFlow: (s: FlowScreen) => void; b
 
   useEffect(() => {
     setPhase(0);
-    const seq = [1700, 1600, 1600];
+    const seq = [1100, 950, 950]; // 총 ~3초 — 길면 이탈, 마지막 정령 등장에 무게
     let acc = 0;
     timersRef.current = [];
     seq.forEach((ms, i) => { acc += ms; timersRef.current.push(window.setTimeout(() => setPhase(i + 1), acc)); });
@@ -498,7 +509,7 @@ function ScreenFortunes({ go, back }: { go: (r: Route) => void; back: () => void
   );
 }
 
-function ScreenToday({ back, switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { myeongsik } = useSaju();
   const { claimBonus } = useSpiritState();
   const [bonusMsg, setBonusMsg] = useState<string | null>(null);
@@ -550,6 +561,17 @@ function ScreenToday({ back, switchTab, spirit }: { go: (r: Route) => void; back
       <Rise delay={200}><div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}><ScoreRing score={ring} color="var(--v2-lavender)" /><div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{dims.map(([l, v, c, ic]) => <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 14, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}><span style={{ color: c, fontSize: 14, fontWeight: 800, width: 16 }}>{ic}</span><span style={{ fontSize: 11, color: 'var(--v2-ink-dim)', flex: 1 }}>{l}</span><span style={{ fontSize: 14, fontWeight: 800 }}>{v}</span></div>)}</div></div></Rise>
       <Rise delay={280}><V2Label>오늘의 풀이</V2Label><div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{bodies.map(([l, body]) => <V2Glass key={l}><div style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', marginBottom: 6 }}>{l}</div><div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--v2-ink-mid)' }}>{body}</div></V2Glass>)}</div></Rise>
       <Rise delay={360}><V2Label>오늘의 럭키</V2Label><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{fortune.hashtags.map((h, i) => <StatPill key={i} label={`#${i + 1}`} value={h.replace(/^#/, '')} color={['var(--v2-lavender)', 'var(--v2-peach)', 'var(--v2-mint)'][i]} />)}</div></Rise>
+      {/* 무료→프리미엄 퍼널 — 이달의 운세 티저 CTA */}
+      <Rise delay={420}>
+        <V2Glass onClick={() => go('month')} style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 13, background: 'linear-gradient(120deg, rgba(255,158,130,.10), rgba(183,156,255,.08))' }} glow="0 0 20px rgba(255,158,130,.12)">
+          <span style={{ fontSize: 26 }}>🌙</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--v2-ink)' }}>이번 달 흐름이 궁금하다면</div>
+            <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 3 }}>좋은 날·주의할 날까지 — 이달의 운세 보기</div>
+          </div>
+          <span style={{ color: 'var(--v2-peach)', fontSize: 16, fontWeight: 800 }}>›</span>
+        </V2Glass>
+      </Rise>
       <div style={{ height: 96 }} />
     </V2Screen>
   );
@@ -573,6 +595,11 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   const [evolving, setEvolving] = useState(false);
   const [burstIcon, setBurstIcon] = useState('✦');
   const [adLoading, setAdLoading] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const showNotice = (msg: string) => { setNotice(msg); window.setTimeout(() => setNotice(null), 2200); };
+  // 진화 ETA — 자연 페이스(~50/일) 기준 예상일. "내일 또 와야지" 동기 한 줄.
+  const remainBond = Math.max(0, thresholdOf(stage) - prog.bond);
+  const etaDays = Math.max(1, Math.ceil(remainBond / 50));
   const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const canBypass = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false' && isLocalhost;
   const scrollTop = () => { (anchorRef.current?.closest('.ie-scroll') as HTMLElement | null)?.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -794,7 +821,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
       <Rise delay={180} style={{ marginTop: 12 }}>{canEvolve
         ? <button onClick={doEvolve} className="v2-press" style={{ width: '100%', padding: 16, borderRadius: 'var(--v2-r-md)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: 'linear-gradient(100deg, #FFD27A, #5BD9AC)', color: '#1b1230', fontSize: 16, fontWeight: 900, boxShadow: '0 8px 28px #FFD27A66' }}>✦ {nextKo}(으)로 진화하기 ✦</button>
         : <V2Glass style={{ padding: '12px 16px' }}>
-            <BondMeter percent={stage >= 4 ? 100 : pct} label={stage >= 4 ? '기운' : '다음 진화까지'} sub={stage >= 4 ? '최종 진화 완료 — 가장 영험한 모습이에요 ✦' : `오늘 +${prog.gainedToday}/${DAILY_CAP} 자람 · ${nextKo}까지 ${Math.max(0, 100 - pct)}%`} />
+            <BondMeter percent={stage >= 4 ? 100 : pct} label={stage >= 4 ? '기운' : '다음 진화까지'} sub={stage >= 4 ? '최종 진화 완료 — 가장 영험한 모습이에요 ✦' : `오늘 +${prog.gainedToday}/${DAILY_CAP} · 이 속도면 ${etaDays <= 1 ? '내일' : `약 ${etaDays}일 뒤`} ${nextKo}(으)로 진화해요`} />
             <div style={{ height: 1, background: 'var(--v2-glass-line2)', margin: '10px -16px' }} />
             <div style={{ display: 'flex', gap: 6 }}>
               {([
@@ -804,15 +831,23 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               ] as const).map((a) => {
                 const used = rem.actions[a.kind];
                 const off = used || rem.capLeft === 0 || stage >= 4;
+                // disabled 대신 탭 피드백 — 무반응(버그 체감) 제거
+                const onTap = () => {
+                  if (stage >= 4) { showNotice('가장 영험한 모습이에요 — 이제 함께 지내요 ✦'); return; }
+                  if (used) { showNotice('오늘은 이미 교감했어요 · 내일 또 만나요 🌙'); return; }
+                  if (rem.capLeft === 0) { showNotice('오늘은 다 컸어요 🌙 내일 또 만나요'); return; }
+                  doCare(a.kind, a.ic);
+                };
                 return (
-                  <button key={a.kind} onClick={() => doCare(a.kind, a.ic)} disabled={off} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '2px 2px', borderRadius: 14, cursor: off ? 'default' : 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none', opacity: off ? 0.4 : 1 }}>
-                    <span style={{ width: 42, height: 42, borderRadius: 14, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: off ? 'none' : `0 0 16px ${a.c}26` }}>{a.ic}</span>
+                  <button key={a.kind} onClick={onTap} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '2px 2px', minHeight: 44, borderRadius: 14, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none', opacity: off ? 0.4 : 1 }}>
+                    <span style={{ width: 44, height: 44, borderRadius: 15, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, boxShadow: off ? 'none' : `0 0 16px ${a.c}26` }}>{a.ic}</span>
                     <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
                     <span style={{ fontSize: 11.5, fontWeight: 800, color: used ? 'var(--v2-ink-mute)' : a.c }}>{used ? '완료' : `+${a.amt}`}</span>
                   </button>
                 );
               })}
             </div>
+            {notice && <div style={{ marginTop: 9, textAlign: 'center', fontSize: 11.5, fontWeight: 700, color: 'var(--v2-lavender)', animation: 'v2-rise-soft .3s ease' }}>{notice}</div>}
             {stage < 4 && rem.capLeft > 0 && rem.adsLeft > 0 && (
               <button onClick={doAd} disabled={adLoading} className="v2-press" style={{ marginTop: 11, width: '100%', padding: '10px', borderRadius: 12, border: '1px dashed var(--v2-glass-line2)', background: 'rgba(255,210,122,.08)', color: 'var(--v2-butter)', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>{adLoading ? '광고 여는 중…' : `🎬 광고 보고 +${AD_GAIN} 교감 (오늘 ${rem.adsLeft}회 가능)`}</button>
             )}

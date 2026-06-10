@@ -7,6 +7,7 @@ import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
 import { pillarSeed } from '../lib/personalize';
+import { shareSpiritCard } from '../lib/spirit-card';
 import {
   ELEMENTS, ELEM_ORDER, ZOD_ORDER,
   makeSpirit, spiritFromMyeongsik,
@@ -657,7 +658,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
 }
 
 function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
-  const { profile } = useSaju();
+  const { profile, myeongsik } = useSaju();
   const name = profile?.name ?? '나';
   const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, evolve, remaining, streak, tickStreak } = useSpiritState();
   const prog = progressOf(spirit.key);
@@ -723,6 +724,16 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
           <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
             {streak.streak >= 2 && <span style={{ padding: '7px 11px', borderRadius: 999, background: 'rgba(255,158,130,.14)', border: '1px solid rgba(255,158,130,.3)', fontSize: 12, fontWeight: 800, color: 'var(--v2-peach)', whiteSpace: 'nowrap' }}>🔥 {streak.streak}일</span>}
             <HeaderPill>{spirit.rarity.ko}</HeaderPill>
+            <button
+              onClick={async () => {
+                const ol = myeongsik ? todayFortune(myeongsik)?.oneLine : undefined;
+                const r = await shareSpiritCard(spirit, stage, ol);
+                if (r === 'downloaded') showNotice('정령 카드를 저장했어요 🖼️');
+                else if (r === 'failed') showNotice('카드를 만들지 못했어요 — 다시 시도해주세요');
+              }}
+              aria-label="내 정령 카드 공유"
+              style={{ ...circleButtonStyle, width: 38, height: 38, fontSize: 15 }}
+            >↗</button>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

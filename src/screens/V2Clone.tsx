@@ -32,6 +32,7 @@ import ScreenHealth from './v2/ScreenHealth';
 import ScreenGunghap from './v2/ScreenGunghap';
 import ScreenPersonality from './v2/ScreenPersonality';
 import ScreenSinsal from './v2/ScreenSinsal';
+import ScreenCalendar from './v2/ScreenCalendar';
 import ScreenProfiles from './v2/ScreenProfiles';
 import ScreenAddProfile from './v2/ScreenAddProfile';
 import ScreenLegal from './v2/ScreenLegal';
@@ -101,6 +102,7 @@ export default function V2Clone() {
     case 'sinsal': screenEl = <ScreenSinsal {...sp} />; break;
     case 'personality': screenEl = <ScreenPersonality {...sp} />; break;
     case 'fortunes': screenEl = <ScreenFortunes {...sp} />; break;
+    case 'calendar': screenEl = <ScreenCalendar {...sp} />; break;
     case 'collection': screenEl = <ScreenCollection {...sp} />; break;
     case 'profile': screenEl = <ScreenProfile {...sp} />; break;
     case 'profiles': screenEl = <ScreenProfiles {...sp} />; break;

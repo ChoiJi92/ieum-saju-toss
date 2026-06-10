@@ -24,7 +24,7 @@ const STEMS: Stem[] = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '
 const isStem = (s: string): s is Stem => (STEMS as string[]).includes(s);
 
 /** 십성별 4분야 점수 (총운·일·연애·돈) */
-const SCORE: Record<Sipsung, { overall: number; work: number; love: number; money: number }> = {
+export const SCORE: Record<Sipsung, { overall: number; work: number; love: number; money: number }> = {
   비견: { overall: 72, work: 78, love: 68, money: 65 },
   겁재: { overall: 65, work: 72, love: 60, money: 58 },
   식신: { overall: 84, work: 80, love: 88, money: 76 },

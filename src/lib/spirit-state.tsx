@@ -1,8 +1,8 @@
 import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 import {
-  type SpiritProgress, type ActionKind, type BonusKind, type DayActions, type DayBonuses,
-  THRESHOLD, DAILY_CAP, ACTION_GAIN, BONUS_GAIN, AD_GAIN, AD_MAX_PER_DAY,
-  normalize, applyGain, percentOf, doEvolve,
+  type SpiritProgress, type ActionKind, type BonusKind, type DayActions, type DayBonuses, type StreakState,
+  THRESHOLD, DAILY_CAP, ACTION_GAIN, BONUS_GAIN, AD_GAIN, AD_MAX_PER_DAY, STREAK_REWARD,
+  normalize, applyGain, percentOf, doEvolve, makeStreakDefault, tickStreak as tickStreakPure,
 } from './spirit-economy';
 import type { Stage } from './spirit';
 
@@ -13,6 +13,7 @@ import type { Stage } from './spirit';
 export type { SpiritProgress } from './spirit-economy';
 
 const KEY = 'ieum-saju.spirit.v2';
+const STREAK_KEY = 'ieum-saju.streak.v1';
 type Store = Record<string, SpiritProgress>;
 
 export type CareResult = { ok: boolean; gained: number; reason?: 'used' | 'capped' | 'maxed' };
@@ -26,6 +27,10 @@ type SpiritStateCtx = {
   adBoost: (key: string) => CareResult;
   evolve: (key: string) => void;
   remaining: (key: string) => { capLeft: number; adsLeft: number; actions: DayActions; bonuses: DayBonuses };
+  /** 연속 출석 — 현재 상태 */
+  streak: StreakState;
+  /** 하루 1회 출석 틱. 마일스톤(3/7/14/30) 도달 시 정령에 특별 보상 bond 적립 */
+  tickStreak: (spiritKey: string) => { streak: number; milestone: number | null; gained: number };
 };
 
 const Ctx = createContext<SpiritStateCtx | null>(null);
@@ -35,6 +40,12 @@ function load(): Store {
 }
 function persist(s: Store) {
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ }
+}
+function loadStreak(): StreakState {
+  try { const r = localStorage.getItem(STREAK_KEY); return r ? { ...makeStreakDefault(), ...(JSON.parse(r) as Partial<StreakState>) } : makeStreakDefault(); } catch { return makeStreakDefault(); }
+}
+function persistStreak(s: StreakState) {
+  try { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); } catch { /* ignore */ }
 }
 
 export function SpiritStateProvider({ children }: { children: ReactNode }) {
@@ -90,9 +101,25 @@ export function SpiritStateProvider({ children }: { children: ReactNode }) {
     };
   }, [store]);
 
+  const [streak, setStreak] = useState<StreakState>(() => loadStreak());
+  const tickStreak = useCallback((spiritKey: string) => {
+    let out = { streak: 0, milestone: null as number | null, gained: 0 };
+    setStreak((prev) => {
+      const { next, milestone } = tickStreakPure(prev, new Date());
+      out = { streak: next.streak, milestone, gained: milestone ? STREAK_REWARD : 0 };
+      if (next !== prev) persistStreak(next);
+      return next;
+    });
+    if (out.milestone) {
+      // 마일스톤 특별 보상 — 하루 상한 미적용 (평생 최대 4회)
+      update(spiritKey, (p) => ({ p: { ...p, bond: p.bond + STREAK_REWARD }, res: { ok: true, gained: STREAK_REWARD } }));
+    }
+    return out;
+  }, [update]);
+
   const value = useMemo(
-    () => ({ progressOf, percent, thresholdOf, care, claimBonus, adBoost, evolve, remaining }),
-    [progressOf, percent, thresholdOf, care, claimBonus, adBoost, evolve, remaining],
+    () => ({ progressOf, percent, thresholdOf, care, claimBonus, adBoost, evolve, remaining, streak, tickStreak }),
+    [progressOf, percent, thresholdOf, care, claimBonus, adBoost, evolve, remaining, streak, tickStreak],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

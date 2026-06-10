@@ -95,3 +95,33 @@ export function doEvolve(p: SpiritProgress): SpiritProgress {
   if (!canEvolve(p)) return p;
   return { ...p, stage: (p.stage + 1) as Stage, bond: Math.max(0, p.bond - THRESHOLD[p.stage]) };
 }
+
+/* ── 연속 출석 스트릭 (앱 레벨, 정령 진행도와 별개 저장) ── */
+
+export const STREAK_MILESTONES: readonly number[] = [3, 7, 14, 30];
+/** 마일스톤 1회 보상 bond — 특별 보상이라 하루 상한 미적용 (평생 최대 4회, 페이싱 영향 미미) */
+export const STREAK_REWARD = 20;
+
+export type StreakState = { streak: number; lastDate: string; maxStreak: number; claimed: number[] };
+
+export function makeStreakDefault(): StreakState {
+  return { streak: 0, lastDate: '', maxStreak: 0, claimed: [] };
+}
+
+/** 하루 1회 출석 틱. 어제 이어지면 +1, 끊기면 1부터(마일스톤 보상도 리셋). 같은 날 중복 no-op. */
+export function tickStreak(prev: StreakState, now: Date = new Date()): { next: StreakState; milestone: number | null } {
+  const today = todayKey(now);
+  if (prev.lastDate === today) return { next: prev, milestone: null };
+  const y = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const continued = prev.lastDate === todayKey(y);
+  const streak = continued ? prev.streak + 1 : 1;
+  const claimedBase = continued ? prev.claimed : [];
+  const milestone = STREAK_MILESTONES.find((m) => m === streak && !claimedBase.includes(m)) ?? null;
+  const next: StreakState = {
+    streak,
+    lastDate: today,
+    maxStreak: Math.max(prev.maxStreak, streak),
+    claimed: milestone ? [...claimedBase, milestone] : claimedBase,
+  };
+  return { next, milestone };
+}

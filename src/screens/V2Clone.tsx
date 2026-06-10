@@ -58,7 +58,7 @@ export default function V2Clone() {
 
   const resetApp = () => {
     reset();
-    try { localStorage.removeItem('ieum-saju.spirit.v2'); } catch { /* ignore */ }
+    try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); } catch { /* ignore */ }
     setAdUnlocked(new Set());
     setStack(['home']);
     setFlow(['onboarding']);
@@ -659,7 +659,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
 function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profile } = useSaju();
   const name = profile?.name ?? '나';
-  const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, evolve, remaining } = useSpiritState();
+  const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, evolve, remaining, streak, tickStreak } = useSpiritState();
   const prog = progressOf(spirit.key);
   const stage = prog.stage;
   const pct = percent(spirit.key);
@@ -701,6 +701,15 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
     if (r.ok && r.gained > 0) { const t = window.setTimeout(() => playFx(r.gained, '🎁'), 500); return () => window.clearTimeout(t); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spirit.key]);
+  // 연속 출석 스트릭 틱 — 마일스톤(3/7/14/30일) 도달 시 특별 보상 연출
+  useEffect(() => {
+    const r = tickStreak(spirit.key);
+    if (r.milestone) {
+      const t = window.setTimeout(() => { playFx(r.gained, '🔥'); showNotice(`🔥 ${r.milestone}일 연속 출석! 특별 보상 +${r.gained} 교감`); }, 1100);
+      return () => window.clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <V2Screen seed={15} style={{ paddingBottom: 0 }}>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 48px)', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
@@ -711,7 +720,10 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
             <div style={{ fontSize: 12, color: 'var(--v2-ink-dim)' }}>오늘도 함께해요 ✦</div>
             <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--v2-ink)' }}>{name}님의 정령</div>
           </div>
-          <HeaderPill>{spirit.rarity.ko}</HeaderPill>
+          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+            {streak.streak >= 2 && <span style={{ padding: '7px 11px', borderRadius: 999, background: 'rgba(255,158,130,.14)', border: '1px solid rgba(255,158,130,.3)', fontSize: 12, fontWeight: 800, color: 'var(--v2-peach)', whiteSpace: 'nowrap' }}>🔥 {streak.streak}일</span>}
+            <HeaderPill>{spirit.rarity.ko}</HeaderPill>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {[

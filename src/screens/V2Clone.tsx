@@ -4,7 +4,9 @@ import { useSpiritState } from '../lib/spirit-state';
 import { showRewardedAdForResult } from '../lib/ads';
 import { ACTION_GAIN, AD_GAIN, DAILY_CAP } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
-import { todayFortune } from '../lib/today';
+import { todayFortune, todayDayStem } from '../lib/today';
+import { buildTodayActionGuide } from '../lib/fortune-guides';
+import { pillarSeed } from '../lib/personalize';
 import {
   ELEMENTS, ELEM_ORDER, ZOD_ORDER,
   makeSpirit, spiritFromMyeongsik,
@@ -511,9 +513,28 @@ function ScreenFortunes({ go, back }: { go: (r: Route) => void; back: () => void
 
 function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { myeongsik } = useSaju();
-  const { claimBonus } = useSpiritState();
+  const { claimBonus, progressOf } = useSpiritState();
+  const stage = progressOf(spirit.key).stage;
   const [bonusMsg, setBonusMsg] = useState<string | null>(null);
   const fortune = myeongsik ? todayFortune(myeongsik) : null;
+  // 정령의 풀이 — 정령이 자랄수록 깊어지는 해석 (do/avoid → 행운시간·미션 → 금기·내일예고)
+  const guide = useMemo(() => {
+    if (!fortune || !myeongsik) return null;
+    const d = new Date();
+    return buildTodayActionGuide({
+      sections: [
+        { id: 'overall', label: '총운', score: fortune.sections.overall.score },
+        { id: 'love', label: '연애운', score: fortune.sections.love.score },
+        { id: 'money', label: '재물운', score: fortune.sections.money.score },
+        { id: 'work', label: '직장운', score: fortune.sections.work.score },
+        { id: 'health', label: '건강운', score: fortune.sections.health.score },
+      ],
+      date: d,
+      personalSeed: pillarSeed(myeongsik),
+      dayStem: todayDayStem(d),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myeongsik, fortune?.mood]);
   const now = new Date();
   const dateLabel = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
   const ring = fortune?.sections.overall.score ?? 0;
@@ -560,6 +581,64 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
       <Rise delay={120}><div style={speechStyle}><div style={{ fontSize: 11, color: 'var(--v2-lavender)', fontWeight: 800, marginBottom: 6 }}>{spirit.name}의 한 마디</div><div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.55 }}>{fortune.oneLine}</div></div></Rise>
       <Rise delay={200}><div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}><ScoreRing score={ring} color="var(--v2-lavender)" /><div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{dims.map(([l, v, c, ic]) => <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 14, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}><span style={{ color: c, fontSize: 14, fontWeight: 800, width: 16 }}>{ic}</span><span style={{ fontSize: 11, color: 'var(--v2-ink-dim)', flex: 1 }}>{l}</span><span style={{ fontSize: 14, fontWeight: 800 }}>{v}</span></div>)}</div></div></Rise>
       <Rise delay={280}><V2Label>오늘의 풀이</V2Label><div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{bodies.map(([l, body]) => <V2Glass key={l}><div style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', marginBottom: 6 }}>{l}</div><div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--v2-ink-mid)' }}>{body}</div></V2Glass>)}</div></Rise>
+      {/* 정령의 풀이 — 단계별로 깊어지는 해석 (키울 이유) */}
+      {guide && (
+        <Rise delay={320}>
+          <V2Label>{spirit.name}의 풀이 · {(['', '아기', '어린', '성체', '영험'])[stage]} 정령의 눈</V2Label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {stage >= 2 ? (
+              <V2Glass>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--v2-mint)', marginBottom: 7 }}>✅ 오늘 이건 해요</div>
+                    {guide.doList.slice(0, 2).map((t, i) => <div key={i} style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--v2-ink-mid)', marginBottom: 5 }}>{t}</div>)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--v2-peach)', marginBottom: 7 }}>🚫 오늘은 피해요</div>
+                    {guide.avoidList.slice(0, 2).map((t, i) => <div key={i} style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--v2-ink-mid)', marginBottom: 5 }}>{t}</div>)}
+                  </div>
+                </div>
+              </V2Glass>
+            ) : (
+              <V2Glass onClick={back} style={{ border: '1px dashed var(--v2-glass-line2)', textAlign: 'center', padding: '15px 16px' }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--v2-ink-mid)' }}>🔒 어린 정령이 되면 ‘오늘의 행동 가이드’가 열려요</div>
+                <div style={{ fontSize: 11.5, color: 'var(--v2-lavender)', marginTop: 5, fontWeight: 700 }}>정령 키우러 가기 ›</div>
+              </V2Glass>
+            )}
+            {stage >= 3 ? (
+              <V2Glass>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--v2-butter)' }}>⏰ 행운 시간</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--v2-ink)' }}>{guide.luckyTime}</span>
+                </div>
+                {([['🌅 아침', guide.missions.morning], ['☀️ 점심', guide.missions.noon], ['🌙 밤', guide.missions.night]] as const).map(([l, t]) => (
+                  <div key={l} style={{ display: 'flex', gap: 9, marginBottom: 5 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--v2-ink-dim)', whiteSpace: 'nowrap' }}>{l}</span>
+                    <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--v2-ink-mid)' }}>{t}</span>
+                  </div>
+                ))}
+              </V2Glass>
+            ) : stage === 2 ? (
+              <V2Glass onClick={back} style={{ border: '1px dashed var(--v2-glass-line2)', textAlign: 'center', padding: '13px 16px' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--v2-ink-dim)' }}>🔒 성체 정령이 되면 ‘행운 시간·하루 미션’이 열려요</div>
+              </V2Glass>
+            ) : null}
+            {stage >= 4 ? (
+              <V2Glass glow="0 0 20px rgba(255,210,122,.14)">
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--v2-peach)', marginBottom: 6 }}>⚠️ 오늘의 금기</div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--v2-ink-mid)' }}>{guide.todayNoNo}</div>
+                <div style={{ height: 1, background: 'var(--v2-glass-line2)', margin: '11px 0' }} />
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--v2-butter)', marginBottom: 6 }}>🌅 내일 예고</div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--v2-ink-mid)' }}>{guide.tomorrowKickoff}</div>
+              </V2Glass>
+            ) : stage === 3 ? (
+              <V2Glass onClick={back} style={{ border: '1px dashed var(--v2-glass-line2)', textAlign: 'center', padding: '13px 16px' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--v2-ink-dim)' }}>🔒 영험한 정령이 되면 ‘금기·내일 예고’까지 보여요</div>
+              </V2Glass>
+            ) : null}
+          </div>
+        </Rise>
+      )}
       <Rise delay={360}><V2Label>오늘의 럭키</V2Label><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{fortune.hashtags.map((h, i) => <StatPill key={i} label={`#${i + 1}`} value={h.replace(/^#/, '')} color={['var(--v2-lavender)', 'var(--v2-peach)', 'var(--v2-mint)'][i]} />)}</div></Rise>
       {/* 무료→프리미엄 퍼널 — 이달의 운세 티저 CTA */}
       <Rise delay={420}>

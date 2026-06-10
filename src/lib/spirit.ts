@@ -111,9 +111,9 @@ export function makeSpirit(elemKey: ElementKey, zodKey: ZodiacKey, rarityOverrid
   const key = `${imageLine}${animal}`;     // 안정 키 — 이미지 경로·도감·교감 저장용 (표시명과 분리)
   const available = (AVAILABLE[elemKey] ?? []).includes(zodKey);
 
-  /** 현재 단계 기준 이미지 경로 (없으면 null → 이모지 폴백) */
+  /** 현재 단계 기준 이미지 경로 (없으면 null → 이모지 폴백). ?v= 는 에셋 캐시 버스트(이미지 교체 시 +1) */
   const imageFor = (stage: Stage): string | null =>
-    available ? `/spirits/${key}/${key}-${String(stage).padStart(2, '0')}-${STAGE_LABEL[stage]}.png` : null;
+    available ? `/spirits/${key}/${key}-${String(stage).padStart(2, '0')}-${STAGE_LABEL[stage]}.png?v=2` : null;
 
   return {
     elemKey, zodKey, elem, zod, rarity,

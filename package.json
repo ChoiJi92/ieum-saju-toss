@@ -10,9 +10,10 @@
     "build:prod": "node scripts/build-with-env.mjs .env.prod",
     "preview": "rsbuild preview",
     "lint": "eslint .",
-    "sync:spirits": "node scripts/sync-spirit-assets.mjs",
+    "sync:spirits": "python3 scripts/cutout-spirits.py",
     "cutout:spirits": "python3 scripts/cutout-spirits.py",
-    "deploy": "ait deploy"
+    "deploy": "ait deploy",
+    "sync:spirits:raw": "node scripts/sync-spirit-assets.mjs"
   },
   "dependencies": {
     "@apps-in-toss/web-framework": "2.5.1",

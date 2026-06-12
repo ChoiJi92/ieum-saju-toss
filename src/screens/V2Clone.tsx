@@ -218,8 +218,8 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
       <div style={{ marginTop: 24 }}><V2Button onClick={submit} style={{ opacity: canNext ? 1 : 0.4, cursor: canNext ? 'pointer' : 'not-allowed' }}>정령 깨우기 ✦</V2Button></div>
 
       {sijinOpen && (
-        <div onClick={() => setSijinOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.6)', display: 'flex', alignItems: 'flex-end', zIndex: 60 }}>
-          <div onClick={(e) => e.stopPropagation()} className="v2-scroll" style={{ width: '100%', maxHeight: '76%', overflowY: 'auto', background: 'var(--v2-cosmos)', borderRadius: '20px 20px 0 0', padding: '14px 0 28px', border: '1px solid var(--v2-glass-line)' }}>
+        <div onClick={() => setSijinOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.6)', display: 'flex', alignItems: 'flex-end', zIndex: 60, touchAction: 'none' }}>
+          <div onClick={(e) => e.stopPropagation()} className="v2-scroll" style={{ width: '100%', maxHeight: '76%', overflowY: 'auto', background: 'var(--v2-cosmos)', borderRadius: '20px 20px 0 0', padding: '14px 0 28px', border: '1px solid var(--v2-glass-line)', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}>
             <div style={{ width: 36, height: 4, background: 'var(--v2-glass-line)', borderRadius: 2, margin: '0 auto 12px' }} />
             {[['__unknown', '모름 (시간을 몰라요)'] as [string, string], ...SIJIN_LIST_V2].map(([k, lbl]) => {
               const sel = (k === '__unknown' && unknownTime) || (k !== '__unknown' && !unknownTime && sijin === k);
@@ -1083,6 +1083,15 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
     return m;
   }, [profiles]);
   const unlocked = useMemo(() => new Set(owners.keys()), [owners]);
+  // 바텀시트 열림 동안 배경(.ie-scroll) 스크롤 잠금 — 시트 위 터치가 뒷배경을 스크롤하는 문제 방지
+  useEffect(() => {
+    if (!view && !wish) return;
+    const el = document.querySelector('.ie-scroll') as HTMLElement | null;
+    if (!el) return;
+    const prev = el.style.overflow;
+    el.style.overflow = 'hidden';
+    return () => { el.style.overflow = prev; };
+  }, [view, wish]);
   const cells = ELEM_ORDER.flatMap((ek) => ZOD_ORDER.map((zk) => {
     const sp = makeSpirit(ek, zk);
     return { ek, key: sp.key, sp, got: unlocked.has(sp.key), ready: sp.available };
@@ -1115,8 +1124,8 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
         const STG = ['', '아기 정령', '어린 정령', '성체 정령', '영험한 정령'];
         const isActive = view.ownerId === activeId;
         return (
-          <div onClick={() => setView(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70 }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)', padding: '18px 20px calc(22px + env(safe-area-inset-bottom, 0px))' }}>
+          <div onClick={() => setView(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70, touchAction: 'none' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)', padding: '18px 20px calc(22px + env(safe-area-inset-bottom, 0px))', maxHeight: '82dvh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}>
               <div style={{ width: 36, height: 4, background: 'var(--v2-glass-line)', borderRadius: 2, margin: '0 auto 10px' }} />
               <div style={{ textAlign: 'center' }}>
                 <SpiritSlot spirit={view.sp} size={150} tag={false} stage={vp.stage} floating={false} />
@@ -1140,8 +1149,8 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
       })()}
       {/* 미수집 정령 — 어떻게 만나는지 + 획득 경로 CTA */}
       {wish && (
-        <div onClick={() => setWish(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)', padding: '18px 20px calc(22px + env(safe-area-inset-bottom, 0px))' }}>
+        <div onClick={() => setWish(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70, touchAction: 'none' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)', padding: '18px 20px calc(22px + env(safe-area-inset-bottom, 0px))', maxHeight: '82dvh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}>
             <div style={{ width: 36, height: 4, background: 'var(--v2-glass-line)', borderRadius: 2, margin: '0 auto 14px' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
               <div style={{ width: 58, height: 58, borderRadius: '50%', background: `radial-gradient(circle, ${wish.elem.raw}33, var(--v2-glass))`, border: `1.5px dashed ${wish.elem.raw}66`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>❔</div>

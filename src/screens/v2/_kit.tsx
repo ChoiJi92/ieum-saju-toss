@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Spirit, type Stage } from '../../lib/spirit';
 
 /** 출생연도 선택 옵션 — 현재 연도부터 1930년까지 내림차순 */
@@ -261,6 +261,100 @@ export function ActionCard({ ic, title, sub, color, badge, onClick }: { ic: stri
 
 export function CareAction({ ic, title, sub, amt, color, onClick }: { ic: string; title: string; sub: string; amt: string; color: string; onClick: () => void }) {
   return <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 15px', borderRadius: 'var(--v2-r-md)', cursor: 'pointer', fontFamily: 'var(--v2-font)', textAlign: 'left', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}><span style={{ width: 42, height: 42, borderRadius: 13, background: `${color}1f`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{ic}</span><div style={{ flex: 1 }}><div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--v2-ink)' }}>{title}</div><div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)' }}>{sub}</div></div><span style={{ fontSize: 13, fontWeight: 800, color }}>{amt}</span></button>;
+}
+
+/**
+ * 바텀시트 — 진짜 앱처럼:
+ * 슬라이드업 등장 · 아래로 드래그하면 시트가 따라오고 110px 넘게 끌면 닫힘(아니면 스냅백) ·
+ * 백드롭 탭 닫기 · 열림 동안 배경(.ie-scroll) 스크롤 잠금 · 내용 길면 시트 내부 스크롤(내부가 맨 위일 때만 드래그 시작).
+ * iOS 웹뷰에서 배경 번짐 방지를 위해 터치는 네이티브 리스너(passive:false)로 처리.
+ */
+export function BottomSheet({ onClose, children, maxHeight = '82dvh' }: { onClose: () => void; children: React.ReactNode; maxHeight?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [dy, setDy] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [phase, setPhase] = useState<'in' | 'idle' | 'out'>('in');
+  const st = useRef({ y0: 0, active: false, fromTop: true });
+
+  // 배경 스크롤 잠금 (마운트~언마운트)
+  useEffect(() => {
+    const el = document.querySelector('.ie-scroll') as HTMLElement | null;
+    const prev = el?.style.overflow ?? '';
+    if (el) el.style.overflow = 'hidden';
+    return () => { if (el) el.style.overflow = prev; };
+  }, []);
+
+  // 등장 애니메이션 종료 후 idle
+  useEffect(() => { const t = window.setTimeout(() => setPhase('idle'), 320); return () => window.clearTimeout(t); }, []);
+
+  const close = useCallback(() => {
+    setPhase('out');
+    window.setTimeout(onClose, 230);
+  }, [onClose]);
+
+  // 드래그-닫기 — 네이티브 터치 (passive:false 라야 iOS에서 preventDefault 가능)
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onStart = (e: TouchEvent) => {
+      st.current.y0 = e.touches[0].clientY;
+      st.current.active = true;
+      st.current.fromTop = el.scrollTop <= 0; // 내부 스크롤이 맨 위일 때만 시트 드래그
+      setDragging(true);
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!st.current.active) return;
+      const d = e.touches[0].clientY - st.current.y0;
+      if (d > 0 && st.current.fromTop) {
+        e.preventDefault(); // 배경/바운스로 안 새게
+        setDy(d);
+      }
+    };
+    const onEnd = () => {
+      if (!st.current.active) return;
+      st.current.active = false;
+      setDragging(false);
+      setDy((cur) => {
+        if (cur > 110) { close(); return cur; }
+        return 0; // 스냅백
+      });
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+    };
+  }, [close]);
+
+  const transform = phase === 'out' ? 'translateY(106%)' : `translateY(${dy}px)`;
+  return (
+    <div
+      onClick={close}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70, touchAction: 'none', opacity: phase === 'out' ? 0 : 1, transition: 'opacity .22s ease' }}
+    >
+      <div
+        ref={ref}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)',
+          padding: '8px 20px calc(22px + env(safe-area-inset-bottom, 0px))',
+          maxHeight, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y',
+          transform,
+          transition: dragging && dy > 0 ? 'none' : 'transform .26s cubic-bezier(.2,.9,.3,1)',
+          animation: phase === 'in' ? 'v2-sheet-up .3s cubic-bezier(.2,.9,.3,1)' : undefined,
+          boxShadow: '0 -10px 40px rgba(0,0,0,.45)',
+        }}
+      >
+        <div style={{ width: 42, height: 4.5, background: 'var(--v2-glass-line)', borderRadius: 3, margin: '6px auto 12px' }} />
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export function FilterChip({ label, color, active, onClick }: { label: string; color: string; active: boolean; onClick: () => void }) {

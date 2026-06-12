@@ -16,7 +16,7 @@ import {
 import {
   V2Screen, Rise, V2TopBar, V2Button, V2Glass, V2Label,
   SpiritSlot, Sparkles, RarityStars, BondMeter, StatPill, ScoreRing,
-  HeaderPill, FilterChip, ActionRow, BIRTH_YEARS, selectChevron,
+  HeaderPill, FilterChip, ActionRow, BIRTH_YEARS, selectChevron, BottomSheet,
   circleButtonStyle, speechStyle,
 } from './v2/_kit';
 import { type Tab, type Route, type FlowScreen, FORTUNE_MENU, REWARDED_ROUTES, INTERSTITIAL_ROUTES, ROUTE_TITLE } from './v2/nav';
@@ -218,15 +218,12 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
       <div style={{ marginTop: 24 }}><V2Button onClick={submit} style={{ opacity: canNext ? 1 : 0.4, cursor: canNext ? 'pointer' : 'not-allowed' }}>정령 깨우기 ✦</V2Button></div>
 
       {sijinOpen && (
-        <div onClick={() => setSijinOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.6)', display: 'flex', alignItems: 'flex-end', zIndex: 60, touchAction: 'none' }}>
-          <div onClick={(e) => e.stopPropagation()} className="v2-scroll" style={{ width: '100%', maxHeight: '76%', overflowY: 'auto', background: 'var(--v2-cosmos)', borderRadius: '20px 20px 0 0', padding: '14px 0 28px', border: '1px solid var(--v2-glass-line)', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}>
-            <div style={{ width: 36, height: 4, background: 'var(--v2-glass-line)', borderRadius: 2, margin: '0 auto 12px' }} />
+        <BottomSheet onClose={() => setSijinOpen(false)} maxHeight="76dvh">
             {[['__unknown', '모름 (시간을 몰라요)'] as [string, string], ...SIJIN_LIST_V2].map(([k, lbl]) => {
               const sel = (k === '__unknown' && unknownTime) || (k !== '__unknown' && !unknownTime && sijin === k);
               return <div key={k} onClick={() => { if (k === '__unknown') setUnknownTime(true); else { setUnknownTime(false); setSijin(k); } setSijinOpen(false); }} style={{ padding: '13px 22px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', background: sel ? 'rgba(183,156,255,.12)' : 'transparent', color: sel ? 'var(--v2-ink)' : 'var(--v2-ink-mid)', fontSize: 15, fontWeight: 700 }}><span style={{ width: 16, color: 'var(--v2-lavender)' }}>{sel ? '✓' : ''}</span>{lbl}</div>;
             })}
-          </div>
-        </div>
+        </BottomSheet>
       )}
     </V2Screen>
   );
@@ -1082,16 +1079,7 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
     }
     return m;
   }, [profiles]);
-  const unlocked = useMemo(() => new Set(owners.keys()), [owners]);
-  // 바텀시트 열림 동안 배경(.ie-scroll) 스크롤 잠금 — 시트 위 터치가 뒷배경을 스크롤하는 문제 방지
-  useEffect(() => {
-    if (!view && !wish) return;
-    const el = document.querySelector('.ie-scroll') as HTMLElement | null;
-    if (!el) return;
-    const prev = el.style.overflow;
-    el.style.overflow = 'hidden';
-    return () => { el.style.overflow = prev; };
-  }, [view, wish]);
+  const unlocked = useMemo(() => new Set(owners.keys()), [owners]); // 배경 잠금은 BottomSheet가 처리
   const cells = ELEM_ORDER.flatMap((ek) => ZOD_ORDER.map((zk) => {
     const sp = makeSpirit(ek, zk);
     return { ek, key: sp.key, sp, got: unlocked.has(sp.key), ready: sp.available };
@@ -1124,9 +1112,7 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
         const STG = ['', '아기 정령', '어린 정령', '성체 정령', '영험한 정령'];
         const isActive = view.ownerId === activeId;
         return (
-          <div onClick={() => setView(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70, touchAction: 'none' }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)', padding: '18px 20px calc(22px + env(safe-area-inset-bottom, 0px))', maxHeight: '82dvh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}>
-              <div style={{ width: 36, height: 4, background: 'var(--v2-glass-line)', borderRadius: 2, margin: '0 auto 10px' }} />
+          <BottomSheet onClose={() => setView(null)}>
               <div style={{ textAlign: 'center' }}>
                 <SpiritSlot spirit={view.sp} size={150} tag={false} stage={vp.stage} floating={false} />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
@@ -1143,15 +1129,12 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
                 className="v2-press"
                 style={{ marginTop: 14, width: '100%', padding: '13px', borderRadius: 13, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(120deg, var(--v2-lavender), var(--v2-peach))', color: '#1b1230', fontSize: 13.5, fontWeight: 900 }}
               >{isActive ? '✦ 내 정령 키우러 가기' : `✦ ${view.ownerName}님 사주로 전환해 키우기`}</button>
-            </div>
-          </div>
+          </BottomSheet>
         );
       })()}
       {/* 미수집 정령 — 어떻게 만나는지 + 획득 경로 CTA */}
       {wish && (
-        <div onClick={() => setWish(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70, touchAction: 'none' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)', padding: '18px 20px calc(22px + env(safe-area-inset-bottom, 0px))', maxHeight: '82dvh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}>
-            <div style={{ width: 36, height: 4, background: 'var(--v2-glass-line)', borderRadius: 2, margin: '0 auto 14px' }} />
+        <BottomSheet onClose={() => setWish(null)}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
               <div style={{ width: 58, height: 58, borderRadius: '50%', background: `radial-gradient(circle, ${wish.elem.raw}33, var(--v2-glass))`, border: `1.5px dashed ${wish.elem.raw}66`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>❔</div>
               <div style={{ flex: 1 }}>
@@ -1164,8 +1147,7 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
               <button onClick={() => { setWish(null); go('addProfile'); }} className="v2-press" style={{ padding: '13px 8px', borderRadius: 13, border: '1px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'var(--v2-glass)', color: 'var(--v2-ink)', fontSize: 13, fontWeight: 800 }}>🔮 다른 사주 추가</button>
             </div>
             <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--v2-ink-dim)', marginTop: 11 }}>가족·친구 사주를 풀어보면 그 정령이 도감에 담겨요 ✦</div>
-          </div>
-        </div>
+        </BottomSheet>
       )}
     </V2Screen>
   );

@@ -468,6 +468,12 @@ input { -webkit-user-select: text; user-select: text; }
   100% { transform: translate(-50%, -50%) scale(2.0);  opacity: 0;    }
 }
 
+/* 바텀시트 슬라이드업 등장 */
+@keyframes v2-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
 /* NEW: 정령 원소 글로우 플래시 — 빠르게 블룸 → 천천히 페이드 */
 @keyframes v2-bond-flash {
   0%   { opacity: 0;    transform: translate(-50%, -50%) scale(0.65); }

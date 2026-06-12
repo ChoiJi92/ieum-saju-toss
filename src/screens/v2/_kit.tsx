@@ -265,26 +265,23 @@ export function CareAction({ ic, title, sub, amt, color, onClick }: { ic: string
 
 /**
  * 바텀시트 — 진짜 앱처럼:
- * 슬라이드업 등장 · 아래로 드래그하면 시트가 따라오고 110px 넘게 끌면 닫힘(아니면 스냅백) ·
- * 백드롭 탭 닫기 · 열림 동안 배경(.ie-scroll) 스크롤 잠금 · 내용 길면 시트 내부 스크롤(내부가 맨 위일 때만 드래그 시작).
- * iOS 웹뷰에서 배경 번짐 방지를 위해 터치는 네이티브 리스너(passive:false)로 처리.
+ * 슬라이드업 등장 · 아래로 드래그하면 따라오고 110px+ 끌면 닫힘(미만은 스냅백) · 백드롭 탭 닫기 ·
+ * 내용 길면 내부 스크롤(맨 위에서 더 끌면 닫기 드래그로 전환).
+ *
+ * 배경 차단 방식: 배경 DOM(overflow)을 절대 건드리지 않는다 — iOS는 스크롤 컨테이너에
+ * overflow:hidden을 걸면 scrollTop이 0으로 리셋되고 해제 후에도 스크롤이 멎는 버그가 있다.
+ * 대신 시트/백드롭의 터치·휠 이벤트를 제스처 단위로 판정해 preventDefault(passive:false)로
+ * 배경 체이닝만 차단한다. 배경 위치·상태는 그대로 보존됨.
  */
 export function BottomSheet({ onClose, children, maxHeight = '82dvh' }: { onClose: () => void; children: React.ReactNode; maxHeight?: string }) {
+  const backdropRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
   const [dy, setDy] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [phase, setPhase] = useState<'in' | 'idle' | 'out'>('in');
-  const st = useRef({ y0: 0, active: false, fromTop: true });
+  // mode: 첫 의미있는 이동에서 결정 — drag(시트 끌기) | scroll(내부 스크롤) | block(스크롤 불가→차단)
+  const st = useRef<{ y0: number; active: boolean; fromTop: boolean; mode: 'drag' | 'scroll' | 'block' | null }>({ y0: 0, active: false, fromTop: true, mode: null });
 
-  // 배경 스크롤 잠금 (마운트~언마운트)
-  useEffect(() => {
-    const el = document.querySelector('.ie-scroll') as HTMLElement | null;
-    const prev = el?.style.overflow ?? '';
-    if (el) el.style.overflow = 'hidden';
-    return () => { if (el) el.style.overflow = prev; };
-  }, []);
-
-  // 등장 애니메이션 종료 후 idle
   useEffect(() => { const t = window.setTimeout(() => setPhase('idle'), 320); return () => window.clearTimeout(t); }, []);
 
   const close = useCallback(() => {
@@ -292,50 +289,74 @@ export function BottomSheet({ onClose, children, maxHeight = '82dvh' }: { onClos
     window.setTimeout(onClose, 230);
   }, [onClose]);
 
-  // 드래그-닫기 — 네이티브 터치 (passive:false 라야 iOS에서 preventDefault 가능)
+  // 시트 제스처 — 네이티브 passive:false (iOS에서 preventDefault 필수)
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    const bd = backdropRef.current;
+    if (!el || !bd) return;
+
+    const canScroll = () => el.scrollHeight > el.clientHeight + 1;
+    const atTop = () => el.scrollTop <= 0;
+    const atBottom = () => el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+
     const onStart = (e: TouchEvent) => {
-      st.current.y0 = e.touches[0].clientY;
-      st.current.active = true;
-      st.current.fromTop = el.scrollTop <= 0; // 내부 스크롤이 맨 위일 때만 시트 드래그
-      setDragging(true);
+      st.current = { y0: e.touches[0].clientY, active: true, fromTop: atTop(), mode: null };
     };
     const onMove = (e: TouchEvent) => {
-      if (!st.current.active) return;
-      const d = e.touches[0].clientY - st.current.y0;
-      if (d > 0 && st.current.fromTop) {
-        e.preventDefault(); // 배경/바운스로 안 새게
-        setDy(d);
+      const s = st.current;
+      if (!s.active) return;
+      const d = e.touches[0].clientY - s.y0;
+      if (s.mode === null) {
+        if (Math.abs(d) < 4) return; // 클릭 오차
+        if (d > 0 && s.fromTop) s.mode = 'drag';
+        else if (!canScroll()) s.mode = 'block';
+        else s.mode = 'scroll';
+        if (s.mode === 'drag') setDragging(true);
+      }
+      if (s.mode === 'drag') {
+        e.preventDefault();
+        setDy(Math.max(0, d));
+      } else if (s.mode === 'block') {
+        e.preventDefault(); // 시트가 스크롤할 게 없음 → 배경으로 못 새게
+      } else {
+        // 내부 스크롤 허용하되, 가장자리 넘침만 차단 (배경 체이닝 방지)
+        if ((d > 0 && atTop()) || (d < 0 && atBottom())) e.preventDefault();
       }
     };
     const onEnd = () => {
-      if (!st.current.active) return;
-      st.current.active = false;
+      const s = st.current;
+      if (!s.active) return;
+      const wasDrag = s.mode === 'drag';
+      st.current = { y0: 0, active: false, fromTop: true, mode: null };
       setDragging(false);
-      setDy((cur) => {
-        if (cur > 110) { close(); return cur; }
-        return 0; // 스냅백
-      });
+      if (wasDrag) setDy((cur) => { if (cur > 110) { close(); return cur; } return 0; });
     };
+    // 백드롭(시트 밖) 터치·휠은 전부 차단
+    const bdMove = (e: TouchEvent) => { if (e.target === bd) e.preventDefault(); };
+    const bdWheel = (e: WheelEvent) => { if (!el.contains(e.target as Node)) e.preventDefault(); };
+
     el.addEventListener('touchstart', onStart, { passive: true });
     el.addEventListener('touchmove', onMove, { passive: false });
     el.addEventListener('touchend', onEnd);
     el.addEventListener('touchcancel', onEnd);
+    bd.addEventListener('touchmove', bdMove, { passive: false });
+    bd.addEventListener('wheel', bdWheel, { passive: false });
     return () => {
       el.removeEventListener('touchstart', onStart);
       el.removeEventListener('touchmove', onMove);
       el.removeEventListener('touchend', onEnd);
       el.removeEventListener('touchcancel', onEnd);
+      bd.removeEventListener('touchmove', bdMove);
+      bd.removeEventListener('wheel', bdWheel);
     };
   }, [close]);
 
   const transform = phase === 'out' ? 'translateY(106%)' : `translateY(${dy}px)`;
   return (
     <div
+      ref={backdropRef}
       onClick={close}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70, touchAction: 'none', opacity: phase === 'out' ? 0 : 1, transition: 'opacity .22s ease' }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70, opacity: phase === 'out' ? 0 : 1, transition: 'opacity .22s ease' }}
     >
       <div
         ref={ref}
@@ -343,9 +364,9 @@ export function BottomSheet({ onClose, children, maxHeight = '82dvh' }: { onClos
         style={{
           width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)',
           padding: '8px 20px calc(22px + env(safe-area-inset-bottom, 0px))',
-          maxHeight, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y',
+          maxHeight, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch',
           transform,
-          transition: dragging && dy > 0 ? 'none' : 'transform .26s cubic-bezier(.2,.9,.3,1)',
+          transition: dragging ? 'none' : 'transform .26s cubic-bezier(.2,.9,.3,1)',
           animation: phase === 'in' ? 'v2-sheet-up .3s cubic-bezier(.2,.9,.3,1)' : undefined,
           boxShadow: '0 -10px 40px rgba(0,0,0,.45)',
         }}

@@ -1066,16 +1066,23 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
 }
 
 function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
-  const { profiles } = useSaju();
+  const { profiles, activeId, setActive } = useSaju();
+  const { progressOf, percent } = useSpiritState();
   const [filter, setFilter] = useState<ElementKey | 'all'>('all');
   const [wish, setWish] = useState<ReturnType<typeof makeSpirit> | null>(null); // 미수집 셀 탭 → 획득 CTA
-  const unlocked = useMemo(() => {
-    const s = new Set<string>();
+  // 획득 정령 탭 → 상세 시트 (그 정령의 진짜 모습 + 주인 + 전환 버튼)
+  const [view, setView] = useState<{ sp: Spirit; ownerId: string; ownerName: string } | null>(null);
+  const owners = useMemo(() => {
+    const m = new Map<string, { sp: Spirit; ownerId: string; ownerName: string }>();
     for (const p of profiles) {
-      try { s.add(spiritFromMyeongsik(computeMyeongsik(p)).key); } catch { /* skip */ }
+      try {
+        const sp = spiritFromMyeongsik(computeMyeongsik(p)); // 일주 기반 진짜 등급 포함
+        if (!m.has(sp.key)) m.set(sp.key, { sp, ownerId: p.id, ownerName: p.name });
+      } catch { /* skip */ }
     }
-    return s;
+    return m;
   }, [profiles]);
+  const unlocked = useMemo(() => new Set(owners.keys()), [owners]);
   const cells = ELEM_ORDER.flatMap((ek) => ZOD_ORDER.map((zk) => {
     const sp = makeSpirit(ek, zk);
     return { ek, key: sp.key, sp, got: unlocked.has(sp.key), ready: sp.available };
@@ -1091,7 +1098,7 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
         <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', lineHeight: 1.5 }}>{ownedCount >= 60 ? '도감 완성! 모든 정령을 만났어요 🎉' : `다음 목표 ${nextGoal}마리 — ${nextGoal - ownedCount}마리 남았어요. 못 만난 정령을 눌러보세요 ✦`}</div>
       </div></V2Glass></Rise>
       <Rise delay={80}><div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '18px 0 14px' }} className="ie-scroll"><FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label="전체" color="var(--v2-lavender)" />{ELEM_ORDER.map((ek) => <FilterChip key={ek} active={filter === ek} onClick={() => setFilter(ek)} label={`${ELEMENTS[ek].cn} ${ELEMENTS[ek].ko}`} color={ELEMENTS[ek].raw} />)}</div></Rise>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got ? switchTab('profile') : setWish(c.sp)} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: 'pointer', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5) }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got ? setView(owners.get(c.key) ?? null) : setWish(c.sp)} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: 'pointer', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5) }}>
         <div style={{ width: 52, height: 52, margin: '0 auto 8px', borderRadius: '50%', overflow: 'hidden', background: c.got ? `radial-gradient(circle at 38% 34%, #fff8, ${c.sp.elem.raw}, ${c.sp.rarity.raw})` : 'rgba(255,255,255,.05)', boxShadow: c.got ? `0 0 16px ${c.sp.elem.raw}88` : 'none', border: c.got ? 'none' : '1px dashed var(--v2-glass-line2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: 'var(--v2-ink-mute)' }}>
           {c.got ? (c.sp.imageFor(1) ? <img src={c.sp.imageFor(1) as string} alt={c.sp.name} style={{ width: '118%', height: '118%', objectFit: 'contain' }} /> : c.sp.zod.emoji) : '?'}
         </div>
@@ -1101,6 +1108,36 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
         {c.key === spirit.key && <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 8, fontWeight: 800, color: '#1b1230', background: 'var(--v2-lavender)', padding: '2px 5px', borderRadius: 5 }}>내 정령</span>}
       </div></Rise>)}</div>
       <div style={{ height: 96 }} />
+      {/* 획득 정령 상세 — 진짜 모습·주인·진행도 + 그 사주로 전환 */}
+      {view && (() => {
+        const vp = progressOf(view.sp.key);
+        const vpct = percent(view.sp.key);
+        const STG = ['', '아기 정령', '어린 정령', '성체 정령', '영험한 정령'];
+        const isActive = view.ownerId === activeId;
+        return (
+          <div onClick={() => setView(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: 'var(--v2-cosmos)', borderRadius: '22px 22px 0 0', border: '1px solid var(--v2-glass-line)', padding: '18px 20px calc(22px + env(safe-area-inset-bottom, 0px))' }}>
+              <div style={{ width: 36, height: 4, background: 'var(--v2-glass-line)', borderRadius: 2, margin: '0 auto 10px' }} />
+              <div style={{ textAlign: 'center' }}>
+                <SpiritSlot spirit={view.sp} size={150} tag={false} stage={vp.stage} floating={false} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
+                  <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--v2-ink)' }}>{view.sp.name}</span>
+                  <RarityStars rarity={view.sp.rarity} />
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 4 }}>{view.sp.formula} · <b style={{ color: 'var(--v2-lavender)' }}>{view.ownerName}</b>님의 정령 · {STG[vp.stage]}</div>
+                <div style={{ margin: '12px 2px 0' }}>
+                  <BondMeter percent={vp.stage >= 4 ? 100 : vpct} label={vp.stage >= 4 ? '기운' : '다음 진화까지'} sub={vp.stage >= 4 ? '최종 진화 완료 ✦' : undefined} />
+                </div>
+              </div>
+              <button
+                onClick={() => { if (!isActive) setActive(view.ownerId); setView(null); switchTab('home'); }}
+                className="v2-press"
+                style={{ marginTop: 14, width: '100%', padding: '13px', borderRadius: 13, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(120deg, var(--v2-lavender), var(--v2-peach))', color: '#1b1230', fontSize: 13.5, fontWeight: 900 }}
+              >{isActive ? '✦ 내 정령 키우러 가기' : `✦ ${view.ownerName}님 사주로 전환해 키우기`}</button>
+            </div>
+          </div>
+        );
+      })()}
       {/* 미수집 정령 — 어떻게 만나는지 + 획득 경로 CTA */}
       {wish && (
         <div onClick={() => setWish(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,7,20,.55)', display: 'flex', alignItems: 'flex-end', zIndex: 70 }}>

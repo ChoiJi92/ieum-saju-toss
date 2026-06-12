@@ -100,6 +100,9 @@ Thumbs.db
 /docs/
 /v2 자료/
 /SPIRIT_IMAGE_HANDOFF.md
+# 검수판·에셋 백업 (로컬 전용)
+/spirits-all-*
+/asset-backups/
 # 에이전트/오케스트레이션 로컬 상태
 /.omx/
 /.omc/

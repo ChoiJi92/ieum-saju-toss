@@ -113,7 +113,7 @@ export function makeSpirit(elemKey: ElementKey, zodKey: ZodiacKey, rarityOverrid
 
   /** 현재 단계 기준 이미지 경로 (없으면 null → 이모지 폴백). ?v= 는 에셋 캐시 버스트(이미지 교체 시 +1) */
   const imageFor = (stage: Stage): string | null =>
-    available ? `/spirits/${key}/${key}-${String(stage).padStart(2, '0')}-${STAGE_LABEL[stage]}.png?v=2` : null;
+    available ? `/spirits/${key}/${key}-${String(stage).padStart(2, '0')}-${STAGE_LABEL[stage]}.png?v=3` : null;
 
   return {
     elemKey, zodKey, elem, zod, rarity,

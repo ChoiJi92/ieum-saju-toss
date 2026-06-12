@@ -8,6 +8,7 @@ import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
 import { pillarSeed } from '../lib/personalize';
 import { shareSpiritCard } from '../lib/spirit-card';
+import { initCloudSync, isLinked, linkWithToss, pushNow, deleteRemoteAndUnlink } from '../lib/cloud-sync';
 import {
   ELEMENTS, ELEM_ORDER, ZOD_ORDER,
   makeSpirit, spiritFromMyeongsik,
@@ -58,7 +59,11 @@ export default function V2Clone() {
     }
   };
 
+  // 클라우드 동기화 부팅 — 백업 연결돼 있으면 풀/병합 + 자동 푸시 (미연결이면 no-op)
+  useEffect(() => { initCloudSync(); }, []);
+
   const resetApp = () => {
+    void deleteRemoteAndUnlink(); // 탈퇴: 원격 백업도 삭제 (best effort)
     reset();
     try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); } catch { /* ignore */ }
     setAdUnlocked(new Set());
@@ -355,6 +360,26 @@ function ScreenProfile({ go, back, spirit, resetApp }: { go: (r: Route) => void;
   const stage = progressOf(spirit.key).stage;
   const STAGE_KO = ['', '아기 정령', '어린 정령', '성체 정령', '영험한 정령'];
   const [confirmReset, setConfirmReset] = useState(false);
+  // 클라우드 백업 (토스 계정)
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const linked = isLinked();
+  const onBackup = async () => {
+    if (syncBusy) return;
+    setSyncBusy(true); setSyncMsg(null);
+    if (!linked) {
+      const r = await linkWithToss();
+      setSyncBusy(false);
+      if (r === 'linked-reload') { setSyncMsg('백업을 불러왔어요 — 잠시 후 새로고침돼요 ✦'); window.setTimeout(() => window.location.reload(), 900); }
+      else if (r === 'linked') setSyncMsg('백업이 연결됐어요 ✦ 이제 자동으로 동기화돼요');
+      else if (r === 'no-sync-support') setSyncMsg('서버 준비 중이에요 — 곧 열릴 예정!');
+      else setSyncMsg('연결 실패 — 토스 앱 안에서 다시 시도해주세요');
+    } else {
+      const r = await pushNow(true);
+      setSyncBusy(false);
+      setSyncMsg(r === 'pushed' || r === 'skipped' ? '방금 동기화했어요 ✦' : '동기화 실패 — 잠시 후 다시 시도해주세요');
+    }
+  };
   const LABEL: Record<string, string> = { 연주: '年', 월주: '月', 일주: '日', 시주: '時' };
   const cols = (myeongsik?.pillars ?? []).map((p) => ({
     l: LABEL[p.label] ?? p.label.slice(0, 1),
@@ -465,6 +490,7 @@ function ScreenProfile({ go, back, spirit, resetApp }: { go: (r: Route) => void;
       </div>
       <V2Label>설정</V2Label>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <ActionRow ic="☁️" label={linked ? '데이터 백업 — 연결됨' : '데이터 백업'} sub={syncBusy ? '동기화 중…' : (syncMsg ?? (linked ? '탭하면 지금 바로 동기화해요' : '토스 계정으로 백업 · 폰 바꿔도 정령 유지'))} onClick={() => { void onBackup(); }} />
         <ActionRow ic="📋" label="서비스 이용약관" sub="" onClick={() => go('terms')} />
         <ActionRow ic="🔒" label="개인정보 처리방침" sub="" onClick={() => go('privacy')} />
         {!confirmReset ? (

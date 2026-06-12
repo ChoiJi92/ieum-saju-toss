@@ -27,7 +27,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Agent, fetch as undiciFetch } from 'undici';
-import { createDecipheriv, createSecretKey } from 'crypto';
+import { createDecipheriv, createSecretKey, createHash, createHmac } from 'crypto';
 
 const DEFAULT_TOKEN_URL =
   'https://apps-in-toss-api.toss.im/api-partner/v1/apps-in-toss/user/oauth2/generate-token';
@@ -216,7 +216,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(502).json({ error: 'INCOMPLETE_USER_INFO' });
     }
 
-    return res.status(200).json(user);
+    // 4) 상태 동기화 자격 발급 — userKey=sha256(CI) (원본 CI는 DB에 저장 안 함),
+    //    syncToken=HMAC(secret, userKey) → /api/state 인증용. 비밀키 미설정 시 생략(동기화 비활성).
+    const syncSecret = process.env.STATE_SYNC_SECRET;
+    const sync = syncSecret
+      ? (() => {
+          const userKey = createHash('sha256').update(user.ci).digest('hex');
+          const syncToken = createHmac('sha256', syncSecret).update(userKey).digest('hex');
+          return { userKey, syncToken };
+        })()
+      : undefined;
+
+    return res.status(200).json({ ...user, sync });
   } catch (e) {
     const err = e as Error & { code?: string; cause?: unknown };
     const cause = err.cause as (Error & { code?: string }) | undefined;

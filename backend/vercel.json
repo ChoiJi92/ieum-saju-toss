@@ -9,6 +9,15 @@
     },
     "api/toss/disconnect.ts": {
       "maxDuration": 5
+    },
+    "api/state.ts": {
+      "maxDuration": 10
+    },
+    "api/ping.ts": {
+      "maxDuration": 5
     }
-  }
+  },
+  "crons": [
+    { "path": "/api/ping", "schedule": "0 3 * * *" }
+  ]
 }

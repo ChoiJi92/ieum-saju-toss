@@ -13,4 +13,8 @@ create table if not exists public.user_state (
 alter table public.user_state enable row level security;
 -- 정책을 만들지 않는다 → anon/authenticated 모두 차단, service_role만 통과 (의도된 설정)
 
+-- ⚠️ 필수: 프로젝트 생성 시 "Automatically expose new tables"를 꺼뒀다면(권장 설정)
+-- service_role조차 테이블 권한(GRANT)이 자동 부여되지 않아 403이 난다 → 명시적으로 부여
+grant all on table public.user_state to service_role;
+
 comment on table public.user_state is '이음사주 클라이언트 상태 백업 (프로필·정령·스트릭). user_key=sha256(toss CI)';

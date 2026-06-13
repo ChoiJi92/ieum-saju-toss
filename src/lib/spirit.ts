@@ -3,7 +3,7 @@ import type { OhaengKey } from '../components/ie';
 
 /**
  * 통합 영물 모델 — v2.
- * V2Clone 인라인 정의(makeSpirit 희귀도/색상)와 spirit-pet.ts 계열/동물/이미지를 하나로 병합.
+ * 구 V2Clone(현 AppShell) 인라인 정의(makeSpirit 희귀도/색상)와 spirit-pet.ts 계열/동물/이미지를 하나로 병합.
  * 사주(Myeongsik)는 "어떤 영물인지"(계열+동물+희귀도)만 결정한다.
  * 표시 단계(stage)는 게임 진행이 결정 → 이미지는 imageFor(stage)로 단계별 생성.
  */

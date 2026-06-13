@@ -19,27 +19,27 @@ import {
   SpiritSlot, Sparkles, RarityStars, BondMeter, StatPill, ScoreRing,
   HeaderPill, FilterChip, ActionRow, BIRTH_YEARS, selectChevron, BottomSheet,
   circleButtonStyle, speechStyle,
-} from './v2/_kit';
-import { type Tab, type Route, type FlowScreen, FORTUNE_MENU, REWARDED_ROUTES, INTERSTITIAL_ROUTES, ROUTE_TITLE } from './v2/nav';
+} from './app/_kit';
+import { type Tab, type Route, type FlowScreen, FORTUNE_MENU, REWARDED_ROUTES, INTERSTITIAL_ROUTES, ROUTE_TITLE } from './app/nav';
 import { personalityCard } from '../lib/personality';
-import RewardedGate from './v2/RewardedGate';
-import InterstitialView from './v2/InterstitialView';
-import ScreenMonth from './v2/ScreenMonth';
-import ScreenYear from './v2/ScreenYear';
-import ScreenLove from './v2/ScreenLove';
-import ScreenMoney from './v2/ScreenMoney';
-import ScreenCareer from './v2/ScreenCareer';
-import ScreenHealth from './v2/ScreenHealth';
-import ScreenGunghap from './v2/ScreenGunghap';
-import ScreenPersonality from './v2/ScreenPersonality';
-import ScreenSinsal from './v2/ScreenSinsal';
-import ScreenCalendar from './v2/ScreenCalendar';
-import ScreenProfiles from './v2/ScreenProfiles';
-import ScreenAddProfile from './v2/ScreenAddProfile';
-import ScreenLegal from './v2/ScreenLegal';
+import RewardedGate from './app/RewardedGate';
+import InterstitialView from './app/InterstitialView';
+import ScreenMonth from './app/ScreenMonth';
+import ScreenYear from './app/ScreenYear';
+import ScreenLove from './app/ScreenLove';
+import ScreenMoney from './app/ScreenMoney';
+import ScreenCareer from './app/ScreenCareer';
+import ScreenHealth from './app/ScreenHealth';
+import ScreenGunghap from './app/ScreenGunghap';
+import ScreenPersonality from './app/ScreenPersonality';
+import ScreenSinsal from './app/ScreenSinsal';
+import ScreenCalendar from './app/ScreenCalendar';
+import ScreenProfiles from './app/ScreenProfiles';
+import ScreenAddProfile from './app/ScreenAddProfile';
+import ScreenLegal from './app/ScreenLegal';
 
 
-export default function V2Clone() {
+export default function AppShell() {
   const { myeongsik, reset } = useSaju();
   const spirit = useMemo(() => spiritFromMyeongsik(myeongsik), [myeongsik]);
 

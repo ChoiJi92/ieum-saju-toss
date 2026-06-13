@@ -43,7 +43,12 @@ export default function V2Clone() {
   const { myeongsik, reset } = useSaju();
   const spirit = useMemo(() => spiritFromMyeongsik(myeongsik), [myeongsik]);
 
-  const [flow, setFlow] = useState<FlowScreen[] | null>(myeongsik ? null : ['onboarding']);
+  // 첫 플로우 결정: 사주 없음→온보딩 / 사주 있는데 v2 첫 진입(v1 마이그레이션 유저)→웰컴 소환 1회 / 그 외→바로 펫홈
+  const [flow, setFlow] = useState<FlowScreen[] | null>(() => {
+    if (!myeongsik) return ['onboarding'];
+    try { if (!localStorage.getItem('ieum-saju.v2-welcome.v1')) return ['reveal']; } catch { /* ignore */ }
+    return null;
+  });
   // 단일 네비게이션 스택 — 펫 화면(home)이 루트. 탭바 없음, 상단 아이콘으로 이동.
   const [stack, setStack] = useState<Route[]>(['home']);
   const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() => new Set());
@@ -65,14 +70,14 @@ export default function V2Clone() {
   const resetApp = () => {
     void deleteRemoteAndUnlink(); // 탈퇴: 원격 백업도 삭제 (best effort)
     reset();
-    try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); } catch { /* ignore */ }
+    try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); localStorage.removeItem('ieum-saju.v2-welcome.v1'); } catch { /* ignore */ }
     setAdUnlocked(new Set());
     setStack(['home']);
     setFlow(['onboarding']);
   };
 
   const goFlow = (s: FlowScreen) => setFlow((f) => (f ? [...f, s] : [s]));
-  const enterApp = () => { setFlow(null); setStack(['home']); };
+  const enterApp = () => { try { localStorage.setItem('ieum-saju.v2-welcome.v1', '1'); } catch { /* ignore */ } setFlow(null); setStack(['home']); };
   const go = (r: Route) => setStack((s) => [...s, r]);
   const goHome = () => setStack(['home']);
   // 구 화면 호환 shim — 탭 개념 제거. home/grow→루트, 그 외→push.

@@ -181,11 +181,10 @@ function ScreenOnboard({ goFlow }: { goFlow: (s: FlowScreen) => void; back: () =
           <p className="v2-body" style={{ textAlign: 'center', color: 'var(--v2-ink-dim)', margin: '0 24px 28px' }}>태어난 순간의 오행과 12지를 풀어 오직 당신만의 정령을 깨워드려요. 매일 함께 운을 살피며 키워보세요.</p>
         </Rise>
         <Rise delay={340}>
-          {/* 토스로 시작 (주) — 자동 입력 + 백업, 재설치해도 정령 복원 */}
-          <button onClick={startWithToss} disabled={busy} className="v2-press" style={{ width: '100%', padding: '15px', borderRadius: 'var(--v2-r-md)', border: 'none', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--v2-font)', fontSize: 16, fontWeight: 800, background: '#0064FF', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 24px rgba(0,100,255,.32)' }}>
-            <span style={{ fontWeight: 900 }}>toss</span> {busy ? '연결 중…' : '토스로 3초 만에 시작하기'}
+          {/* 토스로 로그인 (주) — 자동 입력 + 백업, 재설치해도 정령 복원 */}
+          <button onClick={startWithToss} disabled={busy} className="v2-press" style={{ width: '100%', padding: '15px', borderRadius: 'var(--v2-r-md)', border: 'none', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--v2-font)', fontSize: 16, fontWeight: 800, background: 'linear-gradient(120deg, var(--v2-lavender), var(--v2-peach))', color: '#1b1230', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(183,156,255,.3)' }}>
+            {busy ? '연결 중…' : '토스로 로그인하기'}
           </button>
-          <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11.5, color: 'var(--v2-ink-mute)', lineHeight: 1.5 }}>이름·생년월일 자동 입력 · 폰 바꿔도 정령 그대로 ✦</div>
           {err && <div style={{ textAlign: 'center', marginTop: 8, fontSize: 12, color: 'var(--v2-peach)', fontWeight: 700 }}>{err}</div>}
           <button onClick={() => goFlow('input')} className="v2-press" style={{ width: '100%', marginTop: 14, padding: '13px', borderRadius: 'var(--v2-r-md)', background: 'transparent', border: '1.5px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)', fontSize: 14.5, fontWeight: 700, color: 'var(--v2-ink-mid)' }}>직접 입력하기</button>
         </Rise>

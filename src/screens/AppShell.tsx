@@ -8,7 +8,8 @@ import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
 import { pillarSeed } from '../lib/personalize';
 import { shareSpiritCard } from '../lib/spirit-card';
-import { initCloudSync, isLinked, linkWithToss, pushNow, deleteRemoteAndUnlink } from '../lib/cloud-sync';
+import { initCloudSync, isLinked, linkWithToss, linkCredsFromToss, pushNow, deleteRemoteAndUnlink } from '../lib/cloud-sync';
+import { signInWithToss, tossInfoToSajuInput, getMockTossUser } from '../lib/toss-auth';
 import {
   ELEMENTS, ELEM_ORDER, ZOD_ORDER,
   makeSpirit, spiritFromMyeongsik,
@@ -92,6 +93,7 @@ export default function AppShell() {
     const cur = flow[flow.length - 1];
     const fp = { goFlow, back, enterApp, spirit };
     if (cur === 'input') return <ScreenInput {...fp} />;
+    if (cur === 'tossTime') return <ScreenTossTime {...fp} />;
     if (cur === 'reveal') return <ScreenReveal {...fp} />;
     return <ScreenOnboard {...fp} />;
   }
@@ -135,6 +137,31 @@ export default function AppShell() {
 }
 
 function ScreenOnboard({ goFlow }: { goFlow: (s: FlowScreen) => void; back: () => void; enterApp: () => void; spirit: Spirit }) {
+  const { setTossPending } = useSaju();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  // 토스로 시작 — 이름·생년월일·성별 자동 + 백업 자격 확보. 시간(시진)만 다음 화면에서 선택.
+  const startWithToss = async () => {
+    if (busy) return;
+    setBusy(true); setErr(null);
+    try {
+      let info;
+      try {
+        info = await signInWithToss();
+      } catch (e) {
+        // 토스 앱 밖(브라우저/dev)에선 SDK 없음 → dev는 목업으로 흐름 검증, 운영은 안내 후 직접입력 유도
+        if (import.meta.env.DEV) info = getMockTossUser();
+        else throw e;
+      }
+      if (info.sync) linkCredsFromToss(info.sync); // 첫날부터 백업 활성
+      setTossPending(tossInfoToSajuInput(info));
+      goFlow('tossTime');
+    } catch {
+      setErr('토스 연결에 실패했어요. 직접 입력으로 진행해 주세요.');
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <V2Screen seed={3}>
       <div style={{ minHeight: 732, display: 'flex', flexDirection: 'column' }}>
@@ -154,8 +181,13 @@ function ScreenOnboard({ goFlow }: { goFlow: (s: FlowScreen) => void; back: () =
           <p className="v2-body" style={{ textAlign: 'center', color: 'var(--v2-ink-dim)', margin: '0 24px 28px' }}>태어난 순간의 오행과 12지를 풀어 오직 당신만의 정령을 깨워드려요. 매일 함께 운을 살피며 키워보세요.</p>
         </Rise>
         <Rise delay={340}>
-          <V2Button onClick={() => goFlow('input')}>정령 깨우러 가기 ✦</V2Button>
-          <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12.5, color: 'var(--v2-ink-mute)' }}>이미 정령이 있어요? <span style={{ color: 'var(--v2-ink-mid)', fontWeight: 700 }}>불러오기</span></div>
+          {/* 토스로 시작 (주) — 자동 입력 + 백업, 재설치해도 정령 복원 */}
+          <button onClick={startWithToss} disabled={busy} className="v2-press" style={{ width: '100%', padding: '15px', borderRadius: 'var(--v2-r-md)', border: 'none', cursor: busy ? 'default' : 'pointer', fontFamily: 'var(--v2-font)', fontSize: 16, fontWeight: 800, background: '#0064FF', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 24px rgba(0,100,255,.32)' }}>
+            <span style={{ fontWeight: 900 }}>toss</span> {busy ? '연결 중…' : '토스로 3초 만에 시작하기'}
+          </button>
+          <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11.5, color: 'var(--v2-ink-mute)', lineHeight: 1.5 }}>이름·생년월일 자동 입력 · 폰 바꿔도 정령 그대로 ✦</div>
+          {err && <div style={{ textAlign: 'center', marginTop: 8, fontSize: 12, color: 'var(--v2-peach)', fontWeight: 700 }}>{err}</div>}
+          <button onClick={() => goFlow('input')} className="v2-press" style={{ width: '100%', marginTop: 14, padding: '13px', borderRadius: 'var(--v2-r-md)', background: 'transparent', border: '1.5px solid var(--v2-glass-line2)', cursor: 'pointer', fontFamily: 'var(--v2-font)', fontSize: 14.5, fontWeight: 700, color: 'var(--v2-ink-mid)' }}>직접 입력하기</button>
         </Rise>
       </div>
     </V2Screen>
@@ -170,6 +202,31 @@ const SIJIN_LIST_V2: [string, string][] = [
 ];
 const SIJIN_HOUR_V2: Record<string, number> = { 子: 0, 丑: 2, 寅: 4, 卯: 6, 辰: 8, 巳: 10, 午: 12, 未: 14, 申: 16, 酉: 18, 戌: 20, 亥: 22 };
 
+/** 시진(태어난 시간) 선택 필드 + 바텀시트 — 직접입력/토스 온보딩 공용 */
+function SijinField({ sijin, unknownTime, onPick, field }: {
+  sijin: string; unknownTime: boolean;
+  onPick: (next: { sijin: string; unknownTime: boolean }) => void;
+  field: React.CSSProperties;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} style={{ ...field, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>{unknownTime ? '태어난 시간 — 모름' : SIJIN_LIST_V2.find(([k]) => k === sijin)?.[1]}</span>
+        <span style={{ color: 'var(--v2-ink-dim)' }}>▾</span>
+      </button>
+      {open && (
+        <BottomSheet onClose={() => setOpen(false)} maxHeight="76dvh">
+          {[['__unknown', '모름 (시간을 몰라요)'] as [string, string], ...SIJIN_LIST_V2].map(([k, lbl]) => {
+            const sel = (k === '__unknown' && unknownTime) || (k !== '__unknown' && !unknownTime && sijin === k);
+            return <div key={k} onClick={() => { onPick(k === '__unknown' ? { sijin, unknownTime: true } : { sijin: k, unknownTime: false }); setOpen(false); }} style={{ padding: '13px 22px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', background: sel ? 'rgba(183,156,255,.12)' : 'transparent', color: sel ? 'var(--v2-ink)' : 'var(--v2-ink-mid)', fontSize: 15, fontWeight: 700 }}><span style={{ width: 16, color: 'var(--v2-lavender)' }}>{sel ? '✓' : ''}</span>{lbl}</div>;
+          })}
+        </BottomSheet>
+      )}
+    </>
+  );
+}
+
 function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: () => void; enterApp: () => void; spirit: Spirit }) {
   const { setSelf } = useSaju();
   const [cal, setCal] = useState<'solar' | 'lunar'>('solar');
@@ -180,7 +237,6 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
   const [leap, setLeap] = useState(false);
   const [sijin, setSijin] = useState('未');
   const [unknownTime, setUnknownTime] = useState(true);
-  const [sijinOpen, setSijinOpen] = useState(false);
   const [gender, setGender] = useState<'male' | 'female' | null>(null);
 
   const yNum = parseInt(year, 10), mNum = parseInt(month, 10), dNum = parseInt(day, 10);
@@ -219,22 +275,65 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
             <select style={{ ...field, ...selectChevron }} value={day} onChange={(e) => setDay(e.target.value)}><option value="">일</option>{Array.from({ length: 31 }, (_, i) => <option key={i} value={String(i + 1).padStart(2, '0')}>{i + 1}일</option>)}</select>
           </div>
           {cal === 'lunar' && <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--v2-ink-dim)' }}><input type="checkbox" checked={leap} onChange={(e) => setLeap(e.target.checked)} />윤달</label>}
-          <button onClick={() => setSijinOpen(true)} style={{ ...field, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span>{unknownTime ? '태어난 시간 — 모름' : SIJIN_LIST_V2.find(([k]) => k === sijin)?.[1]}</span><span style={{ color: 'var(--v2-ink-dim)' }}>▾</span></button>
+          <SijinField sijin={sijin} unknownTime={unknownTime} field={field} onPick={({ sijin: s, unknownTime: u }) => { setSijin(s); setUnknownTime(u); }} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {([['male', '남자'], ['female', '여자']] as const).map(([k, t]) => <button key={k} onClick={() => setGender(k)} style={{ ...field, textAlign: 'center', cursor: 'pointer', background: gender === k ? 'linear-gradient(120deg,var(--v2-lavender),var(--v2-peach))' : 'var(--v2-glass)', color: gender === k ? '#1b1230' : 'var(--v2-ink)' }}>{t}</button>)}
           </div>
         </div>
       </Rise>
       <div style={{ marginTop: 24 }}><V2Button onClick={submit} style={{ opacity: canNext ? 1 : 0.4, cursor: canNext ? 'pointer' : 'not-allowed' }}>정령 깨우기 ✦</V2Button></div>
+    </V2Screen>
+  );
+}
 
-      {sijinOpen && (
-        <BottomSheet onClose={() => setSijinOpen(false)} maxHeight="76dvh">
-            {[['__unknown', '모름 (시간을 몰라요)'] as [string, string], ...SIJIN_LIST_V2].map(([k, lbl]) => {
-              const sel = (k === '__unknown' && unknownTime) || (k !== '__unknown' && !unknownTime && sijin === k);
-              return <div key={k} onClick={() => { if (k === '__unknown') setUnknownTime(true); else { setUnknownTime(false); setSijin(k); } setSijinOpen(false); }} style={{ padding: '13px 22px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', background: sel ? 'rgba(183,156,255,.12)' : 'transparent', color: sel ? 'var(--v2-ink)' : 'var(--v2-ink-mid)', fontSize: 15, fontWeight: 700 }}><span style={{ width: 16, color: 'var(--v2-lavender)' }}>{sel ? '✓' : ''}</span>{lbl}</div>;
-            })}
-        </BottomSheet>
-      )}
+/** 토스 로그인 후 — 자동 입력 정보 확인 + 시진(시간)만 선택 */
+function ScreenTossTime({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: () => void; enterApp: () => void; spirit: Spirit }) {
+  const { tossPending, setSelf } = useSaju();
+  const [sijin, setSijin] = useState('未');
+  const [unknownTime, setUnknownTime] = useState(true);
+  const field: React.CSSProperties = { width: '100%', padding: '13px 16px', borderRadius: 'var(--v2-r-md)', background: 'var(--v2-glass)', border: '1.5px solid var(--v2-glass-line2)', color: 'var(--v2-ink)', fontFamily: 'var(--v2-font)', fontSize: 16, fontWeight: 700, outline: 'none' };
+
+  if (!tossPending) {
+    return (
+      <V2Screen seed={5}>
+        <V2TopBar onBack={back} />
+        <div style={{ textAlign: 'center', marginTop: 80 }}>
+          <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', marginBottom: 20 }}>정보를 불러오지 못했어요.</p>
+          <V2Button onClick={() => goFlow('input')}>직접 입력하기</V2Button>
+        </div>
+      </V2Screen>
+    );
+  }
+
+  const submit = () => {
+    setSelf({ ...tossPending, hour: unknownTime ? undefined : SIJIN_HOUR_V2[sijin], minute: 0 });
+    void pushNow(true); // 첫 백업 (프로필 저장 직후)
+    goFlow('reveal');
+  };
+
+  const genderKo = tossPending.gender === 'male' ? '남자' : '여자';
+  return (
+    <V2Screen seed={5}>
+      <V2TopBar onBack={back} />
+      <div style={{ display: 'flex', gap: 5, marginTop: 20, marginBottom: 26 }}>{[1, 2].map((i) => <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--v2-lavender)', boxShadow: '0 0 10px var(--v2-lavender)' }} />)}</div>
+      <Rise>
+        <div className="v2-cap" style={{ color: 'var(--v2-peach)' }}>토스로 연결됨 · 마지막 한 가지</div>
+        <h2 className="v2-hero" style={{ margin: '10px 0 6px' }}>태어난 시간을<br />알려주세요</h2>
+        <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 0 24px' }}>시간까지 알면 정령이 더 또렷해져요. 모르면 건너뛰어도 괜찮아요 ✦</p>
+      </Rise>
+      <Rise delay={120}>
+        {/* 토스에서 가져온 정보 (읽기 전용) */}
+        <V2Glass style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--v2-mint)', marginBottom: 8 }}>✓ 토스에서 가져왔어요</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', fontSize: 14, color: 'var(--v2-ink)' }}>
+            <span>{tossPending.name}</span>
+            <span style={{ color: 'var(--v2-ink-dim)' }}>{tossPending.year}.{String(tossPending.month).padStart(2, '0')}.{String(tossPending.day).padStart(2, '0')} (양력)</span>
+            <span style={{ color: 'var(--v2-ink-dim)' }}>{genderKo}</span>
+          </div>
+        </V2Glass>
+        <SijinField sijin={sijin} unknownTime={unknownTime} field={field} onPick={({ sijin: s, unknownTime: u }) => { setSijin(s); setUnknownTime(u); }} />
+      </Rise>
+      <div style={{ marginTop: 24 }}><V2Button onClick={submit}>정령 깨우기 ✦</V2Button></div>
     </V2Screen>
   );
 }

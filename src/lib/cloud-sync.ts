@@ -179,6 +179,12 @@ export async function pullMerge(): Promise<'applied-reload' | 'pushed' | 'in-syn
   return r === 'pushed' ? 'pushed' : 'failed';
 }
 
+/** 이미 받은 토스 sync 자격으로 백업 연결 (온보딩에서 signInWithToss 직접 호출 시) — 첫 연결로 취급 */
+export function linkCredsFromToss(sync: { userKey: string; syncToken: string }): void {
+  writeJson(CREDS_KEY, { ...sync, linkedAt: new Date().toISOString() } satisfies Creds);
+  try { localStorage.removeItem(META_KEY); } catch { /* 첫 연결 취급 */ }
+}
+
 /** 토스 로그인으로 백업 연결 (내정보에서 호출) */
 export async function linkWithToss(): Promise<'linked-reload' | 'linked' | 'no-sync-support' | 'failed'> {
   try {

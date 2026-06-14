@@ -15,7 +15,7 @@ export type Route =
   | 'fortunes' | 'calendar' | 'profiles' | 'addProfile' | 'terms' | 'privacy';
 
 /** 탭 진입 전 온보딩 플로우 (탭 바깥) */
-export type FlowScreen = 'onboarding' | 'input' | 'reveal';
+export type FlowScreen = 'onboarding' | 'input' | 'tossTime' | 'reveal';
 
 /** 보상형(긴 광고) 차단 게이트 — 내용 많은/정적 운세 */
 // 궁합은 라우트 진입 시 게이트하지 않음 — 상대 입력 후 '궁합 보기' 버튼에서 광고 (ScreenGunghap 내부 처리)

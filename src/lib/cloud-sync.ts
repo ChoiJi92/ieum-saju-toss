@@ -201,13 +201,14 @@ export async function linkWithToss(): Promise<'linked-reload' | 'linked' | 'no-s
 }
 
 let started = false;
-/** 앱 시작 시 1회 — 연결돼 있으면 풀/병합 후 자동 푸시 루프 시작 */
+/** 앱 시작 시 1회 — 연결돼 있으면 즉시 풀/병합, 그리고 자동 푸시 루프 가동 */
 export function initCloudSync(): void {
   if (started || typeof window === 'undefined') return;
   started = true;
-  if (!isLinked()) return;
-  void pullMerge().then((r) => { if (r === 'applied-reload') window.location.reload(); });
-  // 변경 감지 푸시 — 45초 간격 + 화면 이탈 시
+  // 연결돼 있으면 시작 시 한 번 당겨와 병합
+  if (isLinked()) void pullMerge().then((r) => { if (r === 'applied-reload') window.location.reload(); });
+  // 변경 감지 푸시 — 연결 여부와 무관하게 리스너를 건다(미연결이면 pushNow가 no-op).
+  // → 온보딩/설정에서 세션 중 토스 로그인하면 그때부터 자동 백업이 바로 작동.
   window.setInterval(() => { void pushNow(); }, 45_000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') void pushNow(); });
 }

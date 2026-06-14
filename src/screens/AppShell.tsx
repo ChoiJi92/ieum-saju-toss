@@ -704,7 +704,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
 
   return (
     <V2Screen seed={13} style={{ paddingBottom: 0 }}>
-      <V2TopBar onBack={back} title="오늘의 운세" right={<button style={circleButtonStyle}>↗</button>} />
+      <V2TopBar onBack={back} title="오늘의 운세" />
       {bonusMsg && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(91,217,172,.16)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🎁 {bonusMsg}</div>}
       <Rise><div style={{ textAlign: 'center' }}><div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>{dateLabel} · {myeongsik?.ilgan.c}{myeongsik ? `(${TG_KR[myeongsik.ilgan.c]})` : ''}일</div><SpiritSlot spirit={spirit} size={172} tag={false} /><h1 className="v2-hero" style={{ margin: '2px 0 0' }}>{fortune.mood}</h1></div></Rise>
       <Rise delay={120}><div style={speechStyle}><div style={{ fontSize: 11, color: 'var(--v2-lavender)', fontWeight: 800, marginBottom: 6 }}>{spirit.name}의 한 마디</div><div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.55 }}>{fortune.oneLine}</div></div></Rise>

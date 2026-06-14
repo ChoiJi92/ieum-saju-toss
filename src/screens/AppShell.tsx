@@ -808,6 +808,25 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   const [careGuide, setCareGuide] = useState(() => { try { return !localStorage.getItem('ieum-saju.guide.care.v1'); } catch { return false; } });
   const dismissCareGuide = () => { setCareGuide(false); try { localStorage.setItem('ieum-saju.guide.care.v1', '1'); } catch { /* ignore */ } };
   const showNotice = (msg: string) => { setNotice(msg); window.setTimeout(() => setNotice(null), 2200); };
+  // 백업 넛지 — 직접 입력(미연결) 유저가 첫 진화(stage≥2)하면 1회 노출. 토스 연결 유도, X로 영구 숨김.
+  const [nudge, setNudge] = useState(() => { try { return !localStorage.getItem('ieum-saju.nudge.backup.v1'); } catch { return false; } });
+  const [nudgeBusy, setNudgeBusy] = useState(false);
+  const dismissNudge = () => { setNudge(false); try { localStorage.setItem('ieum-saju.nudge.backup.v1', '1'); } catch { /* ignore */ } };
+  const connectBackup = async () => {
+    if (nudgeBusy) return;
+    setNudgeBusy(true);
+    const r = await linkWithToss();
+    setNudgeBusy(false);
+    if (r === 'linked' || r === 'linked-reload') {
+      showNotice('토스 연결 완료 — 이제 정령이 안전하게 보관돼요 ✦');
+      dismissNudge();
+      if (r === 'linked-reload') window.setTimeout(() => window.location.reload(), 900);
+    } else if (r === 'no-sync-support') {
+      showNotice('백업 서버 준비 중이에요 — 곧 열릴 예정!');
+    } else {
+      showNotice('연결에 실패했어요 — 토스 앱 안에서 다시 시도해주세요');
+    }
+  };
   // 진화 ETA — 자연 페이스(~50/일) 기준 예상일. "내일 또 와야지" 동기 한 줄.
   const remainBond = Math.max(0, thresholdOf(stage) - prog.bond);
   const etaDays = Math.max(1, Math.ceil(remainBond / 50));
@@ -905,6 +924,20 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
           ))}
         </div>
       </Rise>
+      {/* 백업 넛지 — 첫 진화 후 미연결 유저에게 1회 */}
+      {nudge && !isLinked() && stage >= 2 && (
+        <Rise style={{ marginTop: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 14, background: 'rgba(183,156,255,.1)', border: '1px solid var(--v2-glass-line2)' }}>
+            <span style={{ fontSize: 18 }}>🔒</span>
+            <div style={{ flex: 1, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--v2-ink)' }}>지금 정령은 이 폰에만 있어요</div>
+              <div style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>토스로 연결하면 기기를 바꿔도 그대로예요</div>
+            </div>
+            <button onClick={connectBackup} disabled={nudgeBusy} className="v2-press" style={{ padding: '8px 13px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', fontSize: 12, fontWeight: 800, background: 'linear-gradient(120deg, var(--v2-lavender), var(--v2-peach))', color: '#1b1230', whiteSpace: 'nowrap' }}>{nudgeBusy ? '연결 중…' : '연결'}</button>
+            <button onClick={dismissNudge} aria-label="닫기" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--v2-ink-mute)', fontSize: 16, padding: 2, lineHeight: 1 }}>✕</button>
+          </div>
+        </Rise>
+      )}
       <Rise style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}><div ref={anchorRef} style={{ textAlign: 'center', position: 'relative' }}>
         <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', marginTop: 10 }}>
 

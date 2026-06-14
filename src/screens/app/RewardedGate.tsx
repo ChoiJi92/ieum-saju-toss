@@ -28,7 +28,12 @@ export default function RewardedGate({ title, back, spirit, unlocked, onUnlock, 
   const watch = async () => {
     if (loading || preparing) return;
     setLoading(true); setMessage(null);
-    const r = await showRewardedAdForResult();
+    let r = await showRewardedAdForResult();
+    // 콜드 스타트로 첫 로드가 실패하면 SDK가 데워진 상태로 1회 조용히 재시도
+    if (r === 'failed') {
+      setMessage('광고 준비 중… 잠시만요');
+      r = await showRewardedAdForResult();
+    }
     setLoading(false);
     if (r === 'rewarded') { onUnlock(); return; }
     if (r === 'dismissed') setMessage('광고를 끝까지 보면 운세가 열려요.');

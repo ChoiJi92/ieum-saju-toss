@@ -85,7 +85,8 @@ export async function preloadRewardedAdForResult() {
           settle(false);
         },
       });
-      setTimeout(() => settle(false), 5000);
+      // 콜드 스타트(세션 첫 광고)는 SDK 워밍업+필 요청에 5초 이상 걸릴 수 있어 넉넉히.
+      setTimeout(() => settle(false), 12000);
     } catch (error) {
       console.warn('[ads] reward load threw', error);
       settle(false);

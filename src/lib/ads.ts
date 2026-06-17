@@ -166,23 +166,17 @@ export async function showRewardedAdForResult(): Promise<RewardedAdResult> {
   });
 }
 
-let lastInterstitialAt = 0;
-const INTERSTITIAL_COOLDOWN_MS = 60_000;
-
 /**
- * 전면형(interstitial) 광고 1회 노출. 비차단(fire-and-forget). 쿨다운 내 재호출은 무시.
+ * 전면형(interstitial) 광고 1회 노출. 노출 빈도 제어(라우트별 하루 1회)는 호출부(InterstitialView)가 담당.
  * INTERSTITIAL_AD_GROUP_ID 미설정/미지원 환경에선 조용히 패스.
  */
 export async function showInterstitialAd(): Promise<void> {
   if (!INTERSTITIAL_AD_GROUP_ID) return;
-  const t = Date.now();
-  if (t - lastInterstitialAt < INTERSTITIAL_COOLDOWN_MS) return;
 
   const api = await loadAdApi();
   const loadFn = api?.loadFullScreenAd;
   const showFn = api?.showFullScreenAd;
   if (!isSupported(loadFn) || !isSupported(showFn)) return;
-  lastInterstitialAt = t;
 
   const loaded = await new Promise<boolean>((resolve) => {
     let done = false;

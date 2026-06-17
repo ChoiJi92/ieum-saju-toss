@@ -2,16 +2,33 @@ import { useEffect, useState } from 'react';
 import { showInterstitialAd } from '../../lib/ads';
 
 /**
- * 전면형 라우트 — 진입 시 광고를 "먼저" 보여주고, 광고가 끝나면 콘텐츠 공개.
- * showInterstitialAd()는 광고 닫힘 후 resolve(쿨다운·미지원·실패 시 즉시 resolve)되므로,
- * 이걸 기다렸다 children을 렌더하면 '읽다가 끊김' 없이 광고→콘텐츠 순서가 보장됨.
- * 안전장치: 광고가 끝내 resolve 안 되더라도 8초 후 콘텐츠를 공개해 갇힘 방지.
+ * 전면형 라우트 — 진입 시 광고를 "먼저" 보여주고, 끝나면 콘텐츠 공개.
+ * 노출 빈도: 라우트별 "하루 1회"(자정 리셋). 같은 날 재방문은 광고 없이 즉시 공개, 다음 날엔 다시 노출.
+ * showInterstitialAd()는 광고 닫힘 후 resolve(쿨다운·미지원·실패 시 즉시)되므로 기다렸다 children 렌더.
+ * 안전장치: 광고가 끝내 resolve 안 돼도 8초 후 콘텐츠 공개(갇힘 방지).
  */
+const KEY = 'ieum-saju.interstitial.v1';
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function shownToday(routeKey: string): boolean {
+  try { return (JSON.parse(localStorage.getItem(KEY) || '{}') as Record<string, string>)[routeKey] === todayStr(); } catch { return false; }
+}
+function markShown(routeKey: string): void {
+  try {
+    const o = JSON.parse(localStorage.getItem(KEY) || '{}') as Record<string, string>;
+    o[routeKey] = todayStr();
+    localStorage.setItem(KEY, JSON.stringify(o));
+  } catch { /* ignore */ }
+}
+
 export default function InterstitialView({ routeKey, children }: { routeKey: string; children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(() => shownToday(routeKey)); // 오늘 이미 봤으면 즉시 공개(로딩 없음)
 
   useEffect(() => {
-    setReady(false);
+    if (shownToday(routeKey)) { setReady(true); return; }
+    markShown(routeKey); // 오늘 본 것으로 먼저 기록(중복/재진입 방지)
     let cancelled = false;
     const reveal = () => { if (!cancelled) setReady(true); };
     const safety = window.setTimeout(reveal, 8000);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
-import { showRewardedAdForResult } from '../lib/ads';
+import { showRewardedAdForResult, preloadRewardedAdForResult } from '../lib/ads';
 import { ACTION_GAIN, AD_GAIN, DAILY_CAP, TIME_BONUS, ACTION_WINDOW, inActionWindow } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
@@ -67,6 +67,8 @@ export default function AppShell() {
 
   // 클라우드 동기화 부팅 — 백업 연결돼 있으면 풀/병합 + 자동 푸시 (미연결이면 no-op)
   useEffect(() => { initCloudSync(); }, []);
+  // 보상형 광고 미리 데워두기 — 첫 게이트 진입 시 콜드스타트 대기 제거 (이미 사주 있는 유저 한정)
+  useEffect(() => { if (myeongsik) { const t = window.setTimeout(() => { void preloadRewardedAdForResult(); }, 2000); return () => window.clearTimeout(t); } }, [myeongsik]);
 
   const resetApp = () => {
     void deleteRemoteAndUnlink(); // 탈퇴: 원격 백업도 삭제 (best effort)
@@ -620,6 +622,8 @@ function ScreenProfile({ go, back, spirit, resetApp }: { go: (r: Route) => void;
 }
 
 function ScreenFortunes({ go, back }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+  // 보상형 광고를 한 발 앞서 백그라운드 프리로드 — 게이트 진입 시 '준비 중' 없이 바로 열리게
+  useEffect(() => { void preloadRewardedAdForResult(); }, []);
   return (
     <V2Screen seed={11}>
       <V2TopBar onBack={back} title="운세 더보기" />

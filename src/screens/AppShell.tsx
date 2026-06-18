@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
 import { showRewardedAdForResult, preloadRewardedAdForResult } from '../lib/ads';
-import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow } from '../lib/spirit-economy';
+import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchProgress } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
@@ -123,7 +123,7 @@ export default function AppShell() {
     case 'addProfile': screenEl = <ScreenAddProfile {...sp} />; break;
     case 'terms': screenEl = <ScreenLegal kind="terms" {...sp} />; break;
     case 'privacy': screenEl = <ScreenLegal kind="privacy" {...sp} />; break;
-    default: screenEl = <ScreenPetHome {...sp} />;
+    default: screenEl = <HomeOrEgg key={spirit.key} {...sp} />;
   }
   if (REWARDED_ROUTES.includes(route)) {
     screenEl = <RewardedGate title={ROUTE_TITLE[route]} back={back} spirit={spirit} unlocked={adUnlocked.has(route)} onUnlock={() => unlock(route)}>{screenEl}</RewardedGate>;
@@ -339,7 +339,112 @@ function ScreenTossTime({ goFlow, back }: { goFlow: (s: FlowScreen) => void; bac
   );
 }
 
-function ScreenReveal({ enterApp, spirit }: { goFlow: (s: FlowScreen) => void; back: () => void; enterApp: () => void; spirit: Spirit }) {
+/** 공용 알 비주얼 — 계열/정체 힌트 없는 중립 코스믹 알 (애니메이션은 호출부가 래퍼로) */
+function EggVisual({ size = 150 }: { size?: number }) {
+  const w = size, h = Math.round(size * 1.25);
+  return (
+    <div style={{ width: w, height: h, margin: '0 auto', position: 'relative', borderRadius: '50% 50% 50% 50% / 60% 60% 42% 42%', background: 'radial-gradient(circle at 42% 30%, #fffef9, #efe7ff 52%, #d8c6ff 100%)', boxShadow: '0 0 54px rgba(214,198,255,.7), 0 12px 30px rgba(0,0,0,.32), inset -9px -15px 28px rgba(150,120,210,.28), inset 7px 9px 18px rgba(255,255,255,.6)' }}>
+      <span style={{ position: 'absolute', top: '28%', left: '30%', width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,.85)' }} />
+      <span style={{ position: 'absolute', top: '52%', left: '60%', width: 9, height: 9, borderRadius: '50%', background: 'rgba(183,156,255,.5)' }} />
+      <span style={{ position: 'absolute', top: '68%', left: '34%', width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,210,122,.6)' }} />
+    </div>
+  );
+}
+
+/** 알 → 부화 → 정령 공개. 펫홈이 미부화 정령일 때 표시. onComplete 후 일반 펫홈으로. */
+function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () => void }) {
+  const { eggCare, progressOf } = useSpiritState();
+  const prog = progressOf(spirit.key);
+  const done = hatchProgress(prog);
+  const [phase, setPhase] = useState<'egg' | 'hatching' | 'reveal'>('egg');
+  const [wiggle, setWiggle] = useState(0);
+  const hatchStarted = useRef(false);
+
+  // 부화 전환은 스토어 상태(prog.hatched)로 판정 — eggCare 반환값은 setState 특성상 신뢰 불가
+  useEffect(() => {
+    if (prog.hatched && !hatchStarted.current) {
+      hatchStarted.current = true;
+      setPhase('hatching');
+      window.setTimeout(() => setPhase('reveal'), 2400);
+    }
+  }, [prog.hatched]);
+
+  const tap = (kind: 'feed' | 'pet' | 'meditate') => {
+    if (phase !== 'egg' || prog.hatchCare[kind]) return;
+    eggCare(spirit.key, kind);
+    setWiggle((w) => w + 1);
+  };
+
+  if (phase === 'hatching') {
+    return (
+      <V2Screen seed={15} pad={false}>
+        <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 46%, rgba(255,236,180,.5), transparent 62%)', animation: 'v2-flash 1.6s ease forwards', pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', textAlign: 'center' }}>
+            <div style={{ animation: 'v2-egg-hatch 2.4s cubic-bezier(.4,0,.6,1) forwards' }}><EggVisual size={170} /></div>
+            <div className="v2-cap" style={{ color: 'var(--v2-butter)', marginTop: 18, animation: 'v2-twinkle 0.6s ease-in-out infinite' }}>부화하는 중…</div>
+          </div>
+        </div>
+      </V2Screen>
+    );
+  }
+
+  if (phase === 'reveal') {
+    return (
+      <V2Screen seed={7} pad={false}>
+        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+          <div style={{ animation: 'v2-pop-tf .8s cubic-bezier(.2,1.3,.4,1) both' }}>
+            <SpiritSlot spirit={spirit} size={228} tag={false} stage={1} />
+          </div>
+          <div style={{ animation: 'v2-rise-tf .6s ease .25s both', marginTop: 8 }}>
+            <div style={{ display: 'inline-flex', marginBottom: 10 }}><RarityStars rarity={spirit.rarity} /></div>
+            <h1 className="v2-display" style={{ margin: '0 0 8px' }}>{spirit.name}</h1>
+            <div className="v2-cap" style={{ color: spirit.elem.raw, marginBottom: 12 }}>{spirit.formula}</div>
+            <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: 0, maxWidth: 340 }}>{spirit.persona}</p>
+          </div>
+          <div style={{ width: '100%', maxWidth: 340, marginTop: 22, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={onComplete}>{spirit.name}와 함께하기 →</V2Button></div>
+        </div>
+      </V2Screen>
+    );
+  }
+
+  // phase === 'egg'
+  const cares = [
+    { kind: 'feed' as const, ic: '🍃', t: '먹이주기', c: '#5BD9AC' },
+    { kind: 'pet' as const, ic: '💗', t: '쓰다듬기', c: '#FF9E82' },
+    { kind: 'meditate' as const, ic: '🌙', t: '명상하기', c: '#B79CFF' },
+  ];
+  return (
+    <V2Screen seed={15} pad={false}>
+      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+        <div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>정령의 알 🥚</div>
+        <h1 className="v2-hero" style={{ margin: '8px 0 6px' }}>교감으로<br />알을 깨워주세요</h1>
+        <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 0 8px' }}>먹이·쓰다듬·명상 3번이면 부화해요</p>
+        {/* 진행 점 */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '4px 0 22px' }}>
+          {[0, 1, 2].map((i) => <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < done ? 'var(--v2-butter)' : 'rgba(255,255,255,.15)', boxShadow: i < done ? '0 0 10px var(--v2-butter)' : 'none', transition: 'all .3s ease' }} />)}
+        </div>
+        <div style={{ height: 230, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+          <div key={wiggle} style={{ animation: wiggle > 0 ? 'v2-egg-wiggle .5s ease' : 'v2-egg-float 3s ease-in-out infinite' }}><EggVisual size={150} /></div>
+        </div>
+        <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
+          {cares.map((a) => {
+            const used = prog.hatchCare[a.kind];
+            return (
+              <button key={a.kind} onClick={() => tap(a.kind)} disabled={used} className="v2-press" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: used ? 'default' : 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none', opacity: used ? 0.4 : 1 }}>
+                <span style={{ width: 56, height: 56, borderRadius: 18, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, boxShadow: used ? 'none' : `0 0 16px ${a.c}33` }}>{a.ic}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: used ? 'var(--v2-mint)' : 'var(--v2-ink-dim)' }}>{used ? '완료' : '교감'}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </V2Screen>
+  );
+}
+
+function ScreenReveal({ enterApp }: { goFlow: (s: FlowScreen) => void; back: () => void; enterApp: () => void; spirit: Spirit }) {
   const { myeongsik } = useSaju();
   const [phase, setPhase] = useState(0);
   const timersRef = useRef<number[]>([]);
@@ -371,7 +476,8 @@ function ScreenReveal({ enterApp, spirit }: { goFlow: (s: FlowScreen) => void; b
   const core = [
     { size: 64, bg: 'radial-gradient(circle at 40% 36%, #fff, rgba(214,198,255,.5))', glow: 'rgba(183,156,255,.6)' },
     { size: 92, bg: 'radial-gradient(circle at 40% 36%, #fff, var(--v2-lavender))', glow: 'rgba(183,156,255,.9)' },
-    { size: 140, bg: `radial-gradient(circle at 38% 34%, #fff, ${spirit.elem.raw} 56%, ${spirit.rarity.raw})`, glow: spirit.elem.raw },
+    // 정체 비밀 — 계열/등급 색 대신 중립 코스믹
+    { size: 140, bg: 'radial-gradient(circle at 38% 34%, #fff, var(--v2-lavender) 56%, var(--v2-peach))', glow: 'var(--v2-lavender)' },
     { size: 140, bg: 'transparent', glow: 'transparent' },
   ][phase];
   const layer = (show: boolean): React.CSSProperties => ({
@@ -417,12 +523,12 @@ function ScreenReveal({ enterApp, spirit }: { goFlow: (s: FlowScreen) => void; b
 
           <div style={layer(phase === 2)}>
             <div style={{ position: 'absolute', top: '50%', left: '50%', width: 210, height: 210, marginLeft: -105, marginTop: -105, borderRadius: '50%', border: '1.5px dashed var(--v2-glass-line)', animation: 'v2-spin-slow 10s linear infinite' }} />
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 52, filter: `drop-shadow(0 0 18px ${spirit.elem.raw})` }}>{spirit.zod.emoji}</div>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%) scale(.62)' }}><EggVisual size={120} /></div>
           </div>
 
           <div style={layer(phase === 3)}>
             <div style={{ animation: 'v2-pop-tf .8s cubic-bezier(.2,1.3,.4,1) both' }}>
-              <SpiritSlot spirit={spirit} size={228} tag={false} />
+              <div style={{ animation: 'v2-egg-float 3s ease-in-out infinite' }}><EggVisual size={176} /></div>
             </div>
           </div>
         </div>
@@ -430,18 +536,16 @@ function ScreenReveal({ enterApp, spirit }: { goFlow: (s: FlowScreen) => void; b
         <div style={{ minHeight: 128, maxWidth: 340, position: 'relative' }}>
           {phase === 0 && <RevealCaption cap="여덟 글자를 읽는 중" title="당신의 사주를 펼쳐요" />}
           {phase === 1 && <RevealCaption cap="오행을 응축하는 중" title={<>木·火·土·金·水<br />기운이 모여요</>} color="var(--v2-mint)" />}
-          {phase === 2 && <RevealCaption cap="12지를 불어넣는 중" title={<>{spirit.zod.ko}({spirit.zod.cn})의<br />기운이 깃들어요</>} color="var(--v2-peach)" />}
+          {phase === 2 && <RevealCaption cap="기운을 알에 담는 중" title={<>당신의 기운이<br />알로 맺혀요</>} color="var(--v2-peach)" />}
           {phase === 3 && (
             <div style={{ animation: 'v2-rise-tf .6s ease .25s both' }}>
-              <div style={{ display: 'inline-flex', marginBottom: 10 }}><RarityStars rarity={spirit.rarity} /></div>
-              <h1 className="v2-display" style={{ margin: '0 0 8px' }}>{spirit.name}</h1>
-              <div className="v2-cap" style={{ color: spirit.elem.raw, marginBottom: 12 }}>{spirit.formula}</div>
-              <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: 0 }}>{spirit.persona}</p>
+              <h1 className="v2-display" style={{ margin: '0 0 10px' }}>정령의 알이 맺혔어요</h1>
+              <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: 0 }}>교감으로 부화시키면<br />어떤 정령인지 만날 수 있어요 ✦</p>
             </div>
           )}
         </div>
 
-        {phase === 3 && <div style={{ width: '100%', maxWidth: 340, marginTop: 20, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={() => enterApp()}>{spirit.name} 만나러 가기 →</V2Button></div>}
+        {phase === 3 && <div style={{ width: '100%', maxWidth: 340, marginTop: 20, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={() => enterApp()}>알 만나러 가기 →</V2Button></div>}
       </div>
     </V2Screen>
   );
@@ -787,6 +891,14 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
       <div style={{ height: 96 }} />
     </V2Screen>
   );
+}
+
+/** 펫홈 진입점 — 미부화면 알/부화 플로우, 부화 완료면 일반 펫홈. (spirit.key로 keyed) */
+function HomeOrEgg(props: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+  const { progressOf } = useSpiritState();
+  const [done, setDone] = useState(() => progressOf(props.spirit.key).hatched);
+  if (!done) return <EggHatchView spirit={props.spirit} onComplete={() => setDone(true)} />;
+  return <ScreenPetHome {...props} />;
 }
 
 function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {

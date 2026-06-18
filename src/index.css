@@ -474,6 +474,27 @@ input { -webkit-user-select: text; user-select: text; }
   to   { transform: translateY(0); }
 }
 
+/* 알 — 둥실 떠다님 / 흔들림(탭·부화 준비) / 부화 격한 흔들림 */
+@keyframes v2-egg-float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-9px) rotate(2deg); }
+}
+@keyframes v2-egg-wiggle {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-8deg); } 40% { transform: rotate(7deg); }
+  60% { transform: rotate(-5deg); } 80% { transform: rotate(4deg); }
+}
+@keyframes v2-egg-hatch {
+  0% { transform: translateX(0) rotate(0) scale(1); }
+  15% { transform: translateX(-7px) rotate(-7deg); }
+  30% { transform: translateX(7px) rotate(7deg); }
+  45% { transform: translateX(-6px) rotate(-6deg); }
+  60% { transform: translateX(6px) rotate(6deg); }
+  75% { transform: translateX(-4px) rotate(-4deg) scale(1.04); }
+  90% { transform: translateX(3px) rotate(3deg) scale(1.08); }
+  100% { transform: scale(0.2); opacity: 0; }
+}
+
 /* 정령 탭 — 띠용 바운스 (스쿼시→스트레치, 짧고 탱글) */
 @keyframes v2-tap-bounce {
   0% { transform: scale(1, 1); }

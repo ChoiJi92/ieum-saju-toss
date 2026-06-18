@@ -2,7 +2,7 @@ import { createContext, ReactNode, useCallback, useContext, useMemo, useState } 
 import {
   type SpiritProgress, type ActionKind, type BonusKind, type DayActions, type DayBonuses, type StreakState,
   THRESHOLD, DAILY_CAP, ACTION_GAIN, BONUS_GAIN, AD_GAIN, AD_MAX_PER_DAY, STREAK_REWARD, TIME_BONUS,
-  normalize, applyGain, percentOf, doEvolve, makeStreakDefault, tickStreak as tickStreakPure, inActionWindow,
+  normalize, applyGain, percentOf, doEvolve, makeStreakDefault, tickStreak as tickStreakPure, inActionWindow, applyHatchCare,
 } from './spirit-economy';
 import type { Stage } from './spirit';
 
@@ -16,13 +16,15 @@ const KEY = 'ieum-saju.spirit.v2';
 const STREAK_KEY = 'ieum-saju.streak.v1';
 type Store = Record<string, SpiritProgress>;
 
-export type CareResult = { ok: boolean; gained: number; reason?: 'used' | 'capped' | 'maxed' };
+export type CareResult = { ok: boolean; gained: number; reason?: 'used' | 'capped' | 'maxed'; hatched?: boolean };
 
 type SpiritStateCtx = {
   progressOf: (key: string) => SpiritProgress;
   percent: (key: string) => number;
   thresholdOf: (stage: Stage) => number;
   care: (key: string, kind: ActionKind) => CareResult;
+  /** 알 단계 부화용 교감 — bond 없이 부화 카운트만. res.hatched로 부화 완료 여부 */
+  eggCare: (key: string, kind: ActionKind) => CareResult;
   claimBonus: (key: string, kind: BonusKind) => CareResult;
   adBoost: (key: string) => CareResult;
   evolve: (key: string) => void;
@@ -76,6 +78,11 @@ export function SpiritStateProvider({ children }: { children: ReactNode }) {
     return { p: p2, res: { ok: true, gained, reason: gained === 0 ? 'capped' : undefined } };
   }), [update]);
 
+  const eggCare = useCallback((k: string, kind: ActionKind): CareResult => update(k, (p) => {
+    const { next, hatched, already } = applyHatchCare(p, kind);
+    return { p: next, res: { ok: !already, gained: 0, hatched } };
+  }), [update]);
+
   const claimBonus = useCallback((k: string, kind: BonusKind): CareResult => update(k, (p) => {
     if (p.bonuses[kind]) return { p, res: { ok: false, gained: 0, reason: 'used' } };
     const { next, gained } = applyGain(p, BONUS_GAIN[kind]);
@@ -120,8 +127,8 @@ export function SpiritStateProvider({ children }: { children: ReactNode }) {
   }, [update]);
 
   const value = useMemo(
-    () => ({ progressOf, percent, thresholdOf, care, claimBonus, adBoost, evolve, remaining, streak, tickStreak }),
-    [progressOf, percent, thresholdOf, care, claimBonus, adBoost, evolve, remaining, streak, tickStreak],
+    () => ({ progressOf, percent, thresholdOf, care, eggCare, claimBonus, adBoost, evolve, remaining, streak, tickStreak }),
+    [progressOf, percent, thresholdOf, care, eggCare, claimBonus, adBoost, evolve, remaining, streak, tickStreak],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

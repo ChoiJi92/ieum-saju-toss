@@ -45,7 +45,12 @@ export type SpiritProgress = {
   actions: DayActions;   // 오늘 사용한 무료 교감
   bonuses: DayBonuses;   // 오늘 받은 앱활동 보너스
   adsToday: number;      // 오늘 본 보상형 광고 횟수 (0~AD_MAX_PER_DAY)
+  hatched: boolean;      // 부화 여부 — false면 '알' 상태 (정체 비밀, 자정 리셋 영향 없음)
+  hatchCare: DayActions; // 부화용 교감(먹이/쓰다듬/명상 각 1회) — 일일 교감과 별개
 };
+
+/** 부화에 필요한 교감 종류 수 (먹이·쓰다듬·명상 = 3) */
+export const HATCH_REQUIRED = 3;
 
 /** 로컬 날짜 YYYY-MM-DD */
 export function todayKey(now: Date = new Date()): string {
@@ -61,21 +66,28 @@ export function makeDefault(now: Date = new Date()): SpiritProgress {
     actions: { feed: false, pet: false, meditate: false },
     bonuses: { fortune: false, attend: false },
     adsToday: 0,
+    hatched: false,
+    hatchCare: { feed: false, pet: false, meditate: false },
   };
 }
 
 /** 저장된(혹은 구버전) 값을 안전하게 정규화 + 자정 롤오버 */
 export function normalize(raw: Partial<SpiritProgress> | undefined, now: Date = new Date()): SpiritProgress {
   const base = makeDefault(now);
+  // 마이그레이션: 이 기능(알) 이전에 저장된 정령(hatched 필드 없음)은 이미 부화한 걸로 간주 — 갑자기 알로 되돌리지 않음
+  const hatched = typeof raw?.hatched === 'boolean' ? raw.hatched : (raw != null);
   const p: SpiritProgress = {
     ...base,
     ...raw,
     actions: { ...base.actions, ...(raw?.actions ?? {}) },
     bonuses: { ...base.bonuses, ...(raw?.bonuses ?? {}) },
+    hatchCare: { ...base.hatchCare, ...(raw?.hatchCare ?? {}) },
+    hatched,
     stage: (raw?.stage ?? 1) as Stage,
     bond: typeof raw?.bond === 'number' ? raw.bond : 0,
   };
   if (p.todayKey !== todayKey(now)) {
+    // 자정 롤오버: 일일 항목만 리셋. hatched/hatchCare(부화 진행)는 유지 — 다음 날 이어서 부화 가능
     return {
       ...p, todayKey: todayKey(now), gainedToday: 0,
       actions: { feed: false, pet: false, meditate: false },
@@ -83,6 +95,24 @@ export function normalize(raw: Partial<SpiritProgress> | undefined, now: Date = 
     };
   }
   return p;
+}
+
+/** 부화용 교감 1회 — bond/시간대 보너스 없이 부화 카운트만. 3종 다 하면 hatched=true (+일일 교감 초기화로 아기부터 바로 성장 가능) */
+export function applyHatchCare(p: SpiritProgress, kind: ActionKind): { next: SpiritProgress; hatched: boolean; already: boolean } {
+  if (p.hatched) return { next: p, hatched: true, already: true };
+  if (p.hatchCare[kind]) return { next: p, hatched: false, already: true };
+  const hatchCare = { ...p.hatchCare, [kind]: true };
+  const done = hatchCare.feed && hatchCare.pet && hatchCare.meditate;
+  if (done) {
+    // 부화! 일일 교감을 fresh로 둬서 갓 깬 아기를 바로 키울 수 있게 (첫날 보상감)
+    return { next: { ...p, hatchCare, hatched: true, actions: { feed: false, pet: false, meditate: false } }, hatched: true, already: false };
+  }
+  return { next: { ...p, hatchCare }, hatched: false, already: false };
+}
+
+/** 부화 진행 수 (0~3) */
+export function hatchProgress(p: SpiritProgress): number {
+  return Number(p.hatchCare.feed) + Number(p.hatchCare.pet) + Number(p.hatchCare.meditate);
 }
 
 /** 하루 상한 내에서 bond 증가 (실제 적용량 반환) */

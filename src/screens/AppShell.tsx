@@ -339,11 +339,19 @@ function ScreenTossTime({ goFlow, back }: { goFlow: (s: FlowScreen) => void; bac
   );
 }
 
+const EGG_BG = 'radial-gradient(ellipse 72% 82% at 40% 30%, #fffdf8 0%, #f1eaff 58%, #cdbaf2 100%)';
+const EGG_RADIUS = '50% 50% 50% 50% / 60% 60% 42% 42%';
+// 매끈하게 — 드롭섀도 + 바닥 음영만 (외곽 글로우 제거 → 알 뒤 '원' 헤일로 안 생기게)
+const EGG_SHADOW = '0 18px 34px rgba(0,0,0,.35), inset -16px -20px 36px rgba(140,108,200,.16)';
+// 갈지자 균열선 — 위/아래 껍데기 clip-path (맞물려 알을 이룸)
+const SHELL_TOP_CLIP = 'polygon(0 0,100% 0,100% 44%,85% 50%,70% 44%,55% 51%,45% 44%,30% 51%,15% 45%,0 50%)';
+const SHELL_BOT_CLIP = 'polygon(0 50%,15% 45%,30% 51%,45% 44%,55% 51%,70% 44%,85% 50%,100% 44%,100% 100%,0 100%)';
+
 /** 공용 알 비주얼 — 계열/정체 힌트 없는 중립 코스믹 알 (애니메이션은 호출부가 래퍼로) */
 function EggVisual({ size = 150 }: { size?: number }) {
   const w = size, h = Math.round(size * 1.25);
   return (
-    <div style={{ width: w, height: h, margin: '0 auto', position: 'relative', borderRadius: '50% 50% 50% 50% / 60% 60% 42% 42%', background: 'radial-gradient(circle at 42% 30%, #fffef9, #efe7ff 52%, #d8c6ff 100%)', boxShadow: '0 0 54px rgba(214,198,255,.7), 0 12px 30px rgba(0,0,0,.32), inset -9px -15px 28px rgba(150,120,210,.28), inset 7px 9px 18px rgba(255,255,255,.6)' }}>
+    <div style={{ width: w, height: h, margin: '0 auto', position: 'relative', borderRadius: EGG_RADIUS, background: EGG_BG, boxShadow: EGG_SHADOW }}>
       <span style={{ position: 'absolute', top: '28%', left: '30%', width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,.85)' }} />
       <span style={{ position: 'absolute', top: '52%', left: '60%', width: 9, height: 9, borderRadius: '50%', background: 'rgba(183,156,255,.5)' }} />
       <span style={{ position: 'absolute', top: '68%', left: '34%', width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,210,122,.6)' }} />
@@ -351,9 +359,41 @@ function EggVisual({ size = 150 }: { size?: number }) {
   );
 }
 
-/** 알 → 부화 → 정령 공개. 펫홈이 미부화 정령일 때 표시. onComplete 후 일반 펫홈으로. */
-function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () => void }) {
+/** 부화 연출 — 알 껍데기가 갈지자로 갈라져 위는 날아오르고 아래는 떨어지며, 빛 폭발 + 파편 */
+function CrackingEgg({ size = 170 }: { size?: number }) {
+  const w = size, h = Math.round(size * 1.25);
+  // 조각엔 box-shadow 없음 — clip-path 밖으로 새는 그림자가 흰 네모처럼 보이던 문제 방지
+  const piece: React.CSSProperties = { position: 'absolute', inset: 0, width: w, height: h, borderRadius: EGG_RADIUS, background: EGG_BG };
+  const shards = [
+    { sx: '-70px', sy: '-40px', sr: '-90deg', c: '#efe7ff' },
+    { sx: '64px', sy: '-54px', sr: '120deg', c: '#fffef9' },
+    { sx: '-58px', sy: '50px', sr: '60deg', c: '#d8c6ff' },
+    { sx: '78px', sy: '36px', sr: '-140deg', c: '#efe7ff' },
+    { sx: '0px', sy: '-86px', sr: '40deg', c: '#fff' },
+  ];
+  return (
+    <div style={{ position: 'relative', width: w, height: h, margin: '0 auto' }}>
+      {/* 빛 폭발 */}
+      <div style={{ position: 'absolute', top: '46%', left: '50%', width: 120, height: 120, marginLeft: -60, marginTop: -60, borderRadius: '50%', background: 'radial-gradient(circle, #fff, rgba(255,236,180,.7) 40%, transparent 70%)', animation: 'v2-hatch-burst 1.9s ease-out forwards', filter: 'blur(2px)', pointerEvents: 'none' }} />
+      {/* 아래 껍데기 — 떨어짐 */}
+      <div style={{ ...piece, clipPath: SHELL_BOT_CLIP, WebkitClipPath: SHELL_BOT_CLIP, animation: 'v2-shell-bottom 1.9s cubic-bezier(.4,0,.5,1) forwards' }} />
+      {/* 위 껍데기 — 날아오름 */}
+      <div style={{ ...piece, clipPath: SHELL_TOP_CLIP, WebkitClipPath: SHELL_TOP_CLIP, animation: 'v2-shell-top 1.9s cubic-bezier(.4,0,.5,1) forwards' }} />
+      {/* 파편 */}
+      {shards.map((s, i) => (
+        <span key={i} style={{ position: 'absolute', top: '46%', left: '50%', width: 12, height: 9, background: s.c, borderRadius: '40% 60% 50% 40%', ['--sx' as string]: s.sx, ['--sy' as string]: s.sy, ['--sr' as string]: s.sr, animation: 'v2-shard-fly 1.9s ease-out forwards', pointerEvents: 'none' }} />
+      ))}
+    </div>
+  );
+}
+
+const OVERLAY_BG = 'linear-gradient(180deg, #2a2046, #1e1635 55%, #14101f)';
+
+/** 알 → 부화 → 정령 공개. 미부화 정령의 홈 — 일반 홈과 같은 상단 네비 + 알 히어로 + 교감 카드. onComplete 후 일반 펫홈. */
+function EggHatchView({ spirit, onComplete, go }: { spirit: Spirit; onComplete: () => void; go: (r: Route) => void }) {
   const { eggCare, progressOf } = useSpiritState();
+  const { profile } = useSaju();
+  const name = profile?.name ?? '나';
   const prog = progressOf(spirit.key);
   const done = hatchProgress(prog);
   const [phase, setPhase] = useState<'egg' | 'hatching' | 'reveal'>('egg');
@@ -365,7 +405,7 @@ function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () =
     if (prog.hatched && !hatchStarted.current) {
       hatchStarted.current = true;
       setPhase('hatching');
-      window.setTimeout(() => setPhase('reveal'), 2400);
+      window.setTimeout(() => setPhase('reveal'), 2000);
     }
   }, [prog.hatched]);
 
@@ -375,26 +415,81 @@ function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () =
     setWiggle((w) => w + 1);
   };
 
-  if (phase === 'hatching') {
-    return (
-      <V2Screen seed={15} pad={false}>
-        <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+  const cares = [
+    { kind: 'feed' as const, ic: '🍃', t: '먹이주기', c: '#5BD9AC' },
+    { kind: 'pet' as const, ic: '💗', t: '쓰다듬기', c: '#FF9E82' },
+    { kind: 'meditate' as const, ic: '🌙', t: '명상하기', c: '#B79CFF' },
+  ];
+
+  return (
+    <V2Screen seed={15}>
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 48px)', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
+        {/* 상단 인사 + 기능 아이콘 (일반 홈과 동일, 단 등급/공유는 부화 전이라 숨김) */}
+        <Rise style={{ paddingTop: 38 }}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: 'var(--v2-ink-dim)' }}>오늘도 함께해요 ✦</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--v2-ink)' }}>{name}님의 정령</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { r: 'today' as Route, ic: '☀️', label: '오늘 운세' },
+              { r: 'fortunes' as Route, ic: '🔮', label: '운세 더보기' },
+              { r: 'collection' as Route, ic: '📖', label: '도감' },
+              { r: 'profile' as Route, ic: '👤', label: '내정보' },
+            ].map((n) => (
+              <button key={n.r} onClick={() => go(n.r)} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 4px', borderRadius: 16, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}>
+                <span style={{ fontSize: 20, lineHeight: 1 }}>{n.ic}</span>
+                <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--v2-ink-mid)', whiteSpace: 'nowrap' }}>{n.label}</span>
+              </button>
+            ))}
+          </div>
+        </Rise>
+
+        {/* 알 히어로 */}
+        <Rise style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div key={wiggle} style={{ animation: wiggle > 0 ? 'v2-egg-wiggle .5s ease' : 'v2-egg-float 3s ease-in-out infinite' }}><EggVisual size={120} /></div>
+          <div className="v2-cap" style={{ color: 'var(--v2-lavender)', marginTop: 20 }}>정령의 알 🥚</div>
+        </Rise>
+
+        {/* 하단 카드 — 부화 교감 */}
+        <Rise delay={180} style={{ marginTop: 12 }}>
+          <V2Glass style={{ padding: '14px 16px' }}>
+            <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: 'var(--v2-ink)' }}>교감 3번이면 알이 부화해요</div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '10px 0 13px' }}>
+              {[0, 1, 2].map((i) => <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < done ? 'var(--v2-butter)' : 'rgba(255,255,255,.15)', boxShadow: i < done ? '0 0 10px var(--v2-butter)' : 'none', transition: 'all .3s ease' }} />)}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {cares.map((a) => {
+                const used = prog.hatchCare[a.kind];
+                return (
+                  <button key={a.kind} onClick={() => tap(a.kind)} disabled={used} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '2px', minHeight: 44, borderRadius: 14, cursor: used ? 'default' : 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none', opacity: used ? 0.4 : 1 }}>
+                    <span style={{ width: 44, height: 44, borderRadius: 15, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, boxShadow: used ? 'none' : `0 0 16px ${a.c}26` }}>{a.ic}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: used ? 'var(--v2-mint)' : 'var(--v2-ink-dim)' }}>{used ? '완료' : '교감'}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </V2Glass>
+        </Rise>
+      </div>
+
+      {/* 부화 오버레이 — 불투명 코스믹 배경(뒤 비침/흰네모 방지) */}
+      {phase === 'hatching' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: OVERLAY_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 46%, rgba(255,236,180,.5), transparent 62%)', animation: 'v2-flash 1.6s ease forwards', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', textAlign: 'center' }}>
-            <div style={{ animation: 'v2-egg-hatch 2.4s cubic-bezier(.4,0,.6,1) forwards' }}><EggVisual size={170} /></div>
+            <CrackingEgg size={140} />
             <div className="v2-cap" style={{ color: 'var(--v2-butter)', marginTop: 18, animation: 'v2-twinkle 0.6s ease-in-out infinite' }}>부화하는 중…</div>
           </div>
         </div>
-      </V2Screen>
-    );
-  }
+      )}
 
-  if (phase === 'reveal') {
-    return (
-      <V2Screen seed={7} pad={false}>
-        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+      {/* 공개 오버레이 */}
+      {phase === 'reveal' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: OVERLAY_BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', overflowY: 'auto' }}>
           <div style={{ animation: 'v2-pop-tf .8s cubic-bezier(.2,1.3,.4,1) both' }}>
-            <SpiritSlot spirit={spirit} size={228} tag={false} stage={1} />
+            <SpiritSlot spirit={spirit} size={220} tag={false} stage={1} />
           </div>
           <div style={{ animation: 'v2-rise-tf .6s ease .25s both', marginTop: 8 }}>
             <div style={{ display: 'inline-flex', marginBottom: 10 }}><RarityStars rarity={spirit.rarity} /></div>
@@ -404,42 +499,7 @@ function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () =
           </div>
           <div style={{ width: '100%', maxWidth: 340, marginTop: 22, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={onComplete}>{spirit.name}와 함께하기 →</V2Button></div>
         </div>
-      </V2Screen>
-    );
-  }
-
-  // phase === 'egg'
-  const cares = [
-    { kind: 'feed' as const, ic: '🍃', t: '먹이주기', c: '#5BD9AC' },
-    { kind: 'pet' as const, ic: '💗', t: '쓰다듬기', c: '#FF9E82' },
-    { kind: 'meditate' as const, ic: '🌙', t: '명상하기', c: '#B79CFF' },
-  ];
-  return (
-    <V2Screen seed={15} pad={false}>
-      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
-        <div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>정령의 알 🥚</div>
-        <h1 className="v2-hero" style={{ margin: '8px 0 6px' }}>교감으로<br />알을 깨워주세요</h1>
-        <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 0 8px' }}>먹이·쓰다듬·명상 3번이면 부화해요</p>
-        {/* 진행 점 */}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '4px 0 22px' }}>
-          {[0, 1, 2].map((i) => <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < done ? 'var(--v2-butter)' : 'rgba(255,255,255,.15)', boxShadow: i < done ? '0 0 10px var(--v2-butter)' : 'none', transition: 'all .3s ease' }} />)}
-        </div>
-        <div style={{ height: 230, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-          <div key={wiggle} style={{ animation: wiggle > 0 ? 'v2-egg-wiggle .5s ease' : 'v2-egg-float 3s ease-in-out infinite' }}><EggVisual size={150} /></div>
-        </div>
-        <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
-          {cares.map((a) => {
-            const used = prog.hatchCare[a.kind];
-            return (
-              <button key={a.kind} onClick={() => tap(a.kind)} disabled={used} className="v2-press" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: used ? 'default' : 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none', opacity: used ? 0.4 : 1 }}>
-                <span style={{ width: 56, height: 56, borderRadius: 18, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, boxShadow: used ? 'none' : `0 0 16px ${a.c}33` }}>{a.ic}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, color: used ? 'var(--v2-mint)' : 'var(--v2-ink-dim)' }}>{used ? '완료' : '교감'}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      )}
     </V2Screen>
   );
 }
@@ -476,8 +536,8 @@ function ScreenReveal({ enterApp }: { goFlow: (s: FlowScreen) => void; back: () 
   const core = [
     { size: 64, bg: 'radial-gradient(circle at 40% 36%, #fff, rgba(214,198,255,.5))', glow: 'rgba(183,156,255,.6)' },
     { size: 92, bg: 'radial-gradient(circle at 40% 36%, #fff, var(--v2-lavender))', glow: 'rgba(183,156,255,.9)' },
-    // 정체 비밀 — 계열/등급 색 대신 중립 코스믹
-    { size: 140, bg: 'radial-gradient(circle at 38% 34%, #fff, var(--v2-lavender) 56%, var(--v2-peach))', glow: 'var(--v2-lavender)' },
+    // phase 2~3: 알이 주인공 — 뒤 글로우 오브 끔 (알 뒤 '원' 안 생기게)
+    { size: 140, bg: 'transparent', glow: 'transparent' },
     { size: 140, bg: 'transparent', glow: 'transparent' },
   ][phase];
   const layer = (show: boolean): React.CSSProperties => ({
@@ -522,13 +582,12 @@ function ScreenReveal({ enterApp }: { goFlow: (s: FlowScreen) => void; back: () 
           </div>
 
           <div style={layer(phase === 2)}>
-            <div style={{ position: 'absolute', top: '50%', left: '50%', width: 210, height: 210, marginLeft: -105, marginTop: -105, borderRadius: '50%', border: '1.5px dashed var(--v2-glass-line)', animation: 'v2-spin-slow 10s linear infinite' }} />
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%) scale(.62)' }}><EggVisual size={120} /></div>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%) scale(.7)' }}><EggVisual size={120} /></div>
           </div>
 
           <div style={layer(phase === 3)}>
             <div style={{ animation: 'v2-pop-tf .8s cubic-bezier(.2,1.3,.4,1) both' }}>
-              <div style={{ animation: 'v2-egg-float 3s ease-in-out infinite' }}><EggVisual size={176} /></div>
+              <div style={{ animation: 'v2-egg-float 3s ease-in-out infinite' }}><EggVisual size={132} /></div>
             </div>
           </div>
         </div>
@@ -897,7 +956,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
 function HomeOrEgg(props: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { progressOf } = useSpiritState();
   const [done, setDone] = useState(() => progressOf(props.spirit.key).hatched);
-  if (!done) return <EggHatchView spirit={props.spirit} onComplete={() => setDone(true)} />;
+  if (!done) return <EggHatchView spirit={props.spirit} go={props.go} onComplete={() => setDone(true)} />;
   return <ScreenPetHome {...props} />;
 }
 

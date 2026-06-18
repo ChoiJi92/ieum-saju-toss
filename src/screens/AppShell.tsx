@@ -373,8 +373,8 @@ function CrackingEgg({ size = 170 }: { size?: number }) {
   ];
   return (
     <div style={{ position: 'relative', width: w, height: h, margin: '0 auto' }}>
-      {/* 빛 폭발 */}
-      <div style={{ position: 'absolute', top: '46%', left: '50%', width: 120, height: 120, marginLeft: -60, marginTop: -60, borderRadius: '50%', background: 'radial-gradient(circle, #fff, rgba(255,236,180,.7) 40%, transparent 70%)', animation: 'v2-hatch-burst 1.9s ease-out forwards', filter: 'blur(2px)', pointerEvents: 'none' }} />
+      {/* 빛 폭발 — translate(-50%,-50%)로 중앙 정렬(키프레임에서), margin 중복 제거 */}
+      <div style={{ position: 'absolute', top: '46%', left: '50%', width: 120, height: 120, borderRadius: '50%', background: 'radial-gradient(circle, #fff, rgba(255,236,180,.7) 40%, transparent 70%)', animation: 'v2-hatch-burst 1.9s ease-out forwards', filter: 'blur(2px)', pointerEvents: 'none' }} />
       {/* 아래 껍데기 — 떨어짐 */}
       <div style={{ ...piece, clipPath: SHELL_BOT_CLIP, WebkitClipPath: SHELL_BOT_CLIP, animation: 'v2-shell-bottom 1.9s cubic-bezier(.4,0,.5,1) forwards' }} />
       {/* 위 껍데기 — 날아오름 */}
@@ -581,14 +581,9 @@ function ScreenReveal({ enterApp }: { goFlow: (s: FlowScreen) => void; back: () 
             </div>
           </div>
 
-          <div style={layer(phase === 2)}>
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%) scale(.7)' }}><EggVisual size={120} /></div>
-          </div>
-
-          <div style={layer(phase === 3)}>
-            <div style={{ animation: 'v2-pop-tf .8s cubic-bezier(.2,1.3,.4,1) both' }}>
-              <div style={{ animation: 'v2-egg-float 3s ease-in-out infinite' }}><EggVisual size={132} /></div>
-            </div>
+          {/* phase 2·3 알은 같은 크기·위치 — 크로스페이드해도 안 튀고, 텍스트만 '맺혀요→맺혔어요'로 */}
+          <div style={layer(phase === 2 || phase === 3)}>
+            <div style={{ animation: 'v2-egg-float 3s ease-in-out infinite' }}><EggVisual size={128} /></div>
           </div>
         </div>
 

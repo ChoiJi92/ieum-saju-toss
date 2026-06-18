@@ -474,6 +474,21 @@ input { -webkit-user-select: text; user-select: text; }
   to   { transform: translateY(0); }
 }
 
+/* 정령 탭 — 띠용 바운스 (스쿼시→스트레치, 짧고 탱글) */
+@keyframes v2-tap-bounce {
+  0% { transform: scale(1, 1); }
+  28% { transform: scale(1.1, 0.9); }
+  55% { transform: scale(0.94, 1.08); }
+  78% { transform: scale(1.03, 0.98); }
+  100% { transform: scale(1, 1); }
+}
+/* 탭 반응 하트/반짝 — 살짝 떠오르며 사라짐 */
+@keyframes v2-tap-react {
+  0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translate(-50%, -48px) scale(1.1); opacity: 0; }
+}
+
 /* NEW: 정령 원소 글로우 플래시 — 빠르게 블룸 → 천천히 페이드 */
 @keyframes v2-bond-flash {
   0%   { opacity: 0;    transform: translate(-50%, -50%) scale(0.65); }

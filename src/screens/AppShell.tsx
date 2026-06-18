@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
 import { showRewardedAdForResult, preloadRewardedAdForResult } from '../lib/ads';
-import { ACTION_GAIN, AD_GAIN, DAILY_CAP, TIME_BONUS, ACTION_WINDOW, inActionWindow } from '../lib/spirit-economy';
+import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
@@ -862,6 +862,15 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   const canBypass = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false' && isLocalhost;
   const scrollTop = () => { (anchorRef.current?.closest('.ie-scroll') as HTMLElement | null)?.scrollTo({ top: 0, behavior: 'smooth' }); };
   const playFx = (gained: number, icon: string) => { setGain(gained); setBurstIcon(icon); setPulseKey((k) => k + 1); window.setTimeout(() => setGain(null), 1800); };
+  // 정령 탭 — 띠용 바운스 + 깜찍 반응 (코스메틱, 교감/경험치 영향 없음)
+  const [tapKey, setTapKey] = useState(0);
+  const [tapReact, setTapReact] = useState<string | null>(null);
+  const TAP_REACTIONS = ['💗', '✨', '😊', '🫧', '⭐'];
+  const onTapSpirit = () => {
+    setTapKey((k) => k + 1);
+    setTapReact(TAP_REACTIONS[Math.floor(tapKey) % TAP_REACTIONS.length]);
+    window.setTimeout(() => setTapReact(null), 650);
+  };
   // 무료 교감 — 하루 1회씩, 하루 상한 내에서 (영험이면 멘티에게)
   const doCare = (kind: 'feed' | 'pet' | 'meditate', icon: string) => { const r = careAct(targetKey, kind); if (r.ok && r.gained > 0) { playFx(r.gained, icon); dismissCareGuide(); } };
   // 광고 가속 — 보상형 광고 성공 후 adBoost (하루 상한·횟수 내, 영험이면 멘티에게)
@@ -984,7 +993,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
             />
           )}
 
-          {/* LAYER 2: 스쿼시 래퍼 — elastic spring cubic-bezier, 850ms */}
+          {/* LAYER 2: 스쿼시 래퍼(교감) — elastic spring cubic-bezier, 850ms */}
           <div
             key={pulseKey}
             style={{
@@ -994,8 +1003,26 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               zIndex: 3,
             }}
           >
-            <SpiritSlot spirit={spirit} size={178 + (stage - 1) * 8} tag={false} stage={stage} />
+            {/* 탭 바운스 래퍼 — 캐릭터를 콕 누르면 띠용 (교감과 별개, 무료) */}
+            <div
+              key={`tap${tapKey}`}
+              onClick={onTapSpirit}
+              role="button"
+              aria-label="정령 쓰다듬기"
+              style={{
+                cursor: 'pointer',
+                transformOrigin: '50% 85%',
+                animation: tapKey ? 'v2-tap-bounce 0.42s cubic-bezier(.34,1.56,.64,1)' : 'none',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <SpiritSlot spirit={spirit} size={178 + (stage - 1) * 8} tag={false} stage={stage} />
+            </div>
           </div>
+          {/* 탭 반응 이모지 — 살짝 떠오르며 사라짐 */}
+          {tapReact && (
+            <div key={`react${tapKey}`} style={{ position: 'absolute', top: 40, left: '50%', fontSize: 26, animation: 'v2-tap-react 0.65s ease-out forwards', pointerEvents: 'none', zIndex: 6 }}>{tapReact}</div>
+          )}
 
           {/* LAYER 3: +N 히어로 숫자 — 38px, 1750ms HOLD arc, 위로 드리프트 */}
           {gain !== null && (
@@ -1125,8 +1152,8 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               percent={stage >= 4 ? (mentee ? tgtPct : 100) : pct}
               label={stage >= 4 ? (mentee ? `🧙 멘토 모드 — ${mentee.sp.name}` : '기운') : '다음 진화까지'}
               sub={stage >= 4
-                ? (mentee ? `제자 정령에게 기운을 나눠요 · 오늘 +${tgtProg.gainedToday}/${DAILY_CAP}` : '최종 진화 완료 — 새 정령을 만나면 기운을 나눠줄 수 있어요 ✦')
-                : `오늘 +${prog.gainedToday}/${DAILY_CAP} · 이 속도면 ${etaDays <= 1 ? '내일' : `약 ${etaDays}일 뒤`} ${nextKo}(으)로 진화해요`}
+                ? (mentee ? `제자 정령에게 기운을 나눠요 · 오늘 +${tgtProg.gainedToday} 교감했어요` : '최종 진화 완료 — 새 정령을 만나면 기운을 나눠줄 수 있어요 ✦')
+                : `오늘 +${prog.gainedToday} 교감했어요 · 이 속도면 ${etaDays <= 1 ? '내일' : `약 ${etaDays}일 뒤`} ${nextKo}(으)로 진화해요`}
             />
             {/* 멘티 선택 (영험 + 후보 2명 이상) */}
             {stage >= 4 && menteeCands.length > 1 && (

@@ -837,7 +837,7 @@ function CatchModal({ todaySp, gunghap, chance, onClose, onResult }: { todaySp: 
         <div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>오늘 찾아온 정령</div>
         <div style={{ position: 'relative', margin: '14px auto 6px', width: 200, height: 200 }}>
           <div key={phase} style={{ animation: anim, opacity: phase === 'fled' ? 0.35 : 1 }}>
-            <SpiritSlot spirit={todaySp} size={200} tag={false} stage={3} floating={phase === 'ready'} />
+            <SpiritSlot spirit={todaySp} size={200} tag={false} stage={1} floating={phase === 'ready'} />
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -968,7 +968,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
       <Rise delay={160}>
         <V2Glass style={{ display: 'flex', alignItems: 'center', gap: 13, marginTop: 18, background: 'linear-gradient(120deg, rgba(183,156,255,.12), rgba(91,217,172,.08))' }} glow="0 0 22px rgba(183,156,255,.16)">
           <div style={{ width: 58, height: 58, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: `radial-gradient(circle at 38% 34%, #fff8, ${todaySp.elem.raw})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 16px ${todaySp.elem.raw}66` }}>
-            {todaySp.imageFor(3) ? <img src={todaySp.imageFor(3) as string} alt="" style={{ width: '120%', height: '120%', objectFit: 'contain' }} /> : <span style={{ fontSize: 26 }}>{todaySp.zod.emoji}</span>}
+            {todaySp.imageFor(1) ? <img src={todaySp.imageFor(1) as string} alt="" style={{ width: '120%', height: '120%', objectFit: 'contain' }} /> : <span style={{ fontSize: 26 }}>{todaySp.zod.emoji}</span>}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--v2-lavender)' }}>오늘 찾아온 정령 🎯</div>
@@ -1596,7 +1596,7 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
         return (
           <BottomSheet onClose={() => setView(null)}>
               <div style={{ textAlign: 'center' }}>
-                <SpiritSlot spirit={view.sp} size={150} tag={false} stage={caughtOnly ? 3 : vp.stage} floating={false} />
+                <SpiritSlot spirit={view.sp} size={150} tag={false} stage={caughtOnly ? 1 : vp.stage} floating={false} />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
                   <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--v2-ink)' }}>{view.sp.name}</span>
                   <RarityStars rarity={view.sp.rarity} />

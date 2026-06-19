@@ -522,6 +522,27 @@ input { -webkit-user-select: text; user-select: text; }
   100% { transform: translate(-50%,-50%) translate(var(--sx), var(--sy)) scale(1) rotate(var(--sr)); opacity: 0; }
 }
 
+/* 포획 — 정령이 흔들흔들(잡는 중) → 성공 시 쏙 빨려들어갔다 등장 */
+@keyframes v2-catch-wobble {
+  0%, 100% { transform: rotate(0) scale(1); }
+  15% { transform: rotate(-10deg) scale(1.03); }
+  30% { transform: rotate(9deg); }
+  45% { transform: rotate(-7deg); }
+  60% { transform: rotate(6deg); }
+  78% { transform: rotate(-4deg) scale(.97); }
+  90% { transform: rotate(3deg); }
+}
+@keyframes v2-catch-caught {
+  0% { transform: scale(1); opacity: 1; }
+  45% { transform: scale(.55); opacity: .35; }
+  72% { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes v2-catch-flee {
+  0% { transform: translate(0,0) scale(1); opacity: 1; }
+  100% { transform: translate(60px,-40px) scale(.4) rotate(20deg); opacity: 0; }
+}
+
 /* 정령 탭 — 띠용 바운스 (스쿼시→스트레치, 짧고 탱글) */
 @keyframes v2-tap-bounce {
   0% { transform: scale(1, 1); }

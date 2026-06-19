@@ -8,6 +8,7 @@ import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
 import { pillarSeed } from '../lib/personalize';
 import { shareSpiritCard } from '../lib/spirit-card';
+import { todaySpirit, gunghapScore, catchChance, caughtKeys, todayCatchState, attemptCatch } from '../lib/spirit-catch';
 import { initCloudSync, isLinked, linkWithToss, linkCredsFromToss, pushNow, deleteRemoteAndUnlink } from '../lib/cloud-sync';
 import { signInWithToss, tossInfoToSajuInput, getMockTossUser } from '../lib/toss-auth';
 import {
@@ -802,8 +803,84 @@ function ScreenFortunes({ go, back }: { go: (r: Route) => void; back: () => void
   );
 }
 
+/** 오늘의 정령 포획 모달 — 일진 정령을 던져 잡기, 실패 시 광고 재도전(하루 3회) */
+function CatchModal({ todaySp, gunghap, chance, onClose, onResult }: { todaySp: Spirit; gunghap: number; chance: number; onClose: () => void; onResult: () => void }) {
+  const st0 = todayCatchState();
+  const [phase, setPhase] = useState<'ready' | 'throwing' | 'caught' | 'fled'>(st0.caught ? 'caught' : st0.attempts === 0 ? 'ready' : 'fled');
+  const [left, setLeft] = useState(st0.attemptsLeft);
+  const [adLoading, setAdLoading] = useState(false);
+  const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const canBypass = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false' && isLocalhost;
+
+  const doThrow = () => {
+    if (phase === 'throwing') return;
+    setPhase('throwing');
+    window.setTimeout(() => {
+      const r = attemptCatch(todaySp.key, chance);
+      setLeft(r.attemptsLeft);
+      if (r.success) { setPhase('caught'); onResult(); } else setPhase('fled');
+    }, 1300);
+  };
+  const retryViaAd = async () => {
+    if (adLoading) return;
+    if (canBypass) { setPhase('ready'); return; }
+    setAdLoading(true);
+    const res = await showRewardedAdForResult();
+    setAdLoading(false);
+    if (res === 'rewarded' || res === 'unsupported' || res === 'not_configured') setPhase('ready');
+  };
+
+  const anim = phase === 'throwing' ? 'v2-catch-wobble 1.25s ease-in-out' : phase === 'caught' ? 'v2-catch-caught .8s ease' : 'none';
+  return (
+    <div onClick={phase === 'throwing' ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(16,11,28,.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 340, textAlign: 'center' }}>
+        <div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>오늘 찾아온 정령</div>
+        <div style={{ position: 'relative', margin: '14px auto 6px', width: 200, height: 200 }}>
+          <div key={phase} style={{ animation: anim, opacity: phase === 'fled' ? 0.35 : 1 }}>
+            <SpiritSlot spirit={todaySp} size={200} tag={false} stage={3} floating={phase === 'ready'} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--v2-ink)' }}>{todaySp.name}</span>
+          <RarityStars rarity={todaySp.rarity} />
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--v2-ink-dim)', marginTop: 5 }}>나와 궁합 <b style={{ color: 'var(--v2-peach)' }}>{gunghap}%</b> · 포획 확률 <b style={{ color: 'var(--v2-mint)' }}>{chance}%</b></div>
+
+        <div style={{ marginTop: 20 }}>
+          {phase === 'ready' && <V2Button onClick={doThrow}>✦ 정령 잡기 (남은 {left}회) ✦</V2Button>}
+          {phase === 'throwing' && <div className="v2-cap" style={{ color: 'var(--v2-butter)', animation: 'v2-twinkle .5s ease-in-out infinite' }}>잡는 중…</div>}
+          {phase === 'caught' && (
+            <>
+              <div className="v2-display" style={{ color: 'var(--v2-mint)', margin: '0 0 6px' }}>✨ 도감에 담았어요!</div>
+              <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 0 16px' }}>{todaySp.name}을(를) 도감에서 만나볼 수 있어요</p>
+              <V2Button onClick={onClose}>확인</V2Button>
+            </>
+          )}
+          {phase === 'fled' && (
+            <>
+              <div className="v2-display" style={{ color: 'var(--v2-peach)', margin: '0 0 6px' }}>💨 도망갔어요</div>
+              {left > 0 ? (
+                <>
+                  <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 0 14px' }}>광고를 보면 한 번 더 도전할 수 있어요</p>
+                  <V2Button onClick={retryViaAd}>{adLoading ? '광고 여는 중…' : `🎬 광고 보고 한 번 더 (남은 ${left}회)`}</V2Button>
+                  <button onClick={onClose} style={{ marginTop: 10, background: 'none', border: 'none', color: 'var(--v2-ink-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>다음에 할게요</button>
+                </>
+              ) : (
+                <>
+                  <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 0 14px' }}>오늘 도전은 여기까지 — 내일 또 찾아와요</p>
+                  <V2Button onClick={onClose}>확인</V2Button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
-  const { myeongsik } = useSaju();
+  const { myeongsik, profiles } = useSaju();
   const { claimBonus, progressOf } = useSpiritState();
   const stage = progressOf(spirit.key).stage;
   const [bonusMsg, setBonusMsg] = useState<string | null>(null);
@@ -853,6 +930,22 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spirit.key]);
 
+  // 오늘의 정령 포획 — 일진 정령 + 나와의 궁합 + 도감 수집
+  const [catchOpen, setCatchOpen] = useState(false);
+  const [catchTick, setCatchTick] = useState(0);
+  const todaySp = useMemo(() => todaySpirit(), []);
+  const myOhaeng = myeongsik?.ilgan.ohaeng as ElementKey | undefined;
+  const gunghap = myOhaeng ? gunghapScore(myOhaeng, todaySp.elemKey) : 65;
+  const chance = catchChance(todaySp.rarity.key, gunghap);
+  const ownedKeys = useMemo(() => {
+    const s = caughtKeys();
+    for (const p of profiles) { try { s.add(spiritFromMyeongsik(computeMyeongsik(p)).key); } catch { /* skip */ } }
+    return s;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profiles, catchTick]);
+  const alreadyOwned = ownedKeys.has(todaySp.key);
+  const catchSt = useMemo(() => todayCatchState(), [catchTick]);
+
   if (!fortune) {
     return (
       <V2Screen seed={13} style={{ paddingBottom: 0 }}>
@@ -870,6 +963,25 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
       {bonusMsg && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(91,217,172,.16)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🎁 {bonusMsg}</div>}
       <Rise><div style={{ textAlign: 'center' }}><div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>{dateLabel} · {myeongsik?.ilgan.c}{myeongsik ? `(${TG_KR[myeongsik.ilgan.c]})` : ''}일</div><SpiritSlot spirit={spirit} size={172} tag={false} /><h1 className="v2-hero" style={{ margin: '2px 0 0' }}>{fortune.mood}</h1></div></Rise>
       <Rise delay={120}><div style={speechStyle}><div style={{ fontSize: 11, color: 'var(--v2-lavender)', fontWeight: 800, marginBottom: 6 }}>{spirit.name}의 한 마디</div><div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.55 }}>{fortune.oneLine}</div></div></Rise>
+
+      {/* 오늘의 정령 포획 — 도감 수집 */}
+      <Rise delay={160}>
+        <V2Glass style={{ display: 'flex', alignItems: 'center', gap: 13, marginTop: 18, background: 'linear-gradient(120deg, rgba(183,156,255,.12), rgba(91,217,172,.08))' }} glow="0 0 22px rgba(183,156,255,.16)">
+          <div style={{ width: 58, height: 58, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: `radial-gradient(circle at 38% 34%, #fff8, ${todaySp.elem.raw})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 16px ${todaySp.elem.raw}66` }}>
+            {todaySp.imageFor(3) ? <img src={todaySp.imageFor(3) as string} alt="" style={{ width: '120%', height: '120%', objectFit: 'contain' }} /> : <span style={{ fontSize: 26 }}>{todaySp.zod.emoji}</span>}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--v2-lavender)' }}>오늘 찾아온 정령 🎯</div>
+            <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--v2-ink)', marginTop: 2 }}>{todaySp.name} <span style={{ fontSize: 11, color: 'var(--v2-ink-dim)', fontWeight: 700 }}>· 궁합 {gunghap}%</span></div>
+            <div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginTop: 2 }}>
+              {alreadyOwned ? '이미 도감에 있어요 ✓' : catchSt.caught ? '오늘 도감에 담았어요 ✨' : catchSt.attemptsLeft === 0 ? '오늘은 도망갔어요 · 내일 또 와요' : '잡아서 도감에 담아보세요'}
+            </div>
+          </div>
+          {!alreadyOwned && !catchSt.caught && catchSt.attemptsLeft > 0 && (
+            <button onClick={() => setCatchOpen(true)} className="v2-press" style={{ flexShrink: 0, padding: '10px 15px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', fontSize: 13, fontWeight: 800, background: 'linear-gradient(120deg, var(--v2-lavender), var(--v2-peach))', color: '#1b1230' }}>잡기</button>
+          )}
+        </V2Glass>
+      </Rise>
       <Rise delay={200}><div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}><ScoreRing score={ring} color="var(--v2-lavender)" /><div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{dims.map(([l, v, c, ic]) => <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 14, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}><span style={{ color: c, fontSize: 14, fontWeight: 800, width: 16 }}>{ic}</span><span style={{ fontSize: 11, color: 'var(--v2-ink-dim)', flex: 1 }}>{l}</span><span style={{ fontSize: 14, fontWeight: 800 }}>{v}</span></div>)}</div></div></Rise>
       <Rise delay={280}><V2Label>오늘의 풀이</V2Label><div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{bodies.map(([l, body]) => <V2Glass key={l}><div style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', marginBottom: 6 }}>{l}</div><div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--v2-ink-mid)' }}>{body}</div></V2Glass>)}</div></Rise>
       {/* 정령의 풀이 — 단계별로 깊어지는 해석 (키울 이유) */}
@@ -943,6 +1055,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
         </V2Glass>
       </Rise>
       <div style={{ height: 96 }} />
+      {catchOpen && <CatchModal todaySp={todaySp} gunghap={gunghap} chance={chance} onClose={() => { setCatchOpen(false); setCatchTick((t) => t + 1); }} onResult={() => setCatchTick((t) => t + 1)} />}
     </V2Screen>
   );
 }
@@ -1445,7 +1558,9 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
     }
     return m;
   }, [profiles]);
-  const unlocked = useMemo(() => new Set(owners.keys()), [owners]); // 배경 잠금은 BottomSheet가 처리
+  const caught = useMemo(() => caughtKeys(), []); // 오늘의 정령 포획으로 모은 것
+  // 프로필 보유 ∪ 포획 = 도감 해금
+  const unlocked = useMemo(() => new Set([...owners.keys(), ...caught]), [owners, caught]);
   const cells = ELEM_ORDER.flatMap((ek) => ZOD_ORDER.map((zk) => {
     const sp = makeSpirit(ek, zk);
     return { ek, key: sp.key, sp, got: unlocked.has(sp.key), ready: sp.available };
@@ -1461,7 +1576,7 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
         <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', lineHeight: 1.5 }}>{ownedCount >= 60 ? '도감 완성! 모든 정령을 만났어요 🎉' : `다음 목표 ${nextGoal}마리 — ${nextGoal - ownedCount}마리 남았어요. 못 만난 정령을 눌러보세요 ✦`}</div>
       </div></V2Glass></Rise>
       <Rise delay={80}><div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '18px 0 14px' }} className="ie-scroll"><FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label="전체" color="var(--v2-lavender)" />{ELEM_ORDER.map((ek) => <FilterChip key={ek} active={filter === ek} onClick={() => setFilter(ek)} label={`${ELEMENTS[ek].cn} ${ELEMENTS[ek].ko}`} color={ELEMENTS[ek].raw} />)}</div></Rise>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got ? setView(owners.get(c.key) ?? null) : setWish(c.sp)} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: 'pointer', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', minHeight: 142 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got ? setView(owners.get(c.key) ?? { sp: c.sp, ownerId: '', ownerName: '' }) : setWish(c.sp)} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: 'pointer', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', minHeight: 142 }}>
         <div style={{ width: 52, height: 52, margin: '0 auto 8px', borderRadius: '50%', overflow: 'hidden', background: c.got ? `radial-gradient(circle at 38% 34%, #fff8, ${c.sp.elem.raw}, ${c.sp.rarity.raw})` : 'rgba(255,255,255,.05)', boxShadow: c.got ? `0 0 16px ${c.sp.elem.raw}88` : 'none', border: c.got ? 'none' : '1px dashed var(--v2-glass-line2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: 'var(--v2-ink-mute)' }}>
           {c.got ? (c.sp.imageFor(1) ? <img src={c.sp.imageFor(1) as string} alt={c.sp.name} style={{ width: '118%', height: '118%', objectFit: 'contain' }} /> : c.sp.zod.emoji) : '?'}
         </div>
@@ -1473,6 +1588,7 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
       <div style={{ height: 96 }} />
       {/* 획득 정령 상세 — 진짜 모습·주인·진행도 + 그 사주로 전환 */}
       {view && (() => {
+        const caughtOnly = !view.ownerName; // 프로필 보유 아님 = 포획으로만 모은 정령
         const vp = progressOf(view.sp.key);
         const vpct = percent(view.sp.key);
         const STG = ['', '아기 정령', '어린 정령', '성체 정령', '영험한 정령'];
@@ -1480,21 +1596,31 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
         return (
           <BottomSheet onClose={() => setView(null)}>
               <div style={{ textAlign: 'center' }}>
-                <SpiritSlot spirit={view.sp} size={150} tag={false} stage={vp.stage} floating={false} />
+                <SpiritSlot spirit={view.sp} size={150} tag={false} stage={caughtOnly ? 3 : vp.stage} floating={false} />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
                   <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--v2-ink)' }}>{view.sp.name}</span>
                   <RarityStars rarity={view.sp.rarity} />
                 </div>
-                <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 4 }}>{view.sp.formula} · <b style={{ color: 'var(--v2-lavender)' }}>{view.ownerName}</b>님의 정령 · {STG[vp.stage]}</div>
-                <div style={{ margin: '12px 2px 0' }}>
-                  <BondMeter percent={vp.stage >= 4 ? 100 : vpct} label={vp.stage >= 4 ? '기운' : '다음 진화까지'} sub={vp.stage >= 4 ? '최종 진화 완료 ✦' : undefined} />
-                </div>
+                {caughtOnly ? (
+                  <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 4 }}>{view.sp.formula} · 오늘의 정령으로 도감에 담은 정령 🎯</div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 4 }}>{view.sp.formula} · <b style={{ color: 'var(--v2-lavender)' }}>{view.ownerName}</b>님의 정령 · {STG[vp.stage]}</div>
+                    <div style={{ margin: '12px 2px 0' }}>
+                      <BondMeter percent={vp.stage >= 4 ? 100 : vpct} label={vp.stage >= 4 ? '기운' : '다음 진화까지'} sub={vp.stage >= 4 ? '최종 진화 완료 ✦' : undefined} />
+                    </div>
+                  </>
+                )}
               </div>
-              <button
-                onClick={() => { if (!isActive) setActive(view.ownerId); setView(null); switchTab('home'); }}
-                className="v2-press"
-                style={{ marginTop: 14, width: '100%', padding: '13px', borderRadius: 13, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(120deg, var(--v2-lavender), var(--v2-peach))', color: '#1b1230', fontSize: 13.5, fontWeight: 900 }}
-              >{isActive ? '✦ 내 정령 키우러 가기' : `✦ ${view.ownerName}님 사주로 전환해 키우기`}</button>
+              {caughtOnly ? (
+                <p className="v2-body" style={{ textAlign: 'center', color: 'var(--v2-ink-dim)', margin: '16px 0 0', fontSize: 12.5 }}>이 사주로 태어난 사람을 만나면 직접 키울 수도 있어요 ✦</p>
+              ) : (
+                <button
+                  onClick={() => { if (!isActive) setActive(view.ownerId); setView(null); switchTab('home'); }}
+                  className="v2-press"
+                  style={{ marginTop: 14, width: '100%', padding: '13px', borderRadius: 13, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(120deg, var(--v2-lavender), var(--v2-peach))', color: '#1b1230', fontSize: 13.5, fontWeight: 900 }}
+                >{isActive ? '✦ 내 정령 키우러 가기' : `✦ ${view.ownerName}님 사주로 전환해 키우기`}</button>
+              )}
           </BottomSheet>
         );
       })()}

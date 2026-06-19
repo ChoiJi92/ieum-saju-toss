@@ -390,8 +390,8 @@ function CrackingEgg({ size = 170 }: { size?: number }) {
 
 const OVERLAY_BG = 'linear-gradient(180deg, #2a2046, #1e1635 55%, #14101f)';
 
-/** 알 → 부화 → 정령 공개. 미부화 정령의 홈 — 일반 홈과 같은 상단 네비 + 알 히어로 + 교감 카드. onComplete 후 일반 펫홈. */
-function EggHatchView({ spirit, onComplete, go }: { spirit: Spirit; onComplete: () => void; go: (r: Route) => void }) {
+/** 알 → 부화 → 정령 공개. 미부화 정령의 홈 — 부화가 먼저(정체 비밀 보존)라 네비는 부화 유도. onComplete 후 일반 펫홈. */
+function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () => void }) {
   const { eggCare, progressOf } = useSpiritState();
   const { profile } = useSaju();
   const name = profile?.name ?? '나';
@@ -399,6 +399,8 @@ function EggHatchView({ spirit, onComplete, go }: { spirit: Spirit; onComplete: 
   const done = hatchProgress(prog);
   const [phase, setPhase] = useState<'egg' | 'hatching' | 'reveal'>('egg');
   const [wiggle, setWiggle] = useState(0);
+  const [navMsg, setNavMsg] = useState(false);
+  const nudgeHatch = () => { setNavMsg(true); window.setTimeout(() => setNavMsg(false), 2000); };
   const hatchStarted = useRef(false);
 
   // 부화 전환은 스토어 상태(prog.hatched)로 판정 — eggCare 반환값은 setState 특성상 신뢰 불가
@@ -424,8 +426,9 @@ function EggHatchView({ spirit, onComplete, go }: { spirit: Spirit; onComplete: 
 
   return (
     <V2Screen seed={15}>
+      {navMsg && <div style={{ position: 'fixed', top: 70, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(183,156,255,.16)', border: '1px solid var(--v2-lavender)', color: 'var(--v2-lavender)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🥚 먼저 알을 깨워주세요</div>}
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 48px)', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
-        {/* 상단 인사 + 기능 아이콘 (일반 홈과 동일, 단 등급/공유는 부화 전이라 숨김) */}
+        {/* 상단 인사 + 기능 아이콘 (부화 전이라 정체 비밀 — 네비는 부화 유도) */}
         <Rise style={{ paddingTop: 38 }}>
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 12, color: 'var(--v2-ink-dim)' }}>오늘도 함께해요 ✦</div>
@@ -438,7 +441,7 @@ function EggHatchView({ spirit, onComplete, go }: { spirit: Spirit; onComplete: 
               { r: 'collection' as Route, ic: '📖', label: '도감' },
               { r: 'profile' as Route, ic: '👤', label: '내정보' },
             ].map((n) => (
-              <button key={n.r} onClick={() => go(n.r)} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 4px', borderRadius: 16, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}>
+              <button key={n.r} onClick={nudgeHatch} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 4px', borderRadius: 16, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', opacity: 0.5 }}>
                 <span style={{ fontSize: 20, lineHeight: 1 }}>{n.ic}</span>
                 <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--v2-ink-mid)', whiteSpace: 'nowrap' }}>{n.label}</span>
               </button>
@@ -1064,7 +1067,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
 function HomeOrEgg(props: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { progressOf } = useSpiritState();
   const [done, setDone] = useState(() => progressOf(props.spirit.key).hatched);
-  if (!done) return <EggHatchView spirit={props.spirit} go={props.go} onComplete={() => setDone(true)} />;
+  if (!done) return <EggHatchView spirit={props.spirit} onComplete={() => setDone(true)} />;
   return <ScreenPetHome {...props} />;
 }
 

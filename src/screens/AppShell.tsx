@@ -832,7 +832,7 @@ function CatchModal({ todaySp, gunghap, chance, onClose, onResult }: { todaySp: 
 
   const anim = phase === 'throwing' ? 'v2-catch-wobble 1.25s ease-in-out' : phase === 'caught' ? 'v2-catch-caught .8s ease' : 'none';
   return (
-    <div onClick={phase === 'throwing' ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(16,11,28,.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+    <div onClick={phase === 'throwing' ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 95, background: OVERLAY_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 340, textAlign: 'center' }}>
         <div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>오늘 찾아온 정령</div>
         <div style={{ position: 'relative', margin: '14px auto 6px', width: 200, height: 200 }}>

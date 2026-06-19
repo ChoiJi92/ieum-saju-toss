@@ -971,6 +971,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   const [pulseKey, setPulseKey] = useState(0);
   const [gain, setGain] = useState<number | null>(null);
   const [evolving, setEvolving] = useState(false);
+  const evoTimer = useRef<number | null>(null);
   const [burstIcon, setBurstIcon] = useState('✦');
   const [adLoading, setAdLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -1048,7 +1049,13 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
     setAdLoading(false);
     if (res === 'rewarded') { const r = adBoost(targetKey); if (r.ok && r.gained > 0) playFx(r.gained, '✨'); }
   };
-  const doEvolve = () => { scrollTop(); setEvolving(true); window.setTimeout(() => { evolve(spirit.key); setEvolving(false); }, 2000); };
+  // 진화 연출 — 마일스톤이라 새 모습을 충분히 보여줌(~3.4초). 탭하면 일찍 넘기기(중복 호출은 canEvolve로 안전)
+  const finishEvolve = () => {
+    if (evoTimer.current) { window.clearTimeout(evoTimer.current); evoTimer.current = null; }
+    evolve(spirit.key);
+    setEvolving(false);
+  };
+  const doEvolve = () => { scrollTop(); setEvolving(true); evoTimer.current = window.setTimeout(finishEvolve, 3400); };
   // 출석 보너스 — 그날 첫 진입 1회 (멱등). 첫 적립이면 +N 연출.
   useEffect(() => {
     const r = claimBonus(spirit.key, 'attend');
@@ -1388,7 +1395,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
       </Rise>
       </div>
       {evolving && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16,11,28,.86)' }}>
+        <div onClick={finishEvolve} style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16,11,28,.86)', cursor: 'pointer' }}>
           <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 44%, ${spirit.elem.raw}55, transparent 60%)`, animation: 'v2-flash 1.8s ease forwards', pointerEvents: 'none' }} />
           <div style={{ textAlign: 'center', position: 'relative' }}>
             <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -1406,13 +1413,14 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               {[0, 320, 640].map((d, i) => (
                 <div key={i} style={{ position: 'absolute', left: '50%', top: '50%', width: 150, height: 150, borderRadius: '50%', border: `2px solid ${spirit.elem.raw}`, transform: 'translate(-50%,-50%)', animation: `v2-bond-ring 1.1s cubic-bezier(.2,.8,.4,1) ${d}ms forwards`, pointerEvents: 'none', zIndex: 0 }} />
               ))}
-              {/* 정령 */}
+              {/* 정령 — 진화 등장 후 잔잔히 떠 있게(새 모습 감상) */}
               <div style={{ position: 'relative', zIndex: 1, animation: 'v2-evolve-in 1.2s cubic-bezier(.2,.9,.3,1)' }}>
-                <SpiritSlot spirit={spirit} size={230} tag={false} stage={nextStage} floating={false} />
+                <SpiritSlot spirit={spirit} size={230} tag={false} stage={nextStage} floating={true} />
               </div>
             </div>
-            <div className="v2-display" style={{ marginTop: 10, color: 'var(--v2-ink)', textShadow: '0 0 18px rgba(255,227,160,.85)', position: 'relative', zIndex: 2 }}>✦ 진화! ✦</div>
-            <div className="v2-cap" style={{ color: '#FFD27A', marginTop: 4, position: 'relative', zIndex: 2 }}>{STAGE_KO[nextStage]}</div>
+            <div className="v2-display" style={{ marginTop: 10, color: 'var(--v2-ink)', textShadow: '0 0 18px rgba(255,227,160,.85)', position: 'relative', zIndex: 2, animation: 'v2-rise-tf .5s ease .9s both' }}>✦ 진화! ✦</div>
+            <div className="v2-cap" style={{ color: '#FFD27A', marginTop: 4, position: 'relative', zIndex: 2, animation: 'v2-rise-tf .5s ease 1.1s both' }}>{STAGE_KO[nextStage]}</div>
+            <div style={{ fontSize: 11, color: 'var(--v2-ink-mute)', marginTop: 18, position: 'relative', zIndex: 2, animation: 'v2-rise-tf .6s ease 2.2s both' }}>화면을 탭하면 계속돼요</div>
           </div>
         </div>
       )}

@@ -1,5 +1,42 @@
 import { OHAENG, type OhaengKey } from '../components/ie';
 import type { Myeongsik } from './saju';
+import { getSipsung, type Sipsung } from './sipsung';
+import { OHAENG_KR, OHAENG_PULIE } from './saju';
+
+/** 오행 분포 바 데이터 한 항목 */
+export type OhaengBar = {
+  key: OhaengKey;
+  kr: string;   // 목·화·토·금·수
+  pulie: string; // 나무·불·흙·쇠·물
+  count: number;
+  percent: number; // 0-100 (count / total * 100)
+  color: string;
+};
+
+/** 신강신약 섹션 데이터 */
+export type ShinkangSection = {
+  label: string;
+  gauge: number;
+  body: string;
+  yongshinChip: string; // "보완 오행 · 나무(목)"
+  yongshinReason: string;
+};
+
+/** 직업/적성 가이드 항목 */
+export type CareerItem = {
+  ic: string;
+  lbl: string;    // 방향 이름
+  sub: string;    // 키워드 요약
+  detail: string; // 이유 설명
+};
+
+/** 밸런스 진단 */
+export type BalanceDiagnosis = {
+  band: 'balanced' | 'tilted' | 'extreme';
+  label: string;   // "균형형" | "편중형" | "극단형"
+  chip: string;    // StatPill용 짧은 레이블
+  advice: string;  // 1-2줄 맞춤 조언
+};
 
 export type PersonalityCard = {
   title: string;
@@ -14,11 +51,21 @@ export type PersonalityCard = {
   talkTips: string[];
   todayRoutines: string[];
   mantra: string;
+  /** 오행 분포 시각화 데이터 */
+  ohaengBars: OhaengBar[];
+  /** 오행 분포 코멘트 — 강한 기운 + 약한/없는 기운 1줄씩 */
+  ohaengComment: { strongest: string; weakest: string };
+  /** 신강신약 섹션 */
+  shinkangSection: ShinkangSection;
+  /** 직업/적성 가이드 */
+  careerItems: CareerItem[];
+  /** 밸런스 진단 */
+  balanceDiagnosis: BalanceDiagnosis;
 };
 
 type StemKey = '甲' | '乙' | '丙' | '丁' | '戊' | '己' | '庚' | '辛' | '壬' | '癸';
 
-type StemCopy = Omit<PersonalityCard, 'title' | 'subtitle' | 'talkTips' | 'todayRoutines'>;
+type StemCopy = Omit<PersonalityCard, 'title' | 'subtitle' | 'talkTips' | 'todayRoutines' | 'ohaengBars' | 'ohaengComment' | 'shinkangSection' | 'careerItems' | 'balanceDiagnosis'>;
 
 const STEM_COPY: Record<StemKey, StemCopy> = {
   甲: {
@@ -29,7 +76,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['처음엔 빠르고 강하게, 중반엔 묵직하게 버티는 패턴이 반복돼요.'],
     goodMatches: ['약속을 지키는 사람', '성장 의지가 있는 사람'],
     difficultMatches: ['말 바꾸기가 잦은 사람', '기준 없이 분위기만 타는 사람'],
-    mantra: '오늘은 서두르기보다, 방향을 다시 맞추는 데 힘을 써보세요.',
+    mantra: '서두르기보다, 방향을 다시 맞추는 데 힘을 쓰는 게 나다워요.',
   },
   乙: {
     identity: '부드러운 풀처럼, 상황에 맞춰 살아남는 감각이 좋은 사람이에요.',
@@ -39,7 +86,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['처음엔 관찰하고, 타이밍을 보면 정확히 움직이는 패턴이 있어요.'],
     goodMatches: ['배려가 자연스러운 사람', '감정 기복이 과하지 않은 사람'],
     difficultMatches: ['강압적으로 밀어붙이는 사람', '말보다 힘으로 해결하려는 사람'],
-    mantra: '오늘은 내 속도를 지키면서도, 필요한 말은 분명하게 전해보세요.',
+    mantra: '내 속도를 지키면서도, 필요한 말은 분명하게 전하는 게 나다워요.',
   },
   丙: {
     identity: '햇볕 같은 불기운으로, 주변 분위기를 밝게 바꾸는 힘이 있어요.',
@@ -49,7 +96,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['초반 몰입이 강하고, 관심이 식기 전에 변화를 주면 오래 가요.'],
     goodMatches: ['반응이 솔직한 사람', '함께 도전하는 걸 즐기는 사람'],
     difficultMatches: ['냉소가 습관인 사람', '계속 브레이크만 거는 사람'],
-    mantra: '오늘의 열정은 좋지만, 마무리 한 가지를 꼭 챙겨보세요.',
+    mantra: '열정이 강점이지만, 마무리 한 가지를 꼭 챙기는 게 나다워요.',
   },
   丁: {
     identity: '촛불 같은 불기운으로, 작지만 오래 가는 집중력이 강한 사람이에요.',
@@ -59,7 +106,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['한 번 마음이 가면 길게 책임지고, 아닌 건 빠르게 정리해요.'],
     goodMatches: ['말을 끝까지 들어주는 사람', '섬세함을 존중하는 사람'],
     difficultMatches: ['감정선을 무시하는 사람', '거친 말투를 당연하게 쓰는 사람'],
-    mantra: '오늘은 내 감각을 믿되, 피로 신호는 미루지 말고 쉬어가세요.',
+    mantra: '내 감각을 믿되, 피로 신호는 미루지 않고 쉬어가는 게 나다워요.',
   },
   戊: {
     identity: '넓은 흙처럼, 주변을 품고 버텨내는 힘이 큰 사람이에요.',
@@ -69,7 +116,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['급변보다 축적형 성장에 강하고, 꾸준함으로 결과를 만들어요.'],
     goodMatches: ['약속과 시간 개념이 확실한 사람', '현실 감각이 좋은 사람'],
     difficultMatches: ['즉흥적으로 판을 흔드는 사람', '책임 회피가 잦은 사람'],
-    mantra: '오늘은 완벽보다 진행을 택하면 흐름이 훨씬 가벼워져요.',
+    mantra: '완벽보다 진행을 택하면 흐름이 훨씬 가벼워지는 게 나다워요.',
   },
   己: {
     identity: '기름진 밭흙처럼, 현실적인 감각으로 결과를 키워내는 사람이에요.',
@@ -79,7 +126,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['크게 한 번보다, 작게 여러 번 고도화하는 패턴에 강해요.'],
     goodMatches: ['디테일을 존중하는 사람', '말보다 행동이 꾸준한 사람'],
     difficultMatches: ['큰 말만 하고 실행이 없는 사람', '기초를 무시하는 사람'],
-    mantra: '오늘은 작은 정리 하나가 다음 주의 여유를 만들어줘요.',
+    mantra: '작은 정리 하나가 큰 여유를 만들어주는 게 나다워요.',
   },
   庚: {
     identity: '단단한 쇠처럼, 결단과 실행에서 존재감이 강한 사람이에요.',
@@ -89,7 +136,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['결정 순간엔 빠르고, 실행 단계에선 단호하게 밀어붙여요.'],
     goodMatches: ['핵심을 정확히 말하는 사람', '약속을 실천으로 보여주는 사람'],
     difficultMatches: ['우유부단한 태도가 잦은 사람', '감정으로 규칙을 흔드는 사람'],
-    mantra: '오늘은 정답을 고르기보다, 덜 중요한 걸 먼저 덜어내세요.',
+    mantra: '정답을 고르기보다, 덜 중요한 걸 먼저 덜어내는 게 나다워요.',
   },
   辛: {
     identity: '정교한 보석 같은 쇠기운으로, 미감과 완성도 감각이 뛰어난 사람이에요.',
@@ -99,7 +146,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['처음엔 신중하고, 확신이 서면 완성도 높게 끝내는 패턴이 있어요.'],
     goodMatches: ['존중 있는 소통을 하는 사람', '디테일을 함께 맞춰주는 사람'],
     difficultMatches: ['막말이 습관인 사람', '대충 넘어가자는 태도가 강한 사람'],
-    mantra: '오늘은 기준을 지키되, 완벽주의는 10%만 내려놓아도 충분해요.',
+    mantra: '기준을 지키되, 완벽주의는 10%만 내려놓아도 충분한 게 나다워요.',
   },
   壬: {
     identity: '큰 물처럼, 시야가 넓고 변화에 강한 흐름형 사람이에요.',
@@ -109,7 +156,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['한곳에 묶이기보다, 흐름을 타며 큰 기회를 잡는 패턴이 반복돼요.'],
     goodMatches: ['유연하게 소통하는 사람', '가능성을 함께 키우는 사람'],
     difficultMatches: ['통제만 강한 사람', '변화를 무조건 막는 사람'],
-    mantra: '오늘은 확장보다 정리 한 번을 더하면 성과가 또렷해져요.',
+    mantra: '확장보다 정리 한 번을 더하면 성과가 또렷해지는 게 나다워요.',
   },
   癸: {
     identity: '이슬 같은 물기운으로, 조용하지만 깊게 스며드는 힘이 있는 사람이에요.',
@@ -119,7 +166,7 @@ const STEM_COPY: Record<StemKey, StemCopy> = {
     patterns: ['겉은 잔잔해도, 내면에서 충분히 숙성한 뒤 정확히 움직여요.'],
     goodMatches: ['경청이 되는 사람', '감정선의 결을 존중하는 사람'],
     difficultMatches: ['말로 압박하는 사람', '감정을 가볍게 소비하는 사람'],
-    mantra: '오늘은 내 감정의 결을 무시하지 말고, 필요한 거절을 연습해보세요.',
+    mantra: '내 감정의 결을 무시하지 않고, 필요한 거절을 하는 게 나다워요.',
   },
 };
 
@@ -153,12 +200,129 @@ const STEM_TALK_TIPS: Record<StemKey, string[]> = {
 };
 
 const OHAENG_ROUTINES: Record<OhaengKey, string[]> = {
-  wood: ['아침 10분 산책으로 생각을 깨워보세요.', '오늘 할 일 3개를 적고 순서대로 시작해보세요.'],
+  wood: ['아침 10분 산책으로 생각을 깨워보세요.', '할 일 3개를 적고 순서대로 시작해보세요.'],
   fire: ['햇볕 보는 시간을 15분 확보해보세요.', '고마운 사람 1명에게 짧은 메시지를 보내보세요.'],
   earth: ['책상/가방 한 칸만 정리해 안정감을 만드세요.', '식사 시간을 일정하게 맞춰 컨디션을 지켜보세요.'],
   metal: ['우선순위 1·2·3만 정하고 나머지는 미뤄두세요.', '불필요한 알림 3개를 꺼서 집중 환경을 만드세요.'],
   water: ['물 한 컵을 자주 마시며 리듬을 유지하세요.', '잠들기 전 20분은 화면 없이 조용히 쉬어보세요.'],
 };
+
+/** 오행별 색상 */
+const OHAENG_COLOR: Record<OhaengKey, string> = {
+  wood: '#6FCF97',
+  fire: '#F2994A',
+  earth: '#F2C94C',
+  metal: '#B0BEC5',
+  water: '#56CCF2',
+};
+
+/** 십성 그룹 → 직업/적성 매핑 */
+const SIPSUNG_CAREER: Record<string, CareerItem> = {
+  '식신/상관': {
+    ic: '🎨',
+    lbl: '창작 · 표현 · 기획',
+    sub: '식신 · 상관',
+    detail: '자신의 생각과 감각을 표현하는 일이 강점이에요. 콘텐츠 크리에이터, 마케터, 기획자, 디자이너, 작가, 예술가처럼 아이디어를 결과물로 만드는 분야에서 두각을 나타낼 수 있어요.',
+  },
+  '정재/편재': {
+    ic: '💼',
+    lbl: '사업 · 금융 · 영업',
+    sub: '정재 · 편재',
+    detail: '재물을 다루고 기회를 포착하는 감각이 발달해 있어요. 사업가, 영업·세일즈, 금융·투자, 무역처럼 결과를 수치로 측정할 수 있는 분야에서 성과를 내기 좋아요.',
+  },
+  '정관/편관': {
+    ic: '⚖️',
+    lbl: '공직 · 관리 · 법',
+    sub: '정관 · 편관',
+    detail: '책임과 권위를 다루는 환경에서 강점이 커요. 공무원, 법조계, 군인·경찰, 관리자·임원처럼 규칙과 질서 안에서 성과를 내는 구조에 잘 맞아요.',
+  },
+  '정인/편인': {
+    ic: '📚',
+    lbl: '연구 · 교육 · 전문직',
+    sub: '정인 · 편인',
+    detail: '깊이 탐구하고 전달하는 능력이 뛰어나요. 교사·교수, 연구원, 의료·상담, 컨설턴트처럼 전문 지식을 쌓고 나누는 분야가 잘 맞아요.',
+  },
+  '비견/겁재': {
+    ic: '🦅',
+    lbl: '독립 · 전문직 · 스타트업',
+    sub: '비견 · 겁재',
+    detail: '자기 기준과 독립성이 강해 혼자서도 방향을 잡는 능력이 있어요. 프리랜서, 창업가, 스타트업, 강사·코치처럼 스스로 판을 짜는 환경에서 빠르게 성장해요.',
+  },
+};
+
+/** 십성 → 그룹키 */
+function sipsungToGroup(s: Sipsung): string {
+  if (s === '식신' || s === '상관') return '식신/상관';
+  if (s === '정재' || s === '편재') return '정재/편재';
+  if (s === '정관' || s === '편관') return '정관/편관';
+  if (s === '정인' || s === '편인') return '정인/편인';
+  return '비견/겁재';
+}
+
+type StemKey10 = '甲' | '乙' | '丙' | '丁' | '戊' | '己' | '庚' | '辛' | '壬' | '癸';
+
+/** 명식에서 주요 십성 집계 후 직업/적성 카드 3개 반환 */
+function buildCareerItems(m: Myeongsik): CareerItem[] {
+  const ilgan = m.ilgan.c as StemKey10;
+  const validStems = new Set<string>(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
+
+  const groupCount: Record<string, number> = {};
+  // 4기둥 천간 중 ilgan 본인 기둥(일주)은 비견으로만 나오므로 포함해도 무방하지만
+  // 더 의미 있는 다양성을 위해 일주(index 2) 천간은 건너뜀
+  for (let i = 0; i < m.pillars.length; i++) {
+    const stem = m.pillars[i].top.c;
+    if (!validStems.has(stem)) continue;
+    const ss = getSipsung(ilgan, stem as StemKey10);
+    const grp = sipsungToGroup(ss);
+    groupCount[grp] = (groupCount[grp] ?? 0) + 1;
+  }
+
+  // 빈도 내림차순 정렬, 같으면 SIPSUNG_CAREER 키 순서 유지
+  const order = ['식신/상관', '정재/편재', '정관/편관', '정인/편인', '비견/겁재'];
+  const sorted = Object.entries(groupCount).sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] - a[1];
+    return order.indexOf(a[0]) - order.indexOf(b[0]);
+  });
+
+  // 상위 3개, 없으면 기본 3개
+  const top3 = sorted.slice(0, 3).map(([k]) => k);
+  if (top3.length < 3) {
+    for (const k of order) {
+      if (!top3.includes(k)) top3.push(k);
+      if (top3.length === 3) break;
+    }
+  }
+  return top3.map((k) => SIPSUNG_CAREER[k]);
+}
+
+/** 밸런스 진단 빌드 */
+function buildBalanceDiagnosis(m: Myeongsik): BalanceDiagnosis {
+  const band = getBalanceBand(m);
+  const entries = Object.entries(m.ohaeng) as [OhaengKey, number][];
+  const sorted = [...entries].sort((a, b) => b[1] - a[1]);
+  const maxKey = sorted[0][0];
+  const maxKr = OHAENG_KR[maxKey];
+
+  const configs: Record<'balanced' | 'tilted' | 'extreme', { label: string; chip: string; advice: string }> = {
+    balanced: {
+      label: '균형형',
+      chip: '오행 균형 · 안정',
+      advice: `오행이 고르게 분포되어 있어요. 큰 기복 없이 안정적으로 힘을 발휘하는 타입이에요. 무리하지 않는 페이스로 꾸준히 나아가는 게 최고의 전략이에요.`,
+    },
+    tilted: {
+      label: '편중형',
+      chip: `${maxKr} 기운 편중`,
+      advice: `${OHAENG_KR[maxKey]}(${OHAENG_PULIE[maxKey]}) 기운이 두드러지는 편중형이에요. 잘 맞는 분야에서 빠르게 성과를 내는 대신, 에너지 소진도 빠를 수 있어요. 규칙적인 휴식 루틴을 함께 잡으면 오래 갈 수 있어요.`,
+    },
+    extreme: {
+      label: '극단형',
+      chip: `${maxKr} 기운 강세`,
+      advice: `${OHAENG_KR[maxKey]}(${OHAENG_PULIE[maxKey]}) 기운이 매우 강한 극단형이에요. 자신과 맞는 판에서는 강력한 존재감을 드러내요. 과열 구간을 스스로 인식하고 쉬어가는 타이밍을 놓치지 않는 게 핵심이에요.`,
+    },
+  };
+
+  return { band, ...configs[band] };
+}
 
 function getVariantIndex(m: Myeongsik, mod: number): number {
   const seed = m.pillars.map((p) => `${p.top.c}${p.bot.c}`).join('');
@@ -263,7 +427,44 @@ export function personalityCard(myeongsik: Myeongsik): PersonalityCard {
   ].slice(0, 2);
 
   const enhancedDifficult = [mismatchTail, ...base.difficultMatches].slice(0, 2);
-  const enhancedMantra = `${base.mantra} ${variant === 0 ? '작은 약속 1개를 끝까지 지켜보세요.' : variant === 1 ? '중요한 일은 시작 시간을 먼저 고정해보세요.' : '오늘은 마무리 체크 1번만 더 해보세요.'}`;
+  const enhancedMantra = `${base.mantra} ${variant === 0 ? '작은 약속 1개를 끝까지 지켜보세요.' : variant === 1 ? '중요한 일은 시작 시간을 먼저 고정해보세요.' : '마무리 체크 1번이 습관이에요.'}`;
+
+  // ── 오행 분포 바 ──────────────────────────────────────────
+  const ohaengOrder: OhaengKey[] = ['wood', 'fire', 'earth', 'metal', 'water'];
+  const total = Object.values(myeongsik.ohaeng).reduce((s, n) => s + n, 0) || 1;
+  const ohaengBars: OhaengBar[] = ohaengOrder.map((key) => ({
+    key,
+    kr: OHAENG_KR[key],
+    pulie: OHAENG_PULIE[key],
+    count: myeongsik.ohaeng[key],
+    percent: Math.round((myeongsik.ohaeng[key] / total) * 100),
+    color: OHAENG_COLOR[key],
+  }));
+
+  const weakestMissing = missing[0];
+  const weakestKey = weakestMissing ?? sorted[sorted.length - 1][0];
+  const ohaengComment = {
+    strongest: OHAENG_STRENGTH[maxOhaeng],
+    weakest: weakestMissing
+      ? `${OHAENG_KR[weakestKey]}(${OHAENG_PULIE[weakestKey]}) 기운이 없어요. ${OHAENG_SUPPLEMENT[weakestKey]}`
+      : `${OHAENG_KR[weakestKey]}(${OHAENG_PULIE[weakestKey]}) 기운이 가장 적어요. ${OHAENG_SUPPLEMENT[weakestKey]}`,
+  };
+
+  // ── 신강신약 섹션 ─────────────────────────────────────────
+  const sk = myeongsik.shinkang;
+  const shinkangSection: ShinkangSection = {
+    label: sk.label,
+    gauge: sk.gauge,
+    body: sk.body,
+    yongshinChip: `보완 오행 · ${sk.yongshin.pulie}(${sk.yongshin.kr})`,
+    yongshinReason: sk.yongshinReason,
+  };
+
+  // ── 직업/적성 ─────────────────────────────────────────────
+  const careerItems = buildCareerItems(myeongsik);
+
+  // ── 밸런스 진단 ───────────────────────────────────────────
+  const balanceDiagnosis = buildBalanceDiagnosis(myeongsik);
 
   return {
     title: '나의 사주 성격 카드',
@@ -278,5 +479,10 @@ export function personalityCard(myeongsik: Myeongsik): PersonalityCard {
     talkTips: STEM_TALK_TIPS[ilgan] ?? STEM_TALK_TIPS.甲,
     todayRoutines: OHAENG_ROUTINES[maxOhaeng],
     mantra: enhancedMantra,
+    ohaengBars,
+    ohaengComment,
+    shinkangSection,
+    careerItems,
+    balanceDiagnosis,
   };
 }

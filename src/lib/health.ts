@@ -86,7 +86,7 @@ const OHAENG_HEALTH: Record<
   },
   water: {
     parts: '신장·방광·요추·관절',
-    symptoms: '피로 회복 ↓·허리·무릎 시림·부종·빈뇨',
+    symptoms: '피로 회복 저하·허리·무릎 시림·부종·빈뇨',
     foods: ['검은 음식(검정콩·흑임자)', '짠맛 소량', '해조류·미역'],
     activity: '걷기·따뜻한 목욕',
     weakBody: '水 기운이 약하면 신장·방광·관절 기능이 떨어져요. 피로 회복이 느리고 허리·무릎이 시린 신호예요. 검은 음식·해조류를 챙기고 충분히 쉬어주세요. 잠 7시간 룰은 절대 깨지 마세요.',
@@ -149,7 +149,7 @@ const TIPS_BY_WEAK: Record<
     { ic: '🌑', lbl: '검은 음식 챙기기', sub: '신장 보충',
       detail: '水 기운이 약하면 신장·방광 기능이 떨어져요. 검정콩·흑임자·흑미·다시마·미역 같은 검은 음식·해조류를 챙겨주세요. 견과류 한 줌도 좋아요. 짠맛은 소량은 좋지만 과하면 부종으로 와요.' },
     { ic: '🛁', lbl: '따뜻한 목욕·반신욕', sub: '주 2회',
-      detail: '水 기운 약한 사람은 몸이 차가워지기 쉬워요. 주 2회 따뜻한 목욕·반신욕(38~40도, 20분)으로 몸을 데워주세요. 허리·무릎 시림 완화 + 수면 질 ↑. 잠자기 1시간 전이 좋아요.' },
+      detail: '水 기운 약한 사람은 몸이 차가워지기 쉬워요. 주 2회 따뜻한 목욕·반신욕(38~40도, 20분)으로 몸을 데워주세요. 허리·무릎 시림 완화 + 수면 질 개선. 잠자기 1시간 전이 좋아요.' },
     { ic: '😴', lbl: '7시간 수면 사수', sub: '신장 회복',
       detail: '한의학에서 신장은 잠으로 회복돼요. 7시간 수면 룰은 절대 깨지 마세요. 잠 줄이면서 일하는 건 水 기운이 약한 사람한테는 절대 X. 잠이 곧 다음 날 에너지의 자본이에요.' },
   ],
@@ -196,9 +196,9 @@ export type HealthForecast = {
 
 const MONTH_FLOW_BY_SIPSUNG: Record<Sipsung, string> = {
   비견: '이번 달은 평이한 컨디션이에요. 무리만 하지 않으면 안정적으로 흘러가요.',
-  겁재: '이번 달은 에너지 ↑이지만 무리·과음 주의보예요. 평소처럼 잠 챙기기 룰을 지켜주세요.',
+  겁재: '이번 달은 에너지가 강하지만 무리·과음 주의보예요. 평소처럼 잠 챙기기 룰을 지켜주세요.',
   식신: '이번 달은 컨디션이 활기 있어요. 좋아하는 활동·음식으로 충전하기 좋은 시기예요.',
-  상관: '이번 달은 머리·눈을 많이 쓰는 시기라 정신 피로 ↑. 짧은 산책·낮잠으로 리셋해주세요.',
+  상관: '이번 달은 머리·눈을 많이 쓰는 시기라 정신 피로가 쌓이기 쉬워요. 짧은 산책·낮잠으로 리셋해주세요.',
   정재: '이번 달은 루틴 유지가 답이에요. 무리한 다이어트·갑작스러운 운동 X, 평소대로.',
   편재: '이번 달은 외부 활동량이 많아 쉽게 지칠 수 있어요. 식사·물 챙기기를 평소보다 더 신경 써주세요.',
   정관: '이번 달은 책임감으로 무리하기 쉬운 시기예요. 1시간에 한 번 5분 스트레칭 룰을 지켜주세요.',
@@ -214,6 +214,7 @@ export function healthForecast(
   const myIlgan = myeongsik.ilgan.c;
   if (!isStem(myIlgan)) return null;
   const seed = myeongsikSeed(myeongsik);
+  const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
   // 오행 카운트 (이미 myeongsik.ohaeng에 있음)
   const counts = myeongsik.ohaeng;
@@ -253,7 +254,7 @@ export function healthForecast(
   const penalty = (o: Ohaeng) => (counts[o] === 0 ? -8 : counts[o] === 1 ? -3 : 0);
 
   const adjust = (key: string, v: number) =>
-    Math.max(50, Math.min(98, v + variance(seed, key, 3)));
+    Math.max(50, Math.min(98, v + variance(seed, `${ym}_${key}`, 3)));
 
   const vitality  = adjust('vit', baseVitality + penalty(ilganOhaeng));
   const mental    = adjust('men', baseMental + penalty('fire') + penalty('water'));
@@ -293,7 +294,7 @@ export function healthForecast(
     score: overall,
     mood: MOOD_BY_WEAK[weakOhaeng],
     tagline,
-    body: `${HEALTH_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik)}`,
+    body: `${HEALTH_BODY_BY_ILGAN[myIlgan]} ${profileHint(myeongsik, 'health')}`,
     axes: [
       { ic: '💪', lbl: '체력',     score: vitality,  color: '#FF8B6C', oneLine: oneLine('vit', vitality) },
       { ic: '🧠', lbl: '정신',     score: mental,    color: '#9D7BFF', oneLine: oneLine('men', mental)   },
@@ -311,6 +312,6 @@ export function healthForecast(
     },
     keywords: KEYWORDS_BY_WEAK[weakOhaeng],
     monthFlow: MONTH_FLOW_BY_SIPSUNG[monthSipsung],
-    tips: rotateBySeed(seed, 'health_tips', TIPS_BY_WEAK[weakOhaeng], 3),
+    tips: rotateBySeed(seed, `${ym}_w${Math.ceil(today.getDate() / 7)}_health_tips`, TIPS_BY_WEAK[weakOhaeng], 3),
   };
 }

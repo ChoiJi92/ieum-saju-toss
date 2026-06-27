@@ -255,7 +255,11 @@ export function SajuProvider({ children }: { children: ReactNode }) {
   }, [activeProfile]);
 
   const myeongsik = useMemo(
-    () => (profile ? computeMyeongsik(profile) : null),
+    () => {
+      if (!profile) return null;
+      // 저장된 프로필이 손상됐거나 유효하지 않은 날짜(잘못된 음력 등)면 computeMyeongsik이 throw → 앱 전체 크래시 방지
+      try { return computeMyeongsik(profile); } catch (e) { console.warn('[saju] computeMyeongsik failed', e); return null; }
+    },
     [profile]
   );
 

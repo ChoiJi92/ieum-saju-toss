@@ -43,5 +43,8 @@ export function todayFortune(myeongsik: Myeongsik, date: Date = new Date()): Dai
   const ilgan = myeongsik.ilgan.c;
   if (!isStem(ilgan)) return null;
   const dayStem = todayDayStem(date);
-  return personalizedFortune(ilgan, dayStem, myeongsikSeed(myeongsik));
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return personalizedFortune(ilgan, dayStem, `${myeongsikSeed(myeongsik)}|${y}-${m}-${d}`);
 }

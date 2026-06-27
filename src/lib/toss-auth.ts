@@ -36,6 +36,8 @@ export type TossUserInfo = {
   gender: 'male' | 'female';
   phoneNumber?: string;
   email?: string;
+  /** 상태 동기화 자격 (백엔드 STATE_SYNC_SECRET 설정 시 발급) — cloud-sync에서 사용 */
+  sync?: { userKey: string; syncToken: string };
 };
 
 /** 토스 SDK 로드 (사용 가능 환경에서만) */

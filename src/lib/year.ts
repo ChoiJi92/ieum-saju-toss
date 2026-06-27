@@ -1,6 +1,7 @@
 import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { getSipsung, type Sipsung } from './sipsung';
 import type { Myeongsik } from './saju';
+import { buildPeriodLuckGuide, STEM_OHAENG, type LuckGuide } from './luck-guide';
 
 /** 명식 8자 + key 로 -3 ~ +3 시드 변동 */
 function variance(seed: string, key: string, range = 3): number {
@@ -15,7 +16,7 @@ function myeongsikSeed(m: Myeongsik): string {
 
 /**
  * 신년운세 — 본인 일간 × 한 해 12개월 월주 천간 → 십성 → 월별 점수.
- * 분야별 한 줄(연애·재물·커리어·건강)도 십성 분포 기반 자동 산출.
+ * 분야별(연애·재물·커리어·건강)·상하반기·행운의 달·행운 가이드까지 십성 분포 + 용신 기반 자동 산출.
  */
 
 type Stem = '甲' | '乙' | '丙' | '丁' | '戊' | '己' | '庚' | '辛' | '壬' | '癸';
@@ -37,13 +38,29 @@ const SCORE_BY_SIPSUNG: Record<Sipsung, { overall: number; love: number; money: 
 const STEMS: Stem[] = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
 const isStem = (s: string): s is Stem => (STEMS as string[]).includes(s);
 
+export type FieldScores = { love: number; money: number; work: number; health: number };
+
 export type MonthForecast = {
   /** 1~12 */
   month: number;
   monthStem: string;
   sipsung: Sipsung | null;
   score: number;
+  /** 그 달 분야별 점수 */
+  fields: FieldScores;
 };
+
+export type FieldDetail = {
+  score: number;
+  /** 분야 베스트 달 (1~12) */
+  best: number;
+  oneLine: string;
+  body: string;
+  /** 추천 행동 한 줄 */
+  action: string;
+};
+
+export type MonthNote = { month: number; score: number; sipsung: Sipsung | null; reason: string };
 
 export type YearForecast = {
   year: number;
@@ -58,15 +75,32 @@ export type YearForecast = {
   /** 한 해 mood */
   mood: string;
   tagline: string;
-  /** 한 해 흐름 풀이 (3~4줄) */
+  /** 한 줄 요약 헤드라인 */
+  headline: string;
+  /** 올해의 키워드 3개 */
+  keywords: string[];
+  /** 한 해 흐름 풀이 */
   yearBody: string;
-  /** 분야별 — 연애·재물·커리어·건강 (각 3줄+) */
-  fields: {
-    love:    { score: number; oneLine: string; body: string };
-    money:   { score: number; oneLine: string; body: string };
-    career:  { score: number; oneLine: string; body: string };
-    health:  { score: number; oneLine: string; body: string };
+  /** 상반기 / 하반기 흐름 */
+  half: {
+    first: { score: number; best: number; body: string };
+    second: { score: number; best: number; body: string };
   };
+  /** 행운의 달 TOP3 */
+  luckyMonths: MonthNote[];
+  /** 주의할 달 */
+  cautionMonths: MonthNote[];
+  /** 분야별 — 연애·재물·커리어·건강 */
+  fields: {
+    love:    FieldDetail;
+    money:   FieldDetail;
+    career:  FieldDetail;
+    health:  FieldDetail;
+  };
+  /** 올해의 행운 가이드 — 용신(보완 오행) 기반 */
+  luck: LuckGuide;
+  /** 이번 달 포커스 — 보는 달마다 바뀜 */
+  monthFocus: { month: number; title: string; body: string };
 };
 
 /** 월주 천간 가져오기 — 매월 15일 정오 (절기 경계 안전) */
@@ -75,8 +109,32 @@ function monthStemAt(year: number, month: number): string {
   return r.monthPillarHanja[0];
 }
 
+/** 이번 달 포커스 문구 — 월별 score·십성 기반 */
+function buildMonthFocus(
+  months: MonthForecast[],
+  currentMonth: number
+): { month: number; title: string; body: string } {
+  const m = months.find((x) => x.month === currentMonth) ?? months[currentMonth - 1] ?? months[0];
+  const tone = m.score >= 78 ? '좋은' : m.score >= 68 ? '평온한' : '조심스러운';
+  const sipsungHint: Partial<Record<Sipsung, string>> = {
+    식신: '하고 싶은 걸 시도하기 좋아요.',
+    상관: '창의적인 아이디어가 빛나요.',
+    정재: '꾸준히 모으면 결과가 와요.',
+    편재: '예상치 못한 기회가 올 수 있어요.',
+    정관: '책임감 있게 움직이면 인정받아요.',
+    편관: '압박이 있어도 정면 돌파하면 성장해요.',
+    정인: '배우거나 공부하는 데 집중하기 좋아요.',
+    편인: '직감을 믿고 새로운 방향을 탐색해보세요.',
+    비견: '주변 사람과 함께 움직이면 힘이 돼요.',
+    겁재: '경쟁보단 자기 페이스를 지키는 게 답이에요.',
+  };
+  const hint = m.sipsung ? (sipsungHint[m.sipsung] ?? '') : '';
+  const body = `${currentMonth}월은 ${tone} 흐름이에요. 점수로 보면 ${m.score}점. ${hint}`.trim();
+  return { month: currentMonth, title: `${currentMonth}월 포커스`, body };
+}
+
 /** 본인 명식 × 한 해 → YearForecast (명식 시드 변동 포함) */
-export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast | null {
+export function yearForecast(myeongsik: Myeongsik, year: number, today: Date = new Date()): YearForecast | null {
   const myIlgan = myeongsik.ilgan.c;
   if (!isStem(myIlgan)) return null;
   const seed = myeongsikSeed(myeongsik);
@@ -89,6 +147,7 @@ export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast |
     const stem = monthStemAt(year, m);
     let sipsung: Sipsung | null = null;
     let score = 70;
+    let mFields: FieldScores = { love: 70, money: 70, work: 70, health: 70 };
     if (isStem(stem)) {
       sipsung = getSipsung(myIlgan, stem);
       const s = SCORE_BY_SIPSUNG[sipsung];
@@ -96,12 +155,18 @@ export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast |
       const adjust = (k: string, base: number) =>
         Math.max(50, Math.min(98, base + variance(seed, `${m}_${k}`, 3)));
       score = adjust('overall', s.overall);
-      fieldSums.love   += adjust('love',   s.love);
-      fieldSums.money  += adjust('money',  s.money);
-      fieldSums.work   += adjust('work',   s.work);
-      fieldSums.health += adjust('health', s.health);
+      mFields = {
+        love: adjust('love', s.love),
+        money: adjust('money', s.money),
+        work: adjust('work', s.work),
+        health: adjust('health', s.health),
+      };
+      fieldSums.love += mFields.love;
+      fieldSums.money += mFields.money;
+      fieldSums.work += mFields.work;
+      fieldSums.health += mFields.health;
     }
-    months.push({ month: m, monthStem: stem, sipsung, score });
+    months.push({ month: m, monthStem: stem, sipsung, score, fields: mFields });
     scoreSum += score;
   }
 
@@ -111,41 +176,15 @@ export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast |
   let worstMonth = 1;
   let worstScore = months[0].score;
   for (const m of months) {
-    if (m.score > bestScore) {
-      bestScore = m.score;
-      bestMonth = m.month;
-    }
-    if (m.score < worstScore) {
-      worstScore = m.score;
-      worstMonth = m.month;
-    }
+    if (m.score > bestScore) { bestScore = m.score; bestMonth = m.month; }
+    if (m.score < worstScore) { worstScore = m.score; worstMonth = m.month; }
   }
 
-  // 분야별 평균 점수 + 한 줄 (가장 좋은 달 강조)
+  // 분야별 평균 점수
   const avgLove   = Math.round(fieldSums.love   / 12);
   const avgMoney  = Math.round(fieldSums.money  / 12);
   const avgWork   = Math.round(fieldSums.work   / 12);
   const avgHealth = Math.round(fieldSums.health / 12);
-
-  const moodMap: Record<Sipsung, string> = {
-    비견: '동행의 해', 겁재: '경쟁의 해',
-    식신: '꽃피는 해', 상관: '창조의 해',
-    정재: '안정의 해', 편재: '기회의 해',
-    정관: '책임의 해', 편관: '도전의 해',
-    정인: '배움의 해', 편인: '직관의 해',
-  };
-  const taglineMap: Record<Sipsung, string> = {
-    비견: '함께 갈 사람들이 많아지는 해야',
-    겁재: '경쟁 속에서 단단해지는 해',
-    식신: '하고 싶은 거 다 펼쳐지는 해',
-    상관: '틀을 깨고 새로 만드는 해',
-    정재: '꾸준히 쌓는 게 답인 해',
-    편재: '예상 못한 기회가 들어오는 해',
-    정관: '책임이 보상으로 돌아오는 해',
-    편관: '한 단계 성장하는 도전의 해',
-    정인: '배우고 채우는 해',
-    편인: '직관·영감이 빛나는 해',
-  };
 
   // 가장 자주 나온 십성으로 한 해 mood
   const sipsungCount: Partial<Record<Sipsung, number>> = {};
@@ -156,6 +195,32 @@ export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast |
     (a, b) => b[1] - a[1]
   )[0]?.[0] ?? '식신';
 
+  const currentMonth = today.getMonth() + 1;
+
+  // ── 키워드 3개 ──
+  const topField = ([
+    ['연애', avgLove], ['금전', avgMoney], ['커리어', avgWork], ['건강', avgHealth],
+  ] as Array<[string, number]>).sort((a, b) => b[1] - a[1])[0][0];
+  const toneWord = yearScore >= 80 ? '상승세' : yearScore >= 72 ? '안정세' : '정비기';
+  const keywords = [KEYWORD_BY_SIPSUNG[dominant], `${topField}운 강세`, toneWord];
+
+  // ── 상반기 / 하반기 ──
+  const half = buildHalf(months);
+
+  // ── 행운의 달 TOP3 / 주의할 달 ──
+  const byScoreDesc = [...months].sort((a, b) => b.score - a.score);
+  const luckyMonths: MonthNote[] = byScoreDesc.slice(0, 3).map((m) => ({
+    month: m.month, score: m.score, sipsung: m.sipsung,
+    reason: m.sipsung ? (MONTH_GOOD_REASON[m.sipsung] ?? '흐름이 좋은 달이에요') : '흐름이 좋은 달이에요',
+  }));
+  const cautionMonths: MonthNote[] = [...months].sort((a, b) => a.score - b.score).slice(0, 2).map((m) => ({
+    month: m.month, score: m.score, sipsung: m.sipsung,
+    reason: m.sipsung ? (MONTH_CAUTION_REASON[m.sipsung] ?? '평소보다 한 박자 천천히') : '평소보다 한 박자 천천히',
+  }));
+
+  // ── 행운 가이드 (올해 세운 오행 기반) ──
+  const luck = buildLuck(myeongsik, dominant, year);
+
   return {
     year,
     months,
@@ -164,13 +229,53 @@ export function yearForecast(myeongsik: Myeongsik, year: number): YearForecast |
     worstMonth,
     mood: moodMap[dominant],
     tagline: taglineMap[dominant],
+    headline: `${bestMonth}월에 정점을 찍는 ${toneWord}의 해 — 한 해 평균 ${yearScore}점이에요.`,
+    keywords,
     yearBody: yearBodyMap[dominant](year, bestMonth, worstMonth, yearScore),
+    half,
+    luckyMonths,
+    cautionMonths,
     fields: {
-      love:   { score: avgLove,   oneLine: oneLineForField('love',   bestMonth, avgLove),   body: fieldBody('love',   dominant, bestMonth, worstMonth, avgLove) },
-      money:  { score: avgMoney,  oneLine: oneLineForField('money',  bestMonth, avgMoney),  body: fieldBody('money',  dominant, bestMonth, worstMonth, avgMoney) },
-      career: { score: avgWork,   oneLine: oneLineForField('career', bestMonth, avgWork),   body: fieldBody('career', dominant, bestMonth, worstMonth, avgWork) },
-      health: { score: avgHealth, oneLine: oneLineForField('health', bestMonth, avgHealth), body: fieldBody('health', dominant, bestMonth, worstMonth, avgHealth) },
+      love:   buildField('love',   months, dominant, worstMonth, avgLove),
+      money:  buildField('money',  months, dominant, worstMonth, avgMoney),
+      career: buildField('career', months, dominant, worstMonth, avgWork),
+      health: buildField('health', months, dominant, worstMonth, avgHealth),
     },
+    luck,
+    monthFocus: buildMonthFocus(months, currentMonth),
+  };
+}
+
+/** 분야 → 월별 점수 키 */
+const FIELD_KEY: Record<'love' | 'money' | 'career' | 'health', keyof FieldScores> = {
+  love: 'love', money: 'money', career: 'work', health: 'health',
+};
+
+/** 분야별 베스트 달 (월별 분야 점수 argmax) */
+function fieldBestMonth(months: MonthForecast[], field: 'love' | 'money' | 'career' | 'health'): number {
+  const key = FIELD_KEY[field];
+  let best = months[0].month;
+  let bestV = months[0].fields[key];
+  for (const m of months) {
+    if (m.fields[key] > bestV) { bestV = m.fields[key]; best = m.month; }
+  }
+  return best;
+}
+
+function buildField(
+  field: 'love' | 'money' | 'career' | 'health',
+  months: MonthForecast[],
+  dominant: Sipsung,
+  worstMonth: number,
+  avg: number
+): FieldDetail {
+  const best = fieldBestMonth(months, field);
+  return {
+    score: avg,
+    best,
+    oneLine: oneLineForField(field, best, avg),
+    body: fieldBody(field, dominant, best, worstMonth, avg),
+    action: fieldAction(field, best),
   };
 }
 
@@ -186,10 +291,18 @@ function oneLineForField(
   return `환절기·연말엔 면역에 신경 써주세요. 평균 흐름은 ${tone}이에요.`;
 }
 
-/** 분야별 풍부 풀이 (3~4줄) — 십성 dominant + 평균 점수 기반 */
+/** 분야별 추천 행동 한 줄 (베스트 달 강조) */
+function fieldAction(field: 'love' | 'money' | 'career' | 'health', best: number): string {
+  if (field === 'love')   return `${best}월엔 새 모임·소개 자리에 적극적으로 나가보세요.`;
+  if (field === 'money')  return `${best}월에 저축·투자 점검과 큰 결제를 몰아서 처리하면 좋아요.`;
+  if (field === 'career') return `${best}월에 중요한 제안·면접·이직 결정을 배치하세요.`;
+  return `${best}월에 새 운동·식단을 시작하면 한 해 컨디션이 잡혀요.`;
+}
+
+/** 분야별 풍부 풀이 — 십성 dominant + 평균 점수 기반 */
 function fieldBody(
   field: 'love' | 'money' | 'career' | 'health',
-  dominant: Sipsung,
+  _dominant: Sipsung,
   bestMonth: number,
   worstMonth: number,
   avg: number
@@ -204,8 +317,105 @@ function fieldBody(
   if (field === 'career') {
     return `${tone} 커리어 흐름이에요. ${bestMonth}월에 전환점·중요 결정 신호가 와요 — 이직·승진·새 프로젝트 시동에 좋은 타이밍이에요. ${worstMonth}월은 압박·평가가 강해서 정신력 챙기는 게 중요해요. 평소보다 멘토를 자주 만나면 한결 가벼워져요.`;
   }
-  return `${tone} 건강 흐름이에요. ${bestMonth}월은 컨디션이 ↑이라 새 운동·식단을 시작하기 좋은 타이밍이에요. ${worstMonth}월은 면역·스트레스가 누적될 수 있으니, 환절기엔 잠을 충분히 자고 연말엔 과음을 조금만 줄여주세요.`;
+  return `${tone} 건강 흐름이에요. ${bestMonth}월은 컨디션이 올라와 새 운동·식단을 시작하기 좋은 타이밍이에요. ${worstMonth}월은 면역·스트레스가 누적될 수 있으니, 환절기엔 잠을 충분히 자고 연말엔 과음을 조금만 줄여주세요.`;
 }
+
+/** 상반기 / 하반기 흐름 */
+function buildHalf(months: MonthForecast[]): YearForecast['half'] {
+  const firstArr = months.slice(0, 6);
+  const secondArr = months.slice(6);
+  const avg = (arr: MonthForecast[]) => Math.round(arr.reduce((s, m) => s + m.score, 0) / arr.length);
+  const bestIn = (arr: MonthForecast[]) => arr.reduce((b, m) => (m.score > b.score ? m : b), arr[0]).month;
+  const firstAvg = avg(firstArr);
+  const secondAvg = avg(secondArr);
+  const firstBest = bestIn(firstArr);
+  const secondBest = bestIn(secondArr);
+  const rising = secondAvg > firstAvg;
+  return {
+    first: {
+      score: firstAvg, best: firstBest,
+      body: `상반기 평균 ${firstAvg}점, ${firstBest}월이 가장 좋아요. ${rising ? '아직 워밍업 구간이라 기반을 다지고 힘을 모으기 좋은 시기예요. 무리한 확장보단 준비에 집중하세요.' : '연초부터 흐름을 잘 타는 시기예요. 중요한 일은 상반기에 빠르게 밀어붙이는 게 유리해요.'}`,
+    },
+    second: {
+      score: secondAvg, best: secondBest,
+      body: `하반기 평균 ${secondAvg}점, ${secondBest}월이 정점이에요. ${rising ? '갈수록 흐름이 올라오니 큰 결정·도전은 하반기에 배치하면 결실이 좋아요.' : '상반기의 성과를 안정적으로 매듭짓는 시기예요. 벌인 일을 정리하고 마무리에 힘을 실으세요.'}`,
+    },
+  };
+}
+
+/** 올해의 행운 가이드 — 올해 천간(세운) 오행 기반 (해마다 바뀜) + 내 용신과의 관계 */
+function buildLuck(myeongsik: Myeongsik, dominant: Sipsung, year: number): LuckGuide {
+  const yearStem = calculateSaju(year, 6, 15, 12, 0, { applyTimeCorrection: false }).yearPillarHanja[0];
+  const el = STEM_OHAENG[yearStem] ?? myeongsik.shinkang.yongshin.ohaeng;
+  return buildPeriodLuckGuide(el, myeongsik, { lead: '올해는', advice: [YEAR_ADVICE_BY_SIPSUNG[dominant]] });
+}
+
+/* ── 십성·오행 매핑 테이블 ── */
+
+const KEYWORD_BY_SIPSUNG: Record<Sipsung, string> = {
+  비견: '동행', 겁재: '경쟁', 식신: '표현', 상관: '창조',
+  정재: '축적', 편재: '기회', 정관: '인정', 편관: '도전',
+  정인: '배움', 편인: '직관',
+};
+
+const MONTH_GOOD_REASON: Record<Sipsung, string> = {
+  식신: '하고 싶은 일을 시작하기 좋아요',
+  상관: '아이디어가 빛나는 달이에요',
+  정재: '꾸준함이 결실로 오는 달',
+  편재: '예상 못한 기회가 들어와요',
+  정관: '인정·승진 신호가 오는 달',
+  편관: '도전이 성장으로 이어져요',
+  정인: '배움·귀인의 도움이 있어요',
+  편인: '직감이 잘 맞아떨어져요',
+  비견: '함께하면 더 멀리 가는 달',
+  겁재: '경쟁 속에서 단단해져요',
+};
+
+const MONTH_CAUTION_REASON: Record<Sipsung, string> = {
+  식신: '과식·과로 주의, 페이스 조절',
+  상관: '말실수로 사람 잃지 않게 톤 조절',
+  정재: '지출·계약을 꼼꼼히 살피기',
+  편재: '큰 베팅·충동구매 주의',
+  정관: '압박·번아웃 주의, 휴식 챙기기',
+  편관: '무리한 도전보단 회복에 집중',
+  정인: '결정을 미루다 기회 놓치기 쉬워요',
+  편인: '직감만 믿고 큰 결정은 위험',
+  비견: '의견 충돌·고집 주의',
+  겁재: '충동·과욕, 한 박자 쉬어가기',
+};
+
+const YEAR_ADVICE_BY_SIPSUNG: Record<Sipsung, string> = {
+  비견: '혼자 끌어안지 말고 사람의 손을 빌리면 두 배 가벼워져요.',
+  겁재: '남과 비교하기보다 내 페이스를 지키는 게 답이에요.',
+  식신: '떠오르는 건 일단 시도하고 기록을 꼭 남기세요.',
+  상관: '내 색을 내되 말의 온도는 한 번 더 살피세요.',
+  정재: '한 방보다 매일 조금씩 쌓는 쪽이 더 큰 결과로 와요.',
+  편재: '새 자리·새 사람을 적극적으로 만나되, 큰 베팅은 검증 후에.',
+  정관: '약속과 정공법이 그대로 보상이 돼요. 잠은 꼭 챙기세요.',
+  편관: '피하지 말고 정면 돌파, 대신 회복 시간을 비워두세요.',
+  정인: '책 한 권·강의 하나가 한 해 자산이 돼요.',
+  편인: '직관을 살리되 실행 전에 한 번 더 검증하세요.',
+};
+
+const moodMap: Record<Sipsung, string> = {
+  비견: '동행의 해', 겁재: '경쟁의 해',
+  식신: '꽃피는 해', 상관: '창조의 해',
+  정재: '안정의 해', 편재: '기회의 해',
+  정관: '책임의 해', 편관: '도전의 해',
+  정인: '배움의 해', 편인: '직관의 해',
+};
+const taglineMap: Record<Sipsung, string> = {
+  비견: '함께 갈 사람들이 많아지는 해야',
+  겁재: '경쟁 속에서 단단해지는 해',
+  식신: '하고 싶은 거 다 펼쳐지는 해',
+  상관: '틀을 깨고 새로 만드는 해',
+  정재: '꾸준히 쌓는 게 답인 해',
+  편재: '예상 못한 기회가 들어오는 해',
+  정관: '책임이 보상으로 돌아오는 해',
+  편관: '한 단계 성장하는 도전의 해',
+  정인: '배우고 채우는 해',
+  편인: '직관·영감이 빛나는 해',
+};
 
 /** 한 해 흐름 풀이 (3~4줄) — dominant 십성별 */
 const yearBodyMap: Record<

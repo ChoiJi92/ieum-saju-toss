@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Spirit, type Stage } from '../../lib/spirit';
+import { useSpiritState } from '../../lib/spirit-state';
 
 /** 출생연도 선택 옵션 — 현재 연도부터 1930년까지 내림차순 */
 export const BIRTH_YEARS: number[] = (() => {
@@ -153,6 +154,12 @@ export function SpiritSlot({ spirit, size = 200, tag = true, stage = 1, floating
       {tag && <div style={{ position: 'absolute', bottom: 6, right: 6, fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: 0.5, color: 'rgba(255,255,255,.55)', background: 'rgba(0,0,0,.28)', padding: '3px 7px', borderRadius: 6, backdropFilter: 'blur(4px)' }}>{spirit.name}</div>}
     </div>
   );
+}
+
+/** 본인(또는 해당 사주) 정령을 현재 진화 단계로 그림 — 성장도 spirit-state에서 자동 조회 */
+export function SelfSpiritSlot({ spirit, size, tag, floating }: { spirit: Spirit; size?: number; tag?: boolean; floating?: boolean }) {
+  const { progressOf } = useSpiritState();
+  return <SpiritSlot spirit={spirit} size={size} tag={tag} floating={floating} stage={progressOf(spirit.key).stage} />;
 }
 
 export function Sparkles({ col = '#FFD27A' }: { col?: string }) {
@@ -419,7 +426,7 @@ export function DomainHeader({ spirit, score, mood, tagline }: { spirit: Spirit;
   return (
     <Rise>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingBottom: 4 }}>
-        <SpiritSlot spirit={spirit} size={96} tag={false} />
+        <SelfSpiritSlot spirit={spirit} size={96} tag={false} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             className="v2-cap"

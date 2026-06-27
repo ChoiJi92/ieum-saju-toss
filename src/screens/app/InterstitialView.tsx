@@ -28,11 +28,11 @@ export default function InterstitialView({ routeKey, children }: { routeKey: str
 
   useEffect(() => {
     if (shownToday(routeKey)) { setReady(true); return; }
-    markShown(routeKey); // 오늘 본 것으로 먼저 기록(중복/재진입 방지)
     let cancelled = false;
     const reveal = () => { if (!cancelled) setReady(true); };
     const safety = window.setTimeout(reveal, 8000);
-    showInterstitialAd().finally(() => { window.clearTimeout(safety); reveal(); });
+    // 광고가 실제로 끝/실패로 resolve된 뒤에 "오늘 봄" 기록 — 광고 실패 시 슬롯 소진(수익 누락) 방지
+    showInterstitialAd().finally(() => { markShown(routeKey); window.clearTimeout(safety); reveal(); });
     return () => { cancelled = true; window.clearTimeout(safety); };
   }, [routeKey]);
 

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { V2Screen, V2TopBar, V2Button, V2Glass, SpiritSlot } from './_kit';
+import { useEffect, useRef, useState } from 'react';
+import { V2Screen, V2TopBar, V2Button, V2Glass, SelfSpiritSlot } from './_kit';
 import { preloadRewardedAdForResult, showRewardedAdForResult } from '../../lib/ads';
 import type { Spirit } from '../../lib/spirit';
 
@@ -7,6 +7,8 @@ export default function RewardedGate({ title, back, spirit, unlocked, onUnlock, 
   const [loading, setLoading] = useState(false);
   const [preparing, setPreparing] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  // 로드/표시가 반복 실패하면 콘텐츠가 영영 안 열리는 일이 없도록 폴백 카운터
+  const failRef = useRef(0);
 
   const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const canBypass = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false' && isLocalhost;
@@ -35,11 +37,16 @@ export default function RewardedGate({ title, back, spirit, unlocked, onUnlock, 
       r = await showRewardedAdForResult();
     }
     setLoading(false);
-    if (r === 'rewarded') { onUnlock(); return; }
-    if (r === 'dismissed') setMessage('광고를 끝까지 보면 운세가 열려요.');
-    else if (r === 'not_configured') setMessage('아직 광고가 설정되지 않았어요.');
-    else if (r === 'unsupported') setMessage('지금 환경에선 광고를 볼 수 없어요. 토스 앱에서 확인해주세요.');
-    else setMessage('광고를 불러오지 못했어요. 다시 시도해주세요.');
+    // 광고를 끝까지(또는 실제 노출 후) 봤으면 공개
+    if (r === 'rewarded' || r === 'watched') { onUnlock(); return; }
+    // 광고를 띄울 수 없는 환경/미설정이면 콘텐츠를 가두지 않고 공개
+    if (r === 'unsupported' || r === 'not_configured') { onUnlock(); return; }
+    // 노출 전에 사용자가 닫음 → 끝까지 보도록 안내 (재시도 가능)
+    if (r === 'dismissed') { setMessage('광고를 끝까지 보면 운세가 열려요.'); return; }
+    // 'failed' — 로드/표시 실패가 반복되면 사용자를 가두지 않도록 폴백 공개
+    failRef.current += 1;
+    if (failRef.current >= 2) { setMessage('광고가 원활하지 않아 이번엔 바로 열어드릴게요.'); onUnlock(); return; }
+    setMessage('광고를 불러오지 못했어요. 다시 시도해주세요.');
   };
 
   if (unlocked) return <>{children}</>;
@@ -48,7 +55,7 @@ export default function RewardedGate({ title, back, spirit, unlocked, onUnlock, 
     <V2Screen seed={19}>
       <V2TopBar onBack={back} title={title} />
       <div style={{ textAlign: 'center', marginTop: 24 }}>
-        <SpiritSlot spirit={spirit} size={140} tag={false} />
+        <SelfSpiritSlot spirit={spirit} size={140} tag={false} />
         <h2 className="v2-hero" style={{ margin: '8px 0 6px' }}>{title}</h2>
         <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 20px' }}>광고를 끝까지 보면 이 운세가 열려요 ✦</p>
       </div>

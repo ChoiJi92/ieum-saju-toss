@@ -2,6 +2,7 @@ import { calculateSaju } from '@fullstackfamily/manseryeok';
 import { getSipsung, type Sipsung } from './sipsung';
 import type { Myeongsik } from './saju';
 import { profileHint, pickBySeed, rotateBySeed } from './personalize';
+import { buildPeriodLuckGuide, STEM_OHAENG, type LuckGuide } from './luck-guide';
 
 /**
  * 이달의 운세 — 본인 일간 × 이번 달 월주 천간 → 십성 → 4분야 점수.
@@ -209,6 +210,18 @@ const MONTH_ACTIONS: Record<Sipsung, Array<{ ic: string; lbl: string; sub: strin
   ],
 };
 
+export type MonthField = {
+  ic: string; lbl: string; score: number; color: string; oneLine: string;
+  /** 분야 풀이 (2~3줄) */
+  body: string;
+  /** 추천 행동 한 줄 (분야 베스트 날 강조) */
+  action: string;
+  /** 이 분야 가장 좋은 날 (1~말일) */
+  best: number;
+};
+
+export type DayNote = { day: number; score: number; reason: string };
+
 export type MonthForecast = {
   /** YYYY-MM */
   ym: string;
@@ -216,14 +229,26 @@ export type MonthForecast = {
   monthScore: number;
   mood: string;
   tagline: string;
+  /** 한 줄 요약 헤드라인 */
+  headline: string;
   /** 한 달 흐름 풀이 (3~4줄) */
   monthBody: string;
-  /** 4분야 점수 + 한 줄 (총운·일·연애·돈) */
-  fields: Array<{ ic: string; lbl: string; score: number; color: string; oneLine: string }>;
-  /** 이번 달 좋은 날 1개 */
+  /** 4분야 점수 + 풀이 (총운·일·연애·돈) */
+  fields: MonthField[];
+  /** 이번 달 좋은 날 1개 (호환 유지) */
   bestDay: { day: number; score: number; hint: string };
-  /** 이번 달 주의할 날 1개 */
+  /** 이번 달 주의할 날 1개 (호환 유지) */
   worstDay: { day: number; score: number; hint: string };
+  /** 좋은 날 TOP3 (오늘 이후) */
+  luckyDays: DayNote[];
+  /** 주의할 날 (오늘 이후) */
+  cautionDays: DayNote[];
+  /** 주차별 흐름 (1~4주) */
+  weeks: Array<{ label: string; score: number; body: string }>;
+  /** 일자별 점수 (1~말일) — 미니 그래프용 */
+  daily: Array<{ day: number; score: number }>;
+  /** 이번 달 행운 가이드 — 용신 기반 */
+  luck: LuckGuide;
   /** 키워드 3개 */
   keywords: [string, string, string];
   /** 행동 가이드 3개 (펼치면 detail) */
@@ -242,6 +267,113 @@ function fieldOneLine(field: 'overall' | 'work' | 'love' | 'money', score: numbe
     return tier === 'high' ? '강한 인연 신호' : tier === 'mid' ? '안정적 케미' : tier === 'low' ? '담담한 흐름' : '오해 주의';
   }
   return tier === 'high' ? '수입 흐름 상승' : tier === 'mid' ? '안정' : tier === 'low' ? '평이' : '큰 지출 주의';
+}
+
+/** 좋은 날 한 줄 이유 (십성별) */
+const DAY_GOOD_REASON: Record<Sipsung, string> = {
+  비견: '사람과 함께 움직이기 좋은 날', 겁재: '경쟁·승부에 강한 날',
+  식신: '하고 싶은 걸 시작하기 좋은 날', 상관: '아이디어가 빛나는 날',
+  정재: '꾸준한 일이 결실로 오는 날', 편재: '뜻밖의 기회·만남이 오는 날',
+  정관: '인정·신뢰를 얻기 좋은 날', 편관: '도전·돌파에 힘이 실리는 날',
+  정인: '배움·귀인의 도움이 있는 날', 편인: '직감이 잘 맞는 날',
+};
+/** 주의할 날 한 줄 이유 (십성별) */
+const DAY_CAUTION_REASON: Record<Sipsung, string> = {
+  비견: '고집·의견 충돌 주의', 겁재: '충동·과욕 한 박자 쉬기',
+  식신: '과식·과로 페이스 조절', 상관: '말실수·톤 조절 주의',
+  정재: '지출·계약 꼼꼼히', 편재: '큰 베팅·충동구매 주의',
+  정관: '압박·번아웃, 휴식 챙기기', 편관: '무리한 일정 줄이기',
+  정인: '결정을 미루다 기회 놓치기 쉬움', 편인: '직감만으로 큰 결정 위험',
+};
+/** 이번 달 행운 가이드에 덧붙일 십성별 조언 한 줄 */
+const MONTH_ADVICE: Record<Sipsung, string> = {
+  비견: '혼자 끌어안지 말고 사람의 손을 빌려보세요.',
+  겁재: '결정 전 한 박자 쉬고, 내 페이스를 지키세요.',
+  식신: '떠오르는 건 일단 가볍게 시도하고 기록을 남기세요.',
+  상관: '새 아이디어는 메모해두고 말의 온도는 한 번 더 살피세요.',
+  정재: '새로 벌이기보다 진행 중인 일을 매듭짓는 데 집중하세요.',
+  편재: '낯선 자리·새 사람을 만나되 큰 베팅은 검증 후에.',
+  정관: '약속과 정공법이 곧 운이에요. 잠은 꼭 챙기세요.',
+  편관: '피하지 말고 한 가지씩 정면 돌파, 회복 시간도 비워두세요.',
+  정인: '책 한 권·강의 하나가 이번 달 자산이 돼요.',
+  편인: '직관을 살리되 큰 결정은 한 박자 미루세요.',
+};
+
+type FieldKey = 'overall' | 'work' | 'love' | 'money';
+
+/** 분야 풀이 (점수 티어별) */
+function fieldBody(field: FieldKey, score: number): string {
+  const t = score >= 85 ? 'high' : score >= 75 ? 'mid' : score >= 65 ? 'low' : 'warn';
+  const M: Record<FieldKey, Record<string, string>> = {
+    overall: {
+      high: '이번 달 전체 기운이 활기차게 흐르는 시기예요. 미뤄둔 일을 시작하거나 새 도전을 걸기 좋아요.',
+      mid: '큰 흔들림 없이 안정적으로 흐르는 달이에요. 무리하지 않고 페이스대로 가면 결과가 따라와요.',
+      low: '평이한 흐름이라 새로 벌이기보단 진행 중인 일을 다지기 좋은 달이에요.',
+      warn: '에너지가 살짝 처질 수 있는 달이에요. 욕심내기보다 컨디션 관리에 무게를 둬주세요.',
+    },
+    work: {
+      high: '성과와 인정이 따라오는 시기예요. 중요한 제안·발표·평가를 적극적으로 잡아보세요.',
+      mid: '꾸준히 쌓는 흐름이에요. 눈에 띄는 도약보단 신뢰를 다지는 한 달로 가면 좋아요.',
+      low: '내실을 다지기 좋은 시기예요. 새 일을 벌이기보단 기존 업무의 완성도를 높여주세요.',
+      warn: '업무 압박·번아웃이 올 수 있어요. 일정을 줄이고 우선순위를 분명히 해주세요.',
+    },
+    love: {
+      high: '인연 신호가 강한 달이에요. 새 만남·고백·관계 진전에 좋은 기운이 흘러요.',
+      mid: '안정적인 케미가 흐르는 달이에요. 무던하게 챙기는 표현 하나가 관계를 단단히 해줘요.',
+      low: '담담한 흐름이에요. 큰 이벤트보단 일상의 작은 다정함에 집중하기 좋아요.',
+      warn: '오해·다툼이 생기기 쉬운 달이에요. 평소보다 한 번 더 마음을 말로 표현해주세요.',
+    },
+    money: {
+      high: '수입·자산 흐름이 좋은 달이에요. 저축·투자 점검과 큰 결정을 몰아서 처리하기 좋아요.',
+      mid: '재물 흐름이 안정적이에요. 무리한 베팅보단 고정비 정리·저축 점검이 답이에요.',
+      low: '평이한 재물 흐름이에요. 새 지출을 늘리기보단 지키는 데 무게를 둬주세요.',
+      warn: '큰 지출·갑작스러운 비용이 생길 수 있어요. 결제·계약은 한 번 더 확인해주세요.',
+    },
+  };
+  return M[field][t];
+}
+
+/** 분야 추천 행동 (베스트 날 강조) */
+function fieldAction(field: FieldKey, bestDay: number): string {
+  if (field === 'overall') return `${bestDay}일 전후로 중요한 일을 배치하면 흐름을 타기 좋아요.`;
+  if (field === 'work') return `${bestDay}일 전후에 미팅·제안·발표를 잡아보세요.`;
+  if (field === 'love') return `${bestDay}일 전후 약속·데이트에 좋은 기운이에요.`;
+  return `${bestDay}일 전후로 결제·투자 점검을 몰아서 하면 좋아요.`;
+}
+
+type DailyEntry = { day: number; score: number; sip: Sipsung | null };
+
+/** 분야별 가장 좋은 날 — 해당 분야 점수(SCORE[sip][field])가 가장 높은 날 */
+function fieldBestDay(pool: DailyEntry[], field: FieldKey): number {
+  let best = pool[0];
+  let bestV = -1;
+  for (const d of pool) {
+    const v = d.sip ? SCORE[d.sip][field] : 70;
+    if (v > bestV) { bestV = v; best = d; }
+  }
+  return best.day;
+}
+
+/** 주차별 흐름 (1~7 / 8~14 / 15~21 / 22~말일) */
+function buildWeeks(daily: DailyEntry[]): Array<{ label: string; score: number; body: string }> {
+  const ranges: Array<[string, number, number]> = [
+    ['1주차 (1~7일)', 1, 7], ['2주차 (8~14일)', 8, 14], ['3주차 (15~21일)', 15, 21], ['4주차 (22일~)', 22, 99],
+  ];
+  const weeks = ranges.map(([label, from, to]) => {
+    const arr = daily.filter((d) => d.day >= from && d.day <= to);
+    const score = arr.length ? Math.round(arr.reduce((s, d) => s + d.score, 0) / arr.length) : 70;
+    return { label, score, arr };
+  });
+  const best = weeks.reduce((a, b) => (b.score > a.score ? b : a));
+  return weeks.map((w) => ({
+    label: w.label,
+    score: w.score,
+    body: w.label === best.label
+      ? '이번 달 흐름이 가장 좋은 주예요. 중요한 일·약속을 이 주에 몰아주면 결과가 좋아요.'
+      : w.score >= 78 ? '활기 있는 한 주예요. 적극적으로 움직여도 좋아요.'
+      : w.score >= 70 ? '안정적인 한 주예요. 페이스대로 가면 충분해요.'
+      : '컨디션·지출을 챙기며 무리하지 않는 게 좋은 주예요.',
+  }));
 }
 
 export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): MonthForecast | null {
@@ -266,16 +398,16 @@ export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): M
   const love    = adjust('love',    base.love);
   const money   = adjust('money',   base.money);
 
-  // 이번 달 일자별 일진 천간 → 점수
+  // 이번 달 일자별 일진 천간 → 점수 + 십성
   const daysInMonth = new Date(y, mo, 0).getDate();
-  const daily: Array<{ day: number; score: number }> = [];
+  const daily: DailyEntry[] = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const dr = calculateSaju(y, mo, d, 12, 0, { applyTimeCorrection: false });
     const ds = dr.dayPillarHanja[0];
     const sip = isStem(ds) ? getSipsung(myIlgan, ds) : null;
     const sc = sip ? SCORE[sip].overall : 70;
     const adj = Math.max(50, Math.min(98, sc + variance(seed, `${ym}_d${d}`, 3)));
-    daily.push({ day: d, score: adj });
+    daily.push({ day: d, score: adj, sip });
   }
 
   // 오늘 이후 (오늘 포함) 중 best/worst — 미래만 의미 있음
@@ -285,18 +417,39 @@ export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): M
   const best = pool.reduce((a, b) => (b.score > a.score ? b : a));
   const worst = pool.reduce((a, b) => (b.score < a.score ? b : a));
 
+  // 좋은 날 TOP3 / 주의할 날 — 오늘 이후 풀에서
+  const luckyDays: DayNote[] = [...pool].sort((a, b) => b.score - a.score).slice(0, 3).map((d) => ({
+    day: d.day, score: d.score, reason: d.sip ? DAY_GOOD_REASON[d.sip] : '흐름이 좋은 날',
+  }));
+  const cautionDays: DayNote[] = [...pool].sort((a, b) => a.score - b.score).slice(0, 2).map((d) => ({
+    day: d.day, score: d.score, reason: d.sip ? DAY_CAUTION_REASON[d.sip] : '평소보다 한 박자 천천히',
+  }));
+
+  const toneWord = overall >= 80 ? '상승세' : overall >= 72 ? '안정세' : '정비기';
+  const fieldDefs: Array<{ ic: string; lbl: string; key: FieldKey; score: number; color: string }> = [
+    { ic: '☁️', lbl: '총운',     key: 'overall', score: overall, color: '#9D7BFF' },
+    { ic: '💼', lbl: '일·커리어', key: 'work',    score: work,    color: '#5B8DEF' },
+    { ic: '💞', lbl: '연애',      key: 'love',    score: love,    color: '#F495C9' },
+    { ic: '💰', lbl: '재물',      key: 'money',   score: money,   color: '#3DC795' },
+  ];
+
   return {
     ym,
     monthScore: overall,
     mood: MOOD[sipsung],
     tagline: TAGLINE[sipsung],
+    headline: `${best.day}일에 흐름이 가장 좋은 ${toneWord}의 달 — 이번 달 평균 ${overall}점이에요.`,
     monthBody: `${pickBySeed(seed, `${ym}_body`, MONTH_BODY[sipsung])} ${profileHint(myeongsik, 'month')}`,
-    fields: [
-      { ic: '☁️', lbl: '총운',     score: overall, color: '#9D7BFF', oneLine: fieldOneLine('overall', overall) },
-      { ic: '💼', lbl: '일·커리어', score: work,    color: '#5B8DEF', oneLine: fieldOneLine('work',    work)    },
-      { ic: '💞', lbl: '연애',      score: love,    color: '#F495C9', oneLine: fieldOneLine('love',    love)    },
-      { ic: '💰', lbl: '재물',      score: money,   color: '#3DC795', oneLine: fieldOneLine('money',   money)   },
-    ],
+    fields: fieldDefs.map((f) => {
+      const bestD = fieldBestDay(pool, f.key);
+      return {
+        ic: f.ic, lbl: f.lbl, score: f.score, color: f.color,
+        oneLine: fieldOneLine(f.key, f.score),
+        body: fieldBody(f.key, f.score),
+        action: fieldAction(f.key, bestD),
+        best: bestD,
+      };
+    }),
     bestDay: {
       day: best.day,
       score: best.score,
@@ -307,6 +460,11 @@ export function monthForecast(myeongsik: Myeongsik, today: Date = new Date()): M
       score: worst.score,
       hint: worst.score < 65 ? '중요 결정 피해주세요' : '평소처럼 차분히',
     },
+    luckyDays,
+    cautionDays,
+    weeks: buildWeeks(daily),
+    daily: daily.map((d) => ({ day: d.day, score: d.score })),
+    luck: buildPeriodLuckGuide(STEM_OHAENG[monthStem] ?? myeongsik.shinkang.yongshin.ohaeng, myeongsik, { lead: '이번 달은', advice: [MONTH_ADVICE[sipsung]] }),
     keywords: KEYWORDS[sipsung],
     actions: rotateBySeed(seed, `${ym}_d${today.getDate()}_actions`, MONTH_ACTIONS[sipsung], 3),
   };

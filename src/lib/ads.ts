@@ -2,8 +2,12 @@
  * 토스 미니앱 리워드 광고 wrapper.
  *
  * 정책 원칙:
- * - 결과 공개는 userEarnedReward 이벤트가 발생했을 때만 허용
- * - dismissed / failedToShow / onError 로는 결과를 열지 않음
+ * - 'rewarded': userEarnedReward 이벤트 수신 (정령 기운 보너스 지급 기준)
+ * - 'watched':  보상 이벤트가 없더라도 광고가 실제 노출(show/impression)된 뒤 닫힌 경우.
+ *               통합 SDK가 토스 자체(하우스) 광고를 노출하거나 iOS에서 userEarnedReward를
+ *               안/늦게 쏘는 케이스에서도 "광고 시청 = 콘텐츠 해제"가 되도록 해 사용자가 갇히지 않게 함.
+ * - 'dismissed': 광고가 노출되기 전에 사용자가 닫음 → 해제 불가(끝까지 보도록 안내)
+ * - 'failed' / onError: 로드·표시 실패 (호출부에서 재시도/폴백 처리)
  * - Apps in Toss 인앱 광고 2.0 ver2 통합 SDK(loadFullScreenAd/showFullScreenAd)를 우선 사용
  * - 개발/QA에서는 공식 테스트 리워드 ID(ait-ad-test-rewarded-id)를 사용해야 함
  */
@@ -17,7 +21,7 @@ export const INTERSTITIAL_AD_GROUP_ID = import.meta.env.VITE_INTERSTITIAL_AD_GRO
 const AD_ENABLED = AD_GROUP_ID !== 'TEST_AD_GROUP' && AD_GROUP_ID.length > 0;
 
 type WebFramework = typeof import('@apps-in-toss/web-framework');
-type RewardedAdResult = 'rewarded' | 'dismissed' | 'failed' | 'unsupported' | 'not_configured';
+type RewardedAdResult = 'rewarded' | 'watched' | 'dismissed' | 'failed' | 'unsupported' | 'not_configured';
 
 let adApi: WebFramework | null = null;
 let isLoading = false;
@@ -97,8 +101,10 @@ export async function preloadRewardedAdForResult() {
 }
 
 /**
- * 리워드 광고를 표시하고, 끝까지 시청해 보상 이벤트를 받은 경우에만 'rewarded'를 반환.
- * dismissed/failed/onError는 결과 공개로 이어지면 안 된다.
+ * 리워드 광고를 표시.
+ * - 보상 이벤트(userEarnedReward) 수신 → 'rewarded'
+ * - 보상 이벤트는 없지만 광고가 실제 노출된 뒤 닫힘 → 'watched' (콘텐츠 해제 허용)
+ * - 노출 전에 닫힘 → 'dismissed' / 로드·표시 실패 → 'failed'
  */
 export async function showRewardedAdForResult(): Promise<RewardedAdResult> {
   if (!AD_ENABLED) return 'not_configured';
@@ -117,6 +123,7 @@ export async function showRewardedAdForResult(): Promise<RewardedAdResult> {
   return new Promise<RewardedAdResult>((resolve) => {
     let settled = false;
     let rewarded = false;
+    let displayed = false; // 광고가 실제로 화면에 노출됐는지 (show 또는 impression)
     let unregister: (() => void) | undefined;
 
     const settle = (result: RewardedAdResult) => {
@@ -134,20 +141,26 @@ export async function showRewardedAdForResult(): Promise<RewardedAdResult> {
       unregister = showFn!({
         options: { adGroupId: AD_GROUP_ID },
         onEvent: (event) => {
+          // 운영 진단용 — 어떤 이벤트 시퀀스가 오는지 추적 (특히 iOS userEarnedReward 미수신 케이스)
+          console.info('[ads] reward event:', event.type);
           switch (event.type) {
             case 'userEarnedReward':
               rewarded = true;
               settle('rewarded');
               break;
+            case 'show':
+            case 'impression':
+              displayed = true;
+              break;
             case 'dismissed':
-              settle(rewarded ? 'rewarded' : 'dismissed');
+              // 보상 이벤트가 없더라도, 광고가 실제 노출된 뒤 닫혔다면 '시청 완료'로 간주(콘텐츠 해제용).
+              // 노출 전에 닫혔다면(=사용자가 바로 닫음) 'dismissed' → 해제 불가.
+              settle(rewarded ? 'rewarded' : displayed ? 'watched' : 'dismissed');
               break;
             case 'failedToShow':
               settle('failed');
               break;
             case 'requested':
-            case 'show':
-            case 'impression':
             case 'clicked':
               break;
           }
@@ -157,8 +170,8 @@ export async function showRewardedAdForResult(): Promise<RewardedAdResult> {
           settle('failed');
         },
       });
-      // Android 특정 버전에서 dismissed 누락 가능. 단, reward 이벤트 없으면 결과 공개 금지.
-      setTimeout(() => settle(rewarded ? 'rewarded' : 'failed'), 60_000);
+      // dismissed 이벤트가 끝내 누락되는 경우 대비. 노출됐었다면 '시청'으로 인정.
+      setTimeout(() => settle(rewarded ? 'rewarded' : displayed ? 'watched' : 'failed'), 60_000);
     } catch (error) {
       console.warn('[ads] reward show threw', error);
       settle('failed');

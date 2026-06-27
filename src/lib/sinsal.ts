@@ -1,3 +1,4 @@
+import { calculateSaju } from '@fullstackfamily/manseryeok';
 import type { Myeongsik } from './saju';
 
 /**
@@ -84,6 +85,11 @@ export type SinsalItem = {
   oneLine: string;
   /** 4~5줄 풀이 */
   body: string;
+  /**
+   * 삼합 기반 신살(도화·역마·화개)의 활성 대상 지지.
+   * 이 지지가 올해 연지와 같으면 올해 활성 상태.
+   */
+  targetBranch?: string;
 };
 
 /** 명식에서 일치하는 지지 → "기둥명 지지" 라벨 */
@@ -163,6 +169,7 @@ export function getSinsal(myeongsik: Myeongsik): SinsalItem[] {
       color: '#F495C9',
       has: dohwaPositions.length > 0,
       positions: dohwaPositions,
+      targetBranch: dohwaTarget || undefined,
       oneLine:
         dohwaPositions.length > 0
           ? '매력으로 사람을 끌어당기는 흐름'
@@ -179,6 +186,7 @@ export function getSinsal(myeongsik: Myeongsik): SinsalItem[] {
       color: '#5B8DEF',
       has: yeokmaPositions.length > 0,
       positions: yeokmaPositions,
+      targetBranch: yeokmaTarget || undefined,
       oneLine:
         yeokmaPositions.length > 0
           ? '한 자리에 머물지 않는 흐름'
@@ -195,6 +203,7 @@ export function getSinsal(myeongsik: Myeongsik): SinsalItem[] {
       color: '#9D7BFF',
       has: hwagaePositions.length > 0,
       positions: hwagaePositions,
+      targetBranch: hwagaeTarget || undefined,
       oneLine:
         hwagaePositions.length > 0
           ? '예술·철학·고독을 즐기는 결'
@@ -256,7 +265,7 @@ export function getSinsal(myeongsik: Myeongsik): SinsalItem[] {
       name: '괴강살',
       hanja: '魁罡',
       emoji: '🗡️',
-      color: '#4A3F5A',
+      color: '#8B7EC8',
       has: isGoegang,
       positions: goegangPositions,
       oneLine: isGoegang ? '극단적 카리스마의 결' : '온화한 균형의 결',
@@ -265,4 +274,182 @@ export function getSinsal(myeongsik: Myeongsik): SinsalItem[] {
         : '괴강 일주가 아니에요. 극단성보단 균형 잡힌 진행이 자연스러운 결이에요. 큰 성공·큰 실패 양극보다 안정적으로 꾸준히 성장하는 패턴이 잘 맞아요.',
     },
   ];
+}
+
+// ─────────────────────────────────────────────────────────────
+// 영향도 점수
+// ─────────────────────────────────────────────────────────────
+
+/** 기둥별 가중치 (일주 > 월주 > 연주 > 시주) */
+const PILLAR_WEIGHT: Record<string, number> = {
+  '일주': 40,
+  '월주': 30,
+  '연주': 20,
+  '시주': 10,
+};
+
+/**
+ * 소유 신살 1개의 영향도 점수 (0~100).
+ * positions 문자열("월주 丑", "일주 卯" 등)에서 기둥명 추출 후 가중치 합산 → 정규화.
+ */
+export function sinsalInfluenceScore(item: SinsalItem): number {
+  if (!item.has || item.positions.length === 0) return 0;
+  const total = item.positions.reduce((acc, p) => {
+    const pillarKey = p.split(' ')[0]; // "월주", "일주" 등
+    return acc + (PILLAR_WEIGHT[pillarKey] ?? 10);
+  }, 0);
+  // 최대 가능 점수: 일주(40) + 월주(30) + 연주(20) + 시주(10) = 100
+  return Math.min(100, total);
+}
+
+/**
+ * 소유 신살들의 종합 영향도 점수 (0~100).
+ * 개별 점수의 가중 평균 — 개수가 많을수록 높되 100을 넘지 않음.
+ */
+export function sinsalTotalScore(items: SinsalItem[]): number {
+  const owned = items.filter((i) => i.has);
+  if (owned.length === 0) return 0;
+  const rawSum = owned.reduce((acc, i) => acc + sinsalInfluenceScore(i), 0);
+  // 최대 8개 × 100점. 하지만 개수 보너스도 반영:
+  // 기본 점수 = rawSum / owned.length (평균), 개수 보너스 = owned.length × 5
+  const avg = rawSum / owned.length;
+  const bonus = owned.length * 5;
+  return Math.min(100, Math.round(avg + bonus));
+}
+
+// ─────────────────────────────────────────────────────────────
+// 올해 활성 지지
+// ─────────────────────────────────────────────────────────────
+
+/** 올해(현재 연도) 연지 한자 — manseryeok 기준 */
+export function getCurrentYearBranch(): string {
+  const year = new Date().getFullYear();
+  const r = calculateSaju(year, 6, 15, 12, 0, { applyTimeCorrection: false });
+  return r.yearPillarHanja[1]; // 지지 (두 번째 글자)
+}
+
+// ─────────────────────────────────────────────────────────────
+// 신살 종합 해석
+// ─────────────────────────────────────────────────────────────
+
+/** 조합별 종합 해석 맵 (소유한 신살 이름 → 조합 해석) */
+const COMBO_INTERP: Array<{ keys: string[]; text: string }> = [
+  {
+    keys: ['역마살', '도화살'],
+    text: '역마살과 도화살이 함께 있어요. 움직이며 매력을 발산하는 결이에요. 여행·해외·이벤트 현장에서 특히 인연 운이 빛나요. 변화가 많을수록 기회도 많아져요.',
+  },
+  {
+    keys: ['천을귀인', '천덕귀인'],
+    text: '천을귀인과 천덕귀인이 모두 있어요. 사람 복·하늘의 도움이 겹쳐, 어떤 위기에도 결국 살길이 열리는 팔자예요. 고마운 마음을 표현하는 습관이 이 운을 더 키워줘요.',
+  },
+  {
+    keys: ['문창귀인', '천을귀인'],
+    text: '학문과 인복이 동시에 있어요. 공부·자격증·시험 앞에서 주변의 도움까지 들어오는 흐름이에요. 강사·교육·기획 계열에서 크게 빛나요.',
+  },
+  {
+    keys: ['문창귀인', '천덕귀인'],
+    text: '문창귀인과 천덕귀인이 함께 있어요. 실력과 운이 겹치는 조합이에요. 창작·학문·연구 분야에서 뜻밖의 기회와 도움이 자연스럽게 따라와요.',
+  },
+  {
+    keys: ['화개살', '문창귀인'],
+    text: '화개살과 문창귀인이 함께 있어요. 깊이 파고드는 집중력 위에 학문 운까지 얹혀 있어요. 예술·연구·철학·종교 분야에서 두각을 나타낼 결이에요.',
+  },
+  {
+    keys: ['양인살', '역마살'],
+    text: '양인살과 역마살이 함께 있어요. 강한 추진력과 이동 에너지가 합쳐진 조합이에요. 변화를 두려워하지 않는 결단력으로 새 환경에서 빠르게 자리를 잡아요. 단 충동적 이직·이사는 한 번 더 생각해보세요.',
+  },
+  {
+    keys: ['괴강살', '양인살'],
+    text: '괴강살과 양인살이 모두 있어요. 명리에서 가장 강한 에너지 두 가지가 겹친 사주예요. 도전적인 분야에서 폭발적인 성과를 낼 수 있지만, 자기 통제가 핵심 키워드예요. 내면의 힘을 올바른 방향으로 쓰는 연습이 중요해요.',
+  },
+  {
+    keys: ['도화살', '화개살'],
+    text: '도화살과 화개살이 함께 있어요. 예술적 감성과 매력이 겹친 조합이에요. 무대·음악·미술·영상 등 창작 표현 분야에서 독보적인 존재감을 드러낼 수 있어요.',
+  },
+  {
+    keys: ['천을귀인', '도화살'],
+    text: '천을귀인과 도화살이 함께 있어요. 매력과 인복이 겹치는 사람 운의 완성형이에요. 넓은 네트워크 안에서 좋은 사람들이 자연스럽게 모이고, 위기에도 귀인이 나타나는 흐름이에요.',
+  },
+];
+
+/**
+ * 소유 신살 목록을 바탕으로 2~4줄 종합 해석을 반환해요.
+ * 조합이 없으면 단순 개수 기반 기본 텍스트를 반환해요.
+ */
+export function sinsalSynthesis(items: SinsalItem[]): string {
+  const owned = items.filter((i) => i.has).map((i) => i.name);
+
+  if (owned.length === 0) {
+    return '8가지 신살 중 도드라지는 기운은 없어요. 특정 기질에 치우치지 않는 균형 잡힌 사주예요. 환경과 노력에 따라 어느 방향으로도 펼쳐질 수 있는, 가능성이 열린 결이에요.';
+  }
+
+  // 조합 탐색 — 가장 많이 겹치는 조합 우선
+  const bestCombo = COMBO_INTERP
+    .filter((c) => c.keys.every((k) => owned.includes(k)))
+    .sort((a, b) => b.keys.length - a.keys.length)[0];
+
+  if (bestCombo) return bestCombo.text;
+
+  // 조합 없음 → 보유 개수별 기본 해석
+  if (owned.length === 1) {
+    return `${owned[0]}이(가) 있는 사주예요. 이 기운이 삶의 주요 흐름에 자연스럽게 영향을 미쳐요. 해당 신살의 에너지를 의식하고 활용하면 운이 더 또렷하게 열려요.`;
+  }
+  if (owned.length <= 3) {
+    return `${owned.join('·')}을(를) 지닌 사주예요. 복수의 기운이 서로 보완하며 삶의 방향을 만들어가요. 길성은 의식적으로 활용하고, 살(煞) 기운은 에너지로 승화시키는 것이 핵심이에요.`;
+  }
+  return `${owned.length}가지 신살을 지닌 에너지 풍부한 사주예요. 다양한 흐름이 교차하는 만큼 결단의 순간마다 우선순위를 명확히 하는 것이 중요해요. 이 많은 기운을 하나의 방향으로 모을 때 가장 큰 성과가 나와요.`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 실생활 활용 팁 (신살별 2가지)
+// ─────────────────────────────────────────────────────────────
+
+export type SinsalTip = {
+  /** 살려야 할 점 */
+  lean: string;
+  /** 주의할 점 */
+  watch: string;
+};
+
+const TIPS: Record<string, SinsalTip> = {
+  천을귀인: {
+    lean: '어려울 때 망설이지 말고 주변에 도움을 요청해요. 요청하는 순간 귀인이 나타나는 결이에요.',
+    watch: '받은 도움에 감사함을 표현하는 습관을 들여요. 고마움이 식으면 귀인 흐름도 멀어져요.',
+  },
+  도화살: {
+    lean: '내 매력이 가장 잘 드러나는 자리(발표·공연·SNS·대면 영업)를 적극 활용해요.',
+    watch: '관계가 빨리 가까워지는 만큼 경계를 명확히 해요. 구설이나 오해는 초반에 잡아야 해요.',
+  },
+  역마살: {
+    lean: '새로운 환경·여행·이직 시도를 두려워하지 마세요. 변화가 많을수록 기회가 따라와요.',
+    watch: '이동과 변화가 잦아 마음이 흔들릴 때는 중심축(루틴·관계)을 의도적으로 지켜요.',
+  },
+  화개살: {
+    lean: '혼자만의 사색·명상·창작 시간을 충분히 갖는 것이 에너지 충전의 핵심이에요.',
+    watch: '고독을 즐기다 보면 관계가 멀어질 수 있어요. 주기적으로 가까운 사람들과 시간을 나눠요.',
+  },
+  문창귀인: {
+    lean: '자격증·시험·글쓰기·강의 준비는 지금이 적기예요. 학습 기회를 놓치지 마세요.',
+    watch: '지식이 쌓일수록 완벽주의 성향이 강해질 수 있어요. 80점짜리 실행이 100점짜리 계획보다 나아요.',
+  },
+  천덕귀인: {
+    lean: '선행·봉사·작은 배려가 결국 큰 운으로 돌아와요. 줄수록 얻는 결이에요.',
+    watch: '운이 따른다고 방심하면 놓치는 흐름이 생겨요. 좋은 기회는 준비된 사람에게 온다는 것을 잊지 마세요.',
+  },
+  양인살: {
+    lean: '큰 결단이 필요한 순간에 이 강한 추진력을 써요. 경쟁이 치열한 자리에서 진가가 발휘돼요.',
+    watch: '충동적인 결정·과도한 경쟁심은 독이 돼요. 결정 전 하루 이상 생각하는 루틴을 만들어요.',
+  },
+  괴강살: {
+    lean: '카리스마가 필요한 리더십·교섭·전문직 자리를 적극 찾아요. 강한 에너지는 올바른 방향에서 빛나요.',
+    watch: '술·도박·충동 결정은 이 일주의 가장 큰 리스크예요. 자기 통제 루틴(운동·명상·수면)이 평생 필수예요.',
+  },
+};
+
+/** 신살 이름으로 팁을 반환해요 (없는 경우 기본값) */
+export function getSinsalTip(name: string): SinsalTip {
+  return TIPS[name] ?? {
+    lean: '이 기운이 긍정적으로 발현될 때 적극적으로 활용해요.',
+    watch: '이 기운의 부정적인 면을 인식하고 균형을 유지해요.',
+  };
 }

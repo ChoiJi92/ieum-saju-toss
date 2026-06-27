@@ -1,4 +1,4 @@
-import { V2Screen, V2TopBar, V2Label, V2Glass, SpiritSlot, SectionCard, BulletList, DomainEmpty } from './_kit';
+import { V2Screen, V2TopBar, V2Label, V2Glass, SelfSpiritSlot, SectionCard, BulletList, DomainEmpty, BondMeter, Chip, StatPill, Accordion } from './_kit';
 import { useSaju } from '../../lib/saju-state';
 import { personalityCard } from '../../lib/personality';
 import type { Route, Tab } from './nav';
@@ -13,11 +13,59 @@ export default function ScreenPersonality({ back, spirit }: { go: (r: Route) => 
       <V2TopBar onBack={back} title="성격 분석" />
 
       <V2Glass style={{ textAlign: 'center' }}>
-        <SpiritSlot spirit={spirit} size={88} tag={false} />
+        <SelfSpiritSlot spirit={spirit} size={88} tag={false} />
         <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--v2-ink)', marginTop: 6 }}>{f.title}</div>
         <div style={{ fontSize: 13, color: 'var(--v2-ink-dim)', marginTop: 4 }}>{f.subtitle}</div>
       </V2Glass>
 
+      {/* ── 오행 분포 ─────────────────────────────────────── */}
+      <V2Label>오행 분포</V2Label>
+      <V2Glass>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {f.ohaengBars.map((bar) => (
+            <BondMeter
+              key={bar.key}
+              label={`${bar.kr} · ${bar.pulie}`}
+              percent={bar.percent}
+              color={bar.color}
+              sub={bar.count === 0 ? '없음' : undefined}
+            />
+          ))}
+        </div>
+        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 12.5, lineHeight: 1.65, color: 'var(--v2-ink-mid)' }}>
+            <span style={{ fontWeight: 700, color: 'var(--v2-ink)' }}>강한 기운 · </span>
+            {f.ohaengComment.strongest}
+          </div>
+          <div style={{ fontSize: 12.5, lineHeight: 1.65, color: 'var(--v2-ink-mid)' }}>
+            <span style={{ fontWeight: 700, color: 'var(--v2-ink)' }}>약한 기운 · </span>
+            {f.ohaengComment.weakest}
+          </div>
+        </div>
+      </V2Glass>
+
+      {/* ── 신강신약 ─────────────────────────────────────── */}
+      <V2Label>신강신약 · 에너지 유형</V2Label>
+      <V2Glass>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--v2-ink)' }}>{f.shinkangSection.label}</span>
+          <Chip color="var(--v2-lavender)">{f.shinkangSection.yongshinChip}</Chip>
+        </div>
+        <BondMeter
+          label="신강/신약 게이지"
+          percent={f.shinkangSection.gauge}
+          color="var(--v2-lavender)"
+          sub={`신강(100) ← ${f.shinkangSection.gauge} → 신약(0)`}
+        />
+        <div style={{ marginTop: 12, fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)' }}>
+          {f.shinkangSection.body}
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.65, color: 'var(--v2-ink-dim)', borderLeft: '2px solid var(--v2-lavender)', paddingLeft: 10 }}>
+          {f.shinkangSection.yongshinReason}
+        </div>
+      </V2Glass>
+
+      {/* ── 나는 ─────────────────────────────────────────── */}
       <div style={{ marginTop: 14 }}>
         <SectionCard title="나는" body={f.identity} />
       </div>
@@ -33,6 +81,22 @@ export default function ScreenPersonality({ back, spirit }: { go: (r: Route) => 
 
       <V2Label>반복되는 패턴</V2Label>
       <BulletList items={f.patterns} />
+
+      {/* ── 직업/적성 가이드 ──────────────────────────────── */}
+      <V2Label>직업 · 적성 가이드</V2Label>
+      <Accordion items={f.careerItems} />
+
+      {/* ── 사주 밸런스 진단 ──────────────────────────────── */}
+      <V2Label>사주 밸런스 진단</V2Label>
+      <V2Glass>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <StatPill label="유형" value={f.balanceDiagnosis.label} color="var(--v2-peach)" />
+          <Chip color="var(--v2-peach)">{f.balanceDiagnosis.chip}</Chip>
+        </div>
+        <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)' }}>
+          {f.balanceDiagnosis.advice}
+        </div>
+      </V2Glass>
 
       <V2Label>잘 맞는 사람</V2Label>
       <BulletList items={f.goodMatches} />

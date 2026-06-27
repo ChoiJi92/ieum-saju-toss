@@ -18,7 +18,7 @@ import {
 } from '../lib/spirit';
 import {
   V2Screen, Rise, V2TopBar, V2Button, V2Glass, V2Label,
-  SpiritSlot, Sparkles, RarityStars, BondMeter, StatPill, ScoreRing,
+  SpiritSlot, SelfSpiritSlot, Sparkles, RarityStars, BondMeter, StatPill, ScoreRing,
   HeaderPill, FilterChip, ActionRow, BIRTH_YEARS, selectChevron, BottomSheet,
   circleButtonStyle, speechStyle,
 } from './app/_kit';
@@ -664,7 +664,7 @@ function ScreenProfile({ go, back, spirit, resetApp }: { go: (r: Route) => void;
   return (
     <V2Screen seed={9}>
       <V2TopBar onBack={back} title="내 정보" />
-      <Rise><SpiritSlot spirit={spirit} size={210} stage={1} /></Rise>
+      <Rise><SelfSpiritSlot spirit={spirit} size={210} /></Rise>
       <Rise delay={120}>
         <V2Glass glow="0 0 28px rgba(183,156,255,.2)" style={{ textAlign: 'center' }}>
           <div className="v2-cap" style={{ color: spirit.elem.raw }}>{spirit.formula}</div>
@@ -830,7 +830,7 @@ function CatchModal({ todaySp, gunghap, chance, onClose, onResult }: { todaySp: 
     setAdLoading(true);
     const res = await showRewardedAdForResult();
     setAdLoading(false);
-    if (res === 'rewarded' || res === 'unsupported' || res === 'not_configured') setPhase('ready');
+    if (res === 'rewarded' || res === 'watched' || res === 'unsupported' || res === 'not_configured') setPhase('ready');
   };
 
   const anim = phase === 'throwing' ? 'v2-catch-wobble 1.25s ease-in-out' : phase === 'caught' ? 'v2-catch-caught .8s ease' : 'none';
@@ -964,7 +964,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
     <V2Screen seed={13} style={{ paddingBottom: 0 }}>
       <V2TopBar onBack={back} title="오늘의 운세" />
       {bonusMsg && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(91,217,172,.16)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🎁 {bonusMsg}</div>}
-      <Rise><div style={{ textAlign: 'center' }}><div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>{dateLabel} · {myeongsik?.ilgan.c}{myeongsik ? `(${TG_KR[myeongsik.ilgan.c]})` : ''}일</div><SpiritSlot spirit={spirit} size={172} tag={false} /><h1 className="v2-hero" style={{ margin: '2px 0 0' }}>{fortune.mood}</h1></div></Rise>
+      <Rise><div style={{ textAlign: 'center' }}><div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>{dateLabel} · {myeongsik?.ilgan.c}{myeongsik ? `(${TG_KR[myeongsik.ilgan.c]})` : ''}일</div><SelfSpiritSlot spirit={spirit} size={172} tag={false} /><h1 className="v2-hero" style={{ margin: '2px 0 0' }}>{fortune.mood}</h1></div></Rise>
       <Rise delay={120}><div style={speechStyle}><div style={{ fontSize: 11, color: 'var(--v2-lavender)', fontWeight: 800, marginBottom: 6 }}>{spirit.name}의 한 마디</div><div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.55 }}>{fortune.oneLine}</div></div></Rise>
 
       {/* 오늘의 정령 포획 — 도감 수집 */}
@@ -1163,7 +1163,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
     setAdLoading(true);
     const res = await showRewardedAdForResult();
     setAdLoading(false);
-    if (res === 'rewarded') { const r = adBoost(targetKey); if (r.ok && r.gained > 0) playFx(r.gained, '✨'); }
+    if (res === 'rewarded' || res === 'watched') { const r = adBoost(targetKey); if (r.ok && r.gained > 0) playFx(r.gained, '✨'); }
   };
   // 진화 연출 — 마일스톤이라 새 모습을 충분히 보여줌(~3.4초). 탭하면 일찍 넘기기(중복 호출은 canEvolve로 안전)
   const finishEvolve = () => {

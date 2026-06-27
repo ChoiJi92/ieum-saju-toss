@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSaju } from '../../lib/saju-state';
 import { ilganOf, calcGunghap, type GunghapResult } from '../../lib/gunghap';
 import { preloadRewardedAdForResult, showRewardedAdForResult } from '../../lib/ads';
@@ -36,8 +36,10 @@ function PersonForm(props: {
   day: string; setDay: (v: string) => void;
   namePlaceholder: string;
   accent: string;
+  gender?: 'male' | 'female' | null;
+  setGender?: (g: 'male' | 'female') => void;
 }) {
-  const { name, setName, year, setYear, month, setMonth, day, setDay, namePlaceholder, accent } = props;
+  const { name, setName, year, setYear, month, setMonth, day, setDay, namePlaceholder, accent, gender, setGender } = props;
   return (
     <V2Glass style={{ display: 'flex', flexDirection: 'column', gap: 14, borderLeft: `3px solid ${accent}` }}>
       <div>
@@ -67,6 +69,23 @@ function PersonForm(props: {
           </select>
         </div>
       </div>
+      {setGender && (
+        <div>
+          <div style={fieldLabelStyle}>성별 <span style={{ color: 'var(--v2-ink-dim)', fontWeight: 600 }}>(선택)</span></div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {([['male', '남자'], ['female', '여자']] as const).map(([g, lbl]) => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => setGender(g)}
+                style={{ flex: 1, height: 46, borderRadius: 'var(--v2-r-md)', cursor: 'pointer', fontFamily: 'var(--v2-font)', fontSize: 14, fontWeight: 800, background: gender === g ? accent : 'var(--v2-glass)', color: gender === g ? '#1b1230' : 'var(--v2-ink-mid)', border: `1px solid ${gender === g ? accent : 'var(--v2-glass-line2)'}` }}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </V2Glass>
   );
 }
@@ -82,6 +101,7 @@ export default function ScreenGunghap({ back }: { go: (r: Route) => void; back: 
   const [p1day, setP1day] = useState(base ? String(base.day) : '');
   // 두 번째 사람 — 상대
   const [p2name, setP2name] = useState('');
+  const [p2gender, setP2gender] = useState<'male' | 'female' | null>(null);
   const [p2year, setP2year] = useState('');
   const [p2month, setP2month] = useState('');
   const [p2day, setP2day] = useState('');
@@ -90,6 +110,8 @@ export default function ScreenGunghap({ back }: { go: (r: Route) => void; back: 
   const [saved, setSaved] = useState(false);
   const [adLoading, setAdLoading] = useState(false);
   const [adMsg, setAdMsg] = useState<string | null>(null);
+  // 로드/표시 반복 실패 시 결과가 영영 안 열리는 일이 없도록 폴백 카운터
+  const failRef = useRef(0);
   const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const canBypass = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false' && isLocalhost;
   // 입력하는 동안 광고 미리 준비 (버튼 누르면 바로 뜨도록)
@@ -111,13 +133,17 @@ export default function ScreenGunghap({ back }: { go: (r: Route) => void; back: 
     if (!ready || adLoading) return;
     if (canBypass) { calc(); return; }
     setAdLoading(true); setAdMsg(null);
-    const res = await showRewardedAdForResult();
+    let res = await showRewardedAdForResult();
+    // 콜드 스타트로 첫 로드가 실패하면 데워진 상태로 1회 조용히 재시도
+    if (res === 'failed') { setAdMsg('광고 준비 중… 잠시만요'); res = await showRewardedAdForResult(); }
     setAdLoading(false);
-    if (res === 'rewarded') { calc(); return; }
-    if (res === 'dismissed') setAdMsg('광고를 끝까지 보면 궁합 결과가 열려요.');
-    else if (res === 'not_configured') setAdMsg('아직 광고가 설정되지 않았어요.');
-    else if (res === 'unsupported') setAdMsg('지금 환경에선 광고를 볼 수 없어요. 토스 앱에서 확인해주세요.');
-    else setAdMsg('광고를 불러오지 못했어요. 다시 시도해주세요.');
+    // 광고를 끝까지(또는 실제 노출 후) 봤거나, 광고를 띄울 수 없는 환경이면 결과 공개
+    if (res === 'rewarded' || res === 'watched' || res === 'unsupported' || res === 'not_configured') { calc(); return; }
+    if (res === 'dismissed') { setAdMsg('광고를 끝까지 보면 궁합 결과가 열려요.'); return; }
+    // 'failed' — 반복 실패 시 사용자를 가두지 않도록 폴백 공개
+    failRef.current += 1;
+    if (failRef.current >= 2) { setAdMsg('광고가 원활하지 않아 이번엔 바로 열어드릴게요.'); calc(); return; }
+    setAdMsg('광고를 불러오지 못했어요. 다시 시도해주세요.');
   };
 
   // ── 결과 화면 ──
@@ -155,7 +181,7 @@ export default function ScreenGunghap({ back }: { go: (r: Route) => void; back: 
         <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <V2Button
             onClick={() => {
-              addProfile({ name: p2name || '상대', year: Number(p2year), month: Number(p2month), day: Number(p2day), calendar: 'solar', gender: 'female' }, '연인');
+              addProfile({ name: p2name || '상대', year: Number(p2year), month: Number(p2month), day: Number(p2day), calendar: 'solar', gender: p2gender ?? 'female' }, '연인');
               setSaved(true);
             }}
           >
@@ -195,6 +221,7 @@ export default function ScreenGunghap({ back }: { go: (r: Route) => void; back: 
         day={p2day} setDay={setP2day}
         namePlaceholder="상대 이름"
         accent="var(--v2-rose)"
+        gender={p2gender} setGender={setP2gender}
       />
 
       <div style={{ marginTop: 20 }}>

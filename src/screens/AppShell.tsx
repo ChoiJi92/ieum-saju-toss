@@ -6,6 +6,7 @@ import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchP
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
+import { buildTodayLuck } from '../lib/luck-guide';
 import { pillarSeed } from '../lib/personalize';
 import { shareSpiritCard } from '../lib/spirit-card';
 import { todaySpirit, gunghapScore, catchChance, caughtKeys, todayCatchState, attemptCatch } from '../lib/spirit-catch';
@@ -939,6 +940,13 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myeongsik, fortune?.mood]);
+  // 오늘의 행운 — 일진 천간 오행 기반 색·방향·숫자
+  const todayLuck = useMemo(() => {
+    if (!myeongsik) return null;
+    const d = new Date();
+    return buildTodayLuck(todayDayStem(d), pillarSeed(myeongsik), d);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myeongsik, fortune?.mood]);
   const now = new Date();
   const dateLabel = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
   const ring = fortune?.sections.overall.score ?? 0;
@@ -1019,6 +1027,17 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
         </V2Glass>
       </Rise>
       <Rise delay={200}><div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}><ScoreRing score={ring} color="var(--v2-lavender)" /><div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{dims.map(([l, v, c, ic]) => <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 14, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}><span style={{ color: c, fontSize: 14, fontWeight: 800, width: 16 }}>{ic}</span><span style={{ fontSize: 11, color: 'var(--v2-ink-dim)', flex: 1 }}>{l}</span><span style={{ fontSize: 14, fontWeight: 800 }}>{v}</span></div>)}</div></div></Rise>
+      {/* 오늘의 행운 색·방향·숫자 */}
+      {todayLuck && (
+        <Rise delay={240}>
+          <V2Label>오늘의 행운 · {todayLuck.elementKr} 기운의 날</V2Label>
+          <V2Glass style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center', gap: 0 }}>
+            <div><div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginBottom: 5 }}>🎨 행운 색</div><div style={{ fontSize: 14.5, fontWeight: 800 }}>{todayLuck.color}</div></div>
+            <div style={{ borderLeft: '1px solid var(--v2-glass-line2)', borderRight: '1px solid var(--v2-glass-line2)' }}><div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginBottom: 5 }}>🧭 행운 방향</div><div style={{ fontSize: 14.5, fontWeight: 800 }}>{todayLuck.direction}</div></div>
+            <div><div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginBottom: 5 }}>🔢 행운 숫자</div><div style={{ fontSize: 14.5, fontWeight: 800 }}>{todayLuck.number}</div></div>
+          </V2Glass>
+        </Rise>
+      )}
       <Rise delay={280}><V2Label>오늘의 풀이</V2Label><div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{bodies.map(([l, body]) => <V2Glass key={l}><div style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', marginBottom: 6 }}>{l}</div><div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--v2-ink-mid)' }}>{body}</div></V2Glass>)}</div></Rise>
       {/* 정령의 풀이 — 단계별로 깊어지는 해석 (키울 이유) */}
       {guide && (

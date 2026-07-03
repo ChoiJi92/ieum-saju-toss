@@ -1,4 +1,4 @@
-import { calculateSaju, lunarToSolar, type SajuResult } from '@fullstackfamily/manseryeok';
+import { calculateSaju, lunarToSolar, solarToLunar, type SajuResult } from '@fullstackfamily/manseryeok';
 import type { OhaengKey, Pillar } from '../components/ie';
 
 /**
@@ -311,12 +311,48 @@ function calcShinKang(myeongsik: Myeongsik): ShinKangResult {
 }
 
 /** 사주 계산 메인 — Input → Myeongsik */
+type SolarDate = { year: number; month: number; day: number };
+
+/**
+ * 음력 → 양력 변환 (견고화).
+ *
+ * manseryeok 의 lunarToSolar 는 음력 11~12월이 다음 해 양력 1월로 넘어가는 경계 케이스에서
+ * 변환 테이블 구멍으로 예외를 던진다(1950~2010 표본의 ~9%). 반대 함수 solarToLunar 는
+ * 신뢰 가능하므로, 1차 변환이 실패하면 solarToLunar 로 해당 연도 범위를 역탐색해 보정한다.
+ */
+function lunarToSolarSafe(year: number, month: number, day: number, leap: boolean): SolarDate {
+  // 1차: 라이브러리 변환 + 왕복 검증 (성공 시 항상 정확)
+  try {
+    const s = lunarToSolar(year, month, day, leap).solar;
+    const back = solarToLunar(s.year, s.month, s.day).lunar;
+    if (back.year === year && back.month === month && back.day === day && !!back.isLeapMonth === leap) {
+      return { year: s.year, month: s.month, day: s.day };
+    }
+  } catch {
+    // 폴백으로 진행
+  }
+  // 2차: 양력 [year-01-01 ~ (year+1)-03-01] 역탐색 (음력 날짜의 가능한 양력 범위)
+  //   solarToLunar 도 일부 날짜에서 예외를 던지므로(예: 1956-12-31) 그 날은 건너뛴다.
+  const cursor = new Date(year, 0, 1);
+  const end = new Date(year + 1, 2, 1);
+  for (; cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+    try {
+      const b = solarToLunar(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate()).lunar;
+      if (b.year === year && b.month === month && b.day === day && !!b.isLeapMonth === leap) {
+        return { year: cursor.getFullYear(), month: cursor.getMonth() + 1, day: cursor.getDate() };
+      }
+    } catch {
+      // 이 양력 날짜는 변환 불가 — 건너뛰고 계속 탐색
+    }
+  }
+  throw new Error(`음력 → 양력 변환 실패: ${year}-${month}-${day}${leap ? ' (윤달)' : ''}`);
+}
+
 export function computeMyeongsik(input: SajuInput): Myeongsik {
   // 음력 → 양력 변환
-  let solar: { year: number; month: number; day: number };
+  let solar: SolarDate;
   if (input.calendar === 'lunar') {
-    const conv = lunarToSolar(input.year, input.month, input.day, input.leapMonth ?? false);
-    solar = { year: conv.solar.year, month: conv.solar.month, day: conv.solar.day };
+    solar = lunarToSolarSafe(input.year, input.month, input.day, input.leapMonth ?? false);
   } else {
     solar = { year: input.year, month: input.month, day: input.day };
   }
@@ -326,9 +362,22 @@ export function computeMyeongsik(input: SajuInput): Myeongsik {
   const rawMinute = input.minute ?? 0;
 
   // 한국 -30분 보정을 직접 적용 (manseryeok 자체 보정은 끔)
+  // ※ 보정은 시주 계산 전용. 년/월/일주는 보정 전 달력 날짜(solar) 기준으로 별도 계산 (유파 A).
   const adj = adjustKoreanSolarTime(solar.year, solar.month, solar.day, rawHour, rawMinute);
 
-  const result: SajuResult = calculateSaju(
+  // 년·월·일주: 보정 전 달력 날짜 기준으로 계산 (시간은 정오 12시 고정 — 일주에 영향 없음)
+  // → rawHour=0 처럼 -30분 보정으로 날짜가 전날로 넘어가도 일주가 롤백되지 않는다.
+  const dayResult: SajuResult = calculateSaju(
+    solar.year,
+    solar.month,
+    solar.day,
+    12,
+    0,
+    { applyTimeCorrection: false }
+  );
+
+  // 시주: 보정 시각(adj) 기준으로 계산
+  const adjResult: SajuResult = calculateSaju(
     adj.year,
     adj.month,
     adj.day,
@@ -337,14 +386,27 @@ export function computeMyeongsik(input: SajuInput): Myeongsik {
     { applyTimeCorrection: false }
   );
 
-  // 야자시(夜子時) 후처리 — 본업 sxtwl 정책 일치:
-  //   보정 시각 23:00~24:00 = 야자시 → 시진 = 子(자시) + 시주 천간 = 다음날 일주 기준
-  //   (manseryeok 기본은 23:30 자시 시작 + 그날 일주 기준이라 시주 다름)
-  //   일주 변경은 보정 시각 자정 기준이라 그대로 유지.
-  let correctedHourHanja = result.hourPillarHanja;
-  const isYajaSi = !unknownTime && adj.hour === 23;
+  // 시주 계산 — 야자시/일반시 분기:
+  //
+  //   야자시(夜子時, rawHour===23): 본업 sxtwl 정책 일치
+  //     - 시진 = 子(자시) + 시주 천간 = 다음날 일주 기준 OJADON
+  //     - 일주는 달력 날짜 그대로 유지 (유파 A)
+  //
+  //   일반 시각(rawHour !== 23, 야자시 제외):
+  //     - 시지(지지)는 adj 보정 시각 기준 adjResult.hourPillarHanja[1] 그대로
+  //     - 시간(천간)은 반드시 달력 날짜 일주 일간(dayResult.dayPillarHanja[0]) 기준 OJADON 재계산
+  //       → rawHour=0 케이스에서 adj=-30분으로 전날로 넘어가도 천간 오염이 생기지 않음
+  //       → h=1~22 는 adj 가 같은 날 → dayResult 와 adjResult 일간이 동일 → 값 불변
+  //
+  //   ※ adj 전날 넘어감 버그:
+  //     rawHour=0 → adj.hour=23 (자정 -30분 = 전날 23:30) → adjResult 가 전날 일주(庚) 기준
+  //     → adjResult.hourPillarHanja 가 OJADON[庚]=丙 → 丙子 (❌ 틀림)
+  //     일주(辛) 기준 OJADON[辛]=戊 → 戊子 (✓ 정답)
+  let correctedHourHanja: string;
+  const isYajaSi = !unknownTime && rawHour === 23;
   if (isYajaSi) {
-    const next = new Date(adj.year, adj.month - 1, adj.day);
+    // 야자시: 다음날 일간 기준 子시 천간
+    const next = new Date(solar.year, solar.month - 1, solar.day);
     next.setDate(next.getDate() + 1);
     const nextResult = calculateSaju(
       next.getFullYear(),
@@ -356,13 +418,23 @@ export function computeMyeongsik(input: SajuInput): Myeongsik {
     );
     const nextDayStem = nextResult.dayPillarHanja[0];
     correctedHourHanja = OJADON[nextDayStem] + '子';
+  } else if (adj.day !== solar.day) {
+    // adj 가 전날로 넘어간 경우(rawHour=0 → adj=전날 23:30):
+    //   adjResult.hourPillarHanja 의 천간이 전날 일간 기준 OJADON 으로 오염됨
+    //   → 시지(지지)는 adjResult 에서 그대로, 시간(천간)만 달력 날짜 일간 기준 재계산
+    const dayStem = dayResult.dayPillarHanja[0];
+    const hourBranch = adjResult.hourPillarHanja![1];
+    correctedHourHanja = OJADON[dayStem] + hourBranch;
+  } else {
+    // 일반 시각(adj 가 같은 날 — h=1..22): adjResult 시주 그대로 신뢰
+    correctedHourHanja = adjResult.hourPillarHanja!;
   }
 
   const hourHanja = unknownTime ? null : correctedHourHanja;
   const pillars = pillarsFromHanja(
-    result.yearPillarHanja,
-    result.monthPillarHanja,
-    result.dayPillarHanja,
+    dayResult.yearPillarHanja,
+    dayResult.monthPillarHanja,
+    dayResult.dayPillarHanja,
     hourHanja
   );
   const ohaeng = countOhaeng(pillars);
@@ -372,8 +444,8 @@ export function computeMyeongsik(input: SajuInput): Myeongsik {
     ilgan: pillars[2].top,
     ohaeng,
     unknownTime,
-    isTimeCorrected: result.isTimeCorrected,
-    correctedTime: result.correctedTime,
+    isTimeCorrected: adjResult.isTimeCorrected,
+    correctedTime: adjResult.correctedTime,
     shinkang: { type: 'jonghap', gauge: 50, label: '중화', body: '', yongshin: { ohaeng: 'wood', kr: '목', pulie: '나무' }, yongshinReason: '' },
   };
   myeongsikDraft.shinkang = calcShinKang(myeongsikDraft);

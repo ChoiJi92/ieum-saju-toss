@@ -1,6 +1,7 @@
 import { V2Screen, V2TopBar, V2Label, V2Glass, DomainHeader, SectionCard, DomainEmpty, Chip, BulletList } from './_kit';
 import { useSaju } from '../../lib/saju-state';
 import { yearForecast, type MonthNote, type FieldDetail } from '../../lib/year';
+import { getDaewoon, getSeun, DAEWOON_TEXT, SEUN_TEXT } from '../../lib/daewoon';
 import type { Route, Tab } from './nav';
 import type { Spirit } from '../../lib/spirit';
 
@@ -46,7 +47,7 @@ function FieldCard({ meta, detail }: { meta: typeof FIELD_META[number]; detail: 
 }
 
 export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
-  const { myeongsik } = useSaju();
+  const { myeongsik, profile } = useSaju();
   const today = new Date();
   const year = today.getFullYear();
   const f = myeongsik ? yearForecast(myeongsik, year, today) : null;
@@ -117,6 +118,100 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
         <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)', marginBottom: 12 }}>{f.luck.body}</div>
         <BulletList items={f.luck.advice} />
       </V2Glass>
+
+      {profile && myeongsik && (() => {
+        const daewoonList = getDaewoon(myeongsik, { year: profile.year, gender: profile.gender });
+        // 매칭 없으면(첫 대운 시작 전 나이 등) 엉뚱한 대운 대신 안내 문구로 폴백
+        const currentDaewoon = daewoonList.find((d) => d.isCurrent) ?? null;
+        const seunList = getSeun(myeongsik, { year: profile.year });
+        // 올해-1 ~ 올해+3 (5개)
+        const seunSlice = seunList.filter((s) => s.year >= year - 1 && s.year <= year + 3);
+        return (
+          <>
+            <V2Label>인생의 큰 흐름 · 대운</V2Label>
+            {/* 가로 스크롤 칩 타임라인 */}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }} className="ie-scroll">
+              {daewoonList.map((d) => (
+                <div
+                  key={d.age}
+                  style={{
+                    flexShrink: 0,
+                    padding: '8px 13px',
+                    borderRadius: 'var(--v2-r-md)',
+                    background: d.isCurrent ? 'var(--v2-lavender)1f' : 'var(--v2-glass-line2)',
+                    border: d.isCurrent ? '1.5px solid var(--v2-lavender)' : '1px solid var(--v2-glass-line)',
+                    textAlign: 'center',
+                    minWidth: 62,
+                  }}
+                >
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: d.isCurrent ? 'var(--v2-lavender)' : 'var(--v2-ink-mute)', marginBottom: 3 }}>{d.age}살~</div>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: d.isCurrent ? 'var(--v2-lavender)' : 'var(--v2-ink)' }}>{d.label}</div>
+                  {d.sipsung && (
+                    <div style={{ fontSize: 10, color: 'var(--v2-ink-mute)', marginTop: 2 }}>{d.sipsung}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* 현재 대운 해석 카드 — 매칭 없으면(첫 대운 전) 안내 문구 */}
+            {currentDaewoon ? (
+              <V2Glass style={{ borderLeft: '2px solid var(--v2-lavender)66' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--v2-ink)' }}>{currentDaewoon.label} 대운</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--v2-ink-mute)' }}>({currentDaewoon.age}세 ~ {currentDaewoon.age + 9}세)</span>
+                  {currentDaewoon.sipsung && (
+                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', background: 'var(--v2-lavender)1f', padding: '3px 10px', borderRadius: 999 }}>{currentDaewoon.sipsung}</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'var(--v2-ink-mid)' }}>
+                  {currentDaewoon.sipsung ? DAEWOON_TEXT[currentDaewoon.sipsung] : '이 대운의 흐름이 곧 펼쳐질 거예요. 명식 계산이 완료되면 더 자세한 해석을 볼 수 있어요.'}
+                </div>
+                <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--v2-ink-mute)', lineHeight: 1.55 }}>
+                  대운 시작 나이는 절기 기준 간이 계산으로 ±2살 오차가 있을 수 있어요
+                </div>
+              </V2Glass>
+            ) : (
+              <V2Glass style={{ borderLeft: '2px solid var(--v2-lavender)66' }}>
+                <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'var(--v2-ink-mid)' }}>
+                  아직 첫 대운이 시작되기 전이에요. {daewoonList[0]?.age}살부터 {daewoonList[0]?.label} 대운의 흐름이 펼쳐질 거예요 ✦
+                </div>
+                <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--v2-ink-mute)', lineHeight: 1.55 }}>
+                  대운 시작 나이는 절기 기준 간이 계산으로 ±2살 오차가 있을 수 있어요
+                </div>
+              </V2Glass>
+            )}
+
+            <V2Label>해마다의 흐름 · 세운</V2Label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {seunSlice.map((s) => (
+                <div
+                  key={s.year}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 12,
+                    padding: '11px 14px',
+                    borderRadius: 'var(--v2-r-md)',
+                    background: s.isCurrent ? 'var(--v2-lavender)14' : 'var(--v2-glass-bg)',
+                    border: s.isCurrent ? '1.5px solid var(--v2-lavender)' : '1px solid var(--v2-glass-line)',
+                  }}
+                >
+                  <div style={{ flexShrink: 0, minWidth: 50, textAlign: 'center' }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 900, color: s.isCurrent ? 'var(--v2-lavender)' : 'var(--v2-ink)' }}>{s.year}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--v2-ink-mute)' }}>{s.label}</div>
+                    {s.sipsung && (
+                      <div style={{ fontSize: 10, color: s.isCurrent ? 'var(--v2-lavender)' : 'var(--v2-ink-mute)', marginTop: 1 }}>{s.sipsung}</div>
+                    )}
+                  </div>
+                  <div style={{ width: 1, alignSelf: 'stretch', background: s.isCurrent ? 'var(--v2-lavender)44' : 'var(--v2-glass-line)' }} />
+                  <div style={{ flex: 1, fontSize: 13, lineHeight: 1.6, color: s.isCurrent ? 'var(--v2-ink)' : 'var(--v2-ink-mid)', fontWeight: s.isCurrent ? 600 : 400 }}>
+                    {s.sipsung ? SEUN_TEXT[s.sipsung] : '이 해의 세운 해석을 준비 중이에요.'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      })()}
 
       <div style={{ height: 96 }} />
     </V2Screen>

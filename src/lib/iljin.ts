@@ -55,6 +55,45 @@ export type IljinMonth = {
   worstDay: number;
 };
 
+/** 택일 용도 키 */
+export type PurposeKey = 'contract' | 'move' | 'love' | 'money' | 'exam';
+
+/**
+ * 용도별 유리한 십성 목록.
+ * 계약·시작: 정관(책임·공식), 정인(문서·계획), 정재(실속·안정)
+ * 이사·이동: 편재(새기회), 식신(순탄한 흐름), 정인(계획)
+ * 고백·소개팅: 정재(정성), 식신(즐거움), 상관(표현)
+ * 재물·계좌: 정재(꾸준한 재물), 편재(기회), 식신(풍요)
+ * 시험·면접: 정인(배움), 정관(공적 평가), 식신(여유)
+ */
+export const PURPOSES: { key: PurposeKey; label: string; emoji: string; favored: Sipsung[] }[] = [
+  { key: 'contract', label: '계약·시작',   emoji: '✍️', favored: ['정관', '정인', '정재'] },
+  { key: 'move',     label: '이사·이동',   emoji: '🚚', favored: ['편재', '식신', '정인'] },
+  { key: 'love',     label: '고백·소개팅', emoji: '💘', favored: ['정재', '식신', '상관'] },
+  { key: 'money',    label: '재물·계좌',   emoji: '💰', favored: ['정재', '편재', '식신'] },
+  { key: 'exam',     label: '시험·면접',   emoji: '📝', favored: ['정인', '정관', '식신'] },
+];
+
+/**
+ * 용도별 좋은 날 top N.
+ * score + 십성 적합 보너스(+12) 기준 정렬, 동점이면 빠른 날짜 우선.
+ * score < 60인 날은 favored여도 제외 (나쁜 날 추천 방지).
+ */
+export function bestDaysFor(
+  cal: IljinMonth,
+  purpose: PurposeKey,
+  opts?: { minDay?: number; take?: number },
+): IljinDay[] {
+  const { minDay = 1, take = 3 } = opts ?? {};
+  const favored = PURPOSES.find((p) => p.key === purpose)?.favored ?? [];
+  return cal.days
+    .filter((d) => d.day >= minDay && d.score >= 60)
+    .map((d) => ({ d, adj: d.score + (d.sipsung && favored.includes(d.sipsung) ? 12 : 0) }))
+    .sort((a, b) => b.adj - a.adj || a.d.day - b.d.day)
+    .slice(0, take)
+    .map((x) => x.d);
+}
+
 /** 해당 연·월의 일진 캘린더 (myeongsik 기준 개인화 점수) */
 export function iljinMonth(myeongsik: Myeongsik, y: number, mo: number): IljinMonth | null {
   const myIlgan = myeongsik.ilgan.c;

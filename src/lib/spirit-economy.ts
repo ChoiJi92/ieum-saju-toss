@@ -31,6 +31,11 @@ export const BONUS_GAIN = { fortune: 8, attend: 4 } as const;
 /** 보상형 광고 1회 획득량 / 하루 최대 횟수 */
 export const AD_GAIN = 10;
 export const AD_MAX_PER_DAY = 2;
+/** 일일 미션 3종 전부 완료 시 보상 bond — 하루 상한(DAILY_CAP) 미적용, 클레임 게이트는 앱 레벨 일일 키(AppShell) */
+export const MISSION_REWARD = 15;
+/** 도감 마일스톤(누적 정령 수) + 마일스톤 1회 보상 bond — 하루 상한 미적용 */
+export const DEX_MILESTONES = [3, 5, 10, 20, 40, 60] as const;
+export const DEX_REWARD = 20;
 
 export type ActionKind = keyof typeof ACTION_GAIN; // 'feed'|'pet'|'meditate'
 export type BonusKind = keyof typeof BONUS_GAIN;   // 'fortune'|'attend'

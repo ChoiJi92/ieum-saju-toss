@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
 import { showRewardedAdForResult, preloadRewardedAdForResult } from '../lib/ads';
-import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchProgress } from '../lib/spirit-economy';
+import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchProgress, MISSION_REWARD, DEX_MILESTONES, DEX_REWARD } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
@@ -57,6 +57,34 @@ const loadRewardedUnlocked = (): Set<Route> => {
   } catch { return new Set(); }
 };
 
+// 도감 마일스톤 보상 클레임 영속화 — 클레임한 마일스톤 숫자 배열 (날짜 무관, 평생 1회씩)
+const DEX_MILESTONE_STORE_KEY = 'ieum-saju.dex-milestones.v1';
+const loadDexClaimed = (): number[] => {
+  try {
+    const raw = localStorage.getItem(DEX_MILESTONE_STORE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as number[]).filter((n) => typeof n === 'number') : [];
+  } catch { return []; }
+};
+const saveDexClaimed = (nums: number[]) => {
+  try { localStorage.setItem(DEX_MILESTONE_STORE_KEY, JSON.stringify(nums)); } catch { /* ignore */ }
+};
+
+// 일일 미션 보상 클레임 게이트 — 앱 레벨 하루 1회 (정령별 저장 X: 멘토 모드에서 제자 바꿔가며 반복 수령 방지)
+const MISSION_STORE_KEY = 'ieum-saju.mission.v1';
+const loadMissionClaimedToday = (): boolean => {
+  try {
+    const raw = localStorage.getItem(MISSION_STORE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { date: string; claimed: boolean };
+    return parsed.date === todayYmd() && parsed.claimed === true;
+  } catch { return false; }
+};
+const saveMissionClaimedToday = () => {
+  try { localStorage.setItem(MISSION_STORE_KEY, JSON.stringify({ date: todayYmd(), claimed: true })); } catch { /* ignore */ }
+};
+
 export default function AppShell() {
   const { myeongsik, reset } = useSaju();
   const spirit = useMemo(() => spiritFromMyeongsik(myeongsik), [myeongsik]);
@@ -97,7 +125,7 @@ export default function AppShell() {
   const resetApp = () => {
     void deleteRemoteAndUnlink(); // 탈퇴: 원격 백업도 삭제 (best effort)
     reset();
-    try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); localStorage.removeItem('ieum-saju.v2-welcome.v1'); localStorage.removeItem(REWARDED_STORE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); localStorage.removeItem('ieum-saju.v2-welcome.v1'); localStorage.removeItem(REWARDED_STORE_KEY); localStorage.removeItem(DEX_MILESTONE_STORE_KEY); localStorage.removeItem(MISSION_STORE_KEY); } catch { /* ignore */ }
     setAdUnlocked(new Set());
     setStack(['home']);
     setFlow(['onboarding']);
@@ -1126,7 +1154,7 @@ function HomeOrEgg(props: { go: (r: Route) => void; back: () => void; switchTab:
 function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profile, myeongsik, profiles } = useSaju();
   const name = profile?.name ?? '나';
-  const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, evolve, remaining, streak, tickStreak } = useSpiritState();
+  const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, grantBond, evolve, remaining, streak, tickStreak } = useSpiritState();
   const prog = progressOf(spirit.key);
   const stage = prog.stage;
   const pct = percent(spirit.key);
@@ -1193,6 +1221,26 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   const tgtProg = progressOf(targetKey);
   const tgtRem = remaining(targetKey);
   const tgtPct = percent(targetKey);
+  // 일일 미션 3종 — 기존 상태에서 파생 (새 추적 없음). 교감은 교감 버튼과 동일 대상(targetKey),
+  // 운세 확인 보너스는 항상 내 정령(spirit.key)에 적립되므로 그쪽에서 파생 (멘토 모드에서도 완료 가능)
+  const catchSt = todayCatchState();
+  const missions = [
+    { label: '교감 3종 완료', done: tgtProg.actions.feed && tgtProg.actions.pet && tgtProg.actions.meditate },
+    { label: '오늘의 운세 확인', done: progressOf(spirit.key).bonuses.fortune === true },
+    { label: '오늘의 정령 잡기 시도', done: catchSt.attempts > 0 || catchSt.caught },
+  ] as const;
+  const missionDone = missions.filter((m) => m.done).length;
+  const missionAllDone = missionDone === missions.length;
+  // 클레임 게이트는 앱 레벨 일일 키 — 정령별로 두면 멘토 모드에서 제자 바꿔가며 반복 수령 가능
+  const [missionClaimed, setMissionClaimed] = useState(() => loadMissionClaimedToday());
+  const doClaimMission = () => {
+    // localStorage 재확인 + 동기 저장 먼저 → 그다음 지급 (연타 이중지급 방지: localStorage는 동기라 두 번째 클릭이 바로 차단됨)
+    if (!missionAllDone || missionClaimed || loadMissionClaimedToday()) return;
+    saveMissionClaimedToday();
+    setMissionClaimed(true);
+    const r = grantBond(targetKey, MISSION_REWARD);
+    if (r.ok && r.gained > 0) { playFx(r.gained, '🎁'); showNotice(`🎁 오늘의 미션 완료 — 교감 +${r.gained}`); }
+  };
   const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const canBypass = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false' && isLocalhost;
   const scrollTop = () => { (anchorRef.current?.closest('.ie-scroll') as HTMLElement | null)?.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -1567,6 +1615,32 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
             )}
           </V2Glass>}
       </Rise>
+      {/* 오늘의 미션 — 기존 상태에서 파생(교감 3종/운세 확인/포획 시도). 3개 완료 시 상한 미적용 보상 +MISSION_REWARD */}
+      {(stage < 4 || mentee) && (
+        <Rise delay={220} style={{ marginTop: 10 }}>
+          <V2Glass style={{ padding: '13px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--v2-ink)' }}>🎯 오늘의 미션</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, color: missionAllDone ? 'var(--v2-mint)' : 'var(--v2-ink-dim)' }}>{missionDone}/3</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {missions.map((m) => (
+                <div key={m.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 700, color: m.done ? 'var(--v2-mint)' : 'var(--v2-ink-mute)' }}>
+                  <span style={{ fontSize: 13, width: 15, textAlign: 'center' }}>{m.done ? '✓' : '○'}</span>
+                  <span>{m.label}</span>
+                </div>
+              ))}
+            </div>
+            {missionClaimed ? (
+              <div style={{ marginTop: 11, textAlign: 'center', fontSize: 12, fontWeight: 800, color: 'var(--v2-mint)' }}>오늘 미션 완료 ✓</div>
+            ) : missionAllDone ? (
+              <button onClick={doClaimMission} className="v2-press" style={{ marginTop: 11, width: '100%', padding: '11px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(100deg, #FFD27A, #5BD9AC)', color: '#1b1230', fontSize: 13, fontWeight: 900 }}>🎁 보상 받기 +{MISSION_REWARD}</button>
+            ) : (
+              <div style={{ marginTop: 11, textAlign: 'center', fontSize: 11, color: 'var(--v2-ink-dim)' }}>3개 다 완료하면 교감 +{MISSION_REWARD} 보상을 받아요</div>
+            )}
+          </V2Glass>
+        </Rise>
+      )}
       </div>
       {evolving && (
         <div onClick={finishEvolve} style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16,11,28,.86)', cursor: 'pointer' }}>
@@ -1604,8 +1678,10 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
 
 function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profiles, activeId, setActive } = useSaju();
-  const { progressOf, percent } = useSpiritState();
+  const { progressOf, percent, grantBond } = useSpiritState();
   const [filter, setFilter] = useState<ElementKey | 'all'>('all');
+  const [dexClaimed, setDexClaimed] = useState<number[]>(() => loadDexClaimed());
+  const [dexToast, setDexToast] = useState<string | null>(null);
   const [wish, setWish] = useState<ReturnType<typeof makeSpirit> | null>(null); // 미수집 셀 탭 → 획득 CTA
   // 획득 정령 탭 → 상세 시트 (그 정령의 진짜 모습 + 주인 + 전환 버튼)
   const [view, setView] = useState<{ sp: Spirit; ownerId: string; ownerName: string } | null>(null);
@@ -1627,14 +1703,34 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
     return { ek, key: sp.key, sp, got: unlocked.has(sp.key), ready: sp.available };
   })).filter((c) => filter === 'all' || c.ek === filter);
   const ownedCount = unlocked.size;
-  const nextGoal = [3, 5, 10, 20, 40, 60].find((n) => n > ownedCount) ?? 60;
+  const nextGoal = DEX_MILESTONES.find((n) => n > ownedCount) ?? 60;
+  // 달성했지만 아직 클레임 안 한 마일스톤 — 밀려 있으면 합산해서 한 번에 지급
+  const pendingMilestones = DEX_MILESTONES.filter((n) => ownedCount >= n && !dexClaimed.includes(n));
+  const pendingReward = pendingMilestones.length * DEX_REWARD;
+  const claimDexMilestones = () => {
+    // localStorage에서 fresh하게 재계산 — setState는 비동기라 연타 시 stale한 dexClaimed로 이중지급될 수 있음
+    const fresh = loadDexClaimed();
+    const pending = DEX_MILESTONES.filter((n) => ownedCount >= n && !fresh.includes(n));
+    if (pending.length === 0) return;
+    const next = [...fresh, ...pending];
+    saveDexClaimed(next); // 동기 저장 먼저 → 두 번째 클릭은 fresh 재조회에서 바로 차단
+    setDexClaimed(next);
+    const r = grantBond(spirit.key, pending.length * DEX_REWARD); // 본인 정령에 지급
+    if (r.ok && r.gained > 0) {
+      setDexToast(`정령 기운 +${r.gained} ✦`);
+      window.setTimeout(() => setDexToast(null), 2400);
+    }
+  };
   return (
     <V2Screen seed={17} style={{ paddingBottom: 0 }}>
       <V2TopBar onBack={back} title="정령 도감" />
+      {dexToast && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(91,217,172,.16)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🎁 {dexToast}</div>}
       <Rise><V2Glass style={{ display: 'flex', alignItems: 'center', gap: 14 }} glow="0 0 24px rgba(255,210,122,.16)"><ScoreRing score={Math.round((ownedCount / 60) * 100)} color="var(--v2-butter)" /><div style={{ flex: 1 }}>
         <div style={{ fontSize: 15, fontWeight: 800 }}>{ownedCount} / 60 정령을 만났어요</div>
         <div style={{ height: 5, borderRadius: 999, background: 'rgba(255,255,255,.08)', margin: '8px 0 6px', overflow: 'hidden' }}><div style={{ width: `${(ownedCount / 60) * 100}%`, height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--v2-butter), var(--v2-peach))', transition: 'width .5s ease' }} /></div>
-        <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', lineHeight: 1.5 }}>{ownedCount >= 60 ? '도감 완성! 모든 정령을 만났어요 🎉' : `다음 목표 ${nextGoal}마리 — ${nextGoal - ownedCount}마리 남았어요. 못 만난 정령을 눌러보세요 ✦`}</div>
+        {pendingMilestones.length > 0
+          ? <button onClick={claimDexMilestones} className="v2-press" style={{ marginTop: 4, width: '100%', padding: '10px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(100deg, #FFD27A, #5BD9AC)', color: '#1b1230', fontSize: 12.5, fontWeight: 900 }}>🎁 {pendingMilestones[pendingMilestones.length - 1]}마리 달성 보상 받기 +{pendingReward}</button>
+          : <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', lineHeight: 1.5 }}>{ownedCount >= 60 ? '도감 완성! 모든 정령을 만났어요 🎉' : `다음 목표 ${nextGoal}마리 — ${nextGoal - ownedCount}마리 남았어요. 못 만난 정령을 눌러보세요 ✦`}</div>}
       </div></V2Glass></Rise>
       <Rise delay={80}><div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '18px 0 14px' }} className="ie-scroll"><FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label="전체" color="var(--v2-lavender)" />{ELEM_ORDER.map((ek) => <FilterChip key={ek} active={filter === ek} onClick={() => setFilter(ek)} label={`${ELEMENTS[ek].cn} ${ELEMENTS[ek].ko}`} color={ELEMENTS[ek].raw} />)}</div></Rise>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got ? setView(owners.get(c.key) ?? { sp: c.sp, ownerId: '', ownerName: '' }) : setWish(c.sp)} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: 'pointer', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', minHeight: 142 }}>

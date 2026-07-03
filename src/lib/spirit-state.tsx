@@ -27,6 +27,8 @@ type SpiritStateCtx = {
   eggCare: (key: string, kind: ActionKind) => CareResult;
   claimBonus: (key: string, kind: BonusKind) => CareResult;
   adBoost: (key: string) => CareResult;
+  /** 하루 상한(DAILY_CAP) 미적용 특별 지급 — gainedToday 미증가 (일일 미션·도감 마일스톤 등). amount만큼 bond 증가 */
+  grantBond: (key: string, amount: number) => CareResult;
   evolve: (key: string) => void;
   remaining: (key: string) => { capLeft: number; adsLeft: number; actions: DayActions; bonuses: DayBonuses };
   /** 연속 출석 — 현재 상태 */
@@ -97,6 +99,12 @@ export function SpiritStateProvider({ children }: { children: ReactNode }) {
     return { p: next, res: { ok: true, gained: AD_GAIN } };
   }), [update]);
 
+  // 하루 상한 미적용 특별 지급 — gainedToday 건드리지 않음 (adBoost/스트릭과 동일 원칙)
+  const grantBond = useCallback((k: string, amount: number): CareResult => update(k, (p) => {
+    if (amount <= 0) return { p, res: { ok: false, gained: 0 } };
+    return { p: { ...p, bond: p.bond + amount }, res: { ok: true, gained: amount } };
+  }), [update]);
+
   const evolve = useCallback((k: string) => { update(k, (p) => ({ p: doEvolve(p), res: { ok: true, gained: 0 } })); }, [update]);
 
   const percent = useCallback((k: string) => percentOf(normalize(store[k], new Date())), [store]);
@@ -127,8 +135,8 @@ export function SpiritStateProvider({ children }: { children: ReactNode }) {
   }, [update]);
 
   const value = useMemo(
-    () => ({ progressOf, percent, thresholdOf, care, eggCare, claimBonus, adBoost, evolve, remaining, streak, tickStreak }),
-    [progressOf, percent, thresholdOf, care, eggCare, claimBonus, adBoost, evolve, remaining, streak, tickStreak],
+    () => ({ progressOf, percent, thresholdOf, care, eggCare, claimBonus, adBoost, grantBond, evolve, remaining, streak, tickStreak }),
+    [progressOf, percent, thresholdOf, care, eggCare, claimBonus, adBoost, grantBond, evolve, remaining, streak, tickStreak],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

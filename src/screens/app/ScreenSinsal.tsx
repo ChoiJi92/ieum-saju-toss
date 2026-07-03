@@ -7,16 +7,17 @@ import {
   sinsalInfluenceScore,
   sinsalTotalScore,
   getCurrentYearBranch,
-  getSinsalTip,
+  getSinsalDailyTips,
 } from '../../lib/sinsal';
 import type { SinsalItem } from '../../lib/sinsal';
+import { pillarSeed } from '../../lib/personalize';
 import type { Route, Tab } from './nav';
 import type { Spirit } from '../../lib/spirit';
 
-/** 인라인 Accordion: 한 카드 안에서 팁 섹션을 펼칠 수 있어요 */
-function TipAccordion({ item }: { item: SinsalItem }) {
+/** 인라인 Accordion: 한 카드 안에서 오늘의 활용·주의 문구를 펼칠 수 있어요 */
+function TipAccordion({ item, seed }: { item: SinsalItem; seed: string }) {
   const [open, setOpen] = useState(false);
-  const tip = getSinsalTip(item.name);
+  const tip = getSinsalDailyTips(item.name, seed);
   return (
     <div style={{ marginTop: 12 }}>
       <button
@@ -35,7 +36,7 @@ function TipAccordion({ item }: { item: SinsalItem }) {
         }}
       >
         <span style={{ fontSize: 12, fontWeight: 800, color: item.color, flex: 1, textAlign: 'left' }}>
-          💡 실생활 활용 팁
+          💡 오늘의 활용 가이드
         </span>
         <span
           style={{
@@ -61,8 +62,8 @@ function TipAccordion({ item }: { item: SinsalItem }) {
         >
           <BulletList
             items={[
-              `살려야 할 점: ${tip.lean}`,
-              `주의할 점: ${tip.watch}`,
+              `좋은 활용: ${tip.lean}`,
+              `이럴 땐 주의: ${tip.watch}`,
             ]}
           />
         </div>
@@ -174,8 +175,9 @@ function NoneCard({ item }: { item: SinsalItem }) {
 export default function ScreenSinsal({ back }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { myeongsik } = useSaju();
   const items = myeongsik ? getSinsal(myeongsik) : null;
-  if (!items) return <DomainEmpty title="신살" back={back} />;
+  if (!items || !myeongsik) return <DomainEmpty title="신살" back={back} />;
 
+  const pSeed = pillarSeed(myeongsik);
   const owned = items.filter((i) => i.has);
   const none = items.filter((i) => !i.has);
   const totalScore = sinsalTotalScore(items);
@@ -269,8 +271,8 @@ export default function ScreenSinsal({ back }: { go: (r: Route) => void; back: (
                   {s.body}
                 </div>
 
-                {/* 실생활 팁 Accordion */}
-                <TipAccordion item={s} />
+                {/* 오늘의 활용 가이드 Accordion */}
+                <TipAccordion item={s} seed={pSeed} />
               </V2Glass>
             );
           })}

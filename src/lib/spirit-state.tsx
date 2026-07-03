@@ -92,9 +92,9 @@ export function SpiritStateProvider({ children }: { children: ReactNode }) {
 
   const adBoost = useCallback((k: string): CareResult => update(k, (p) => {
     if (p.adsToday >= AD_MAX_PER_DAY) return { p, res: { ok: false, gained: 0, reason: 'maxed' } };
-    const { next, gained } = applyGain(p, AD_GAIN);
-    if (gained === 0) return { p, res: { ok: false, gained: 0, reason: 'capped' } };
-    return { p: { ...next, adsToday: next.adsToday + 1 }, res: { ok: true, gained } };
+    // 광고 보상은 하루 상한(DAILY_CAP) 미적용 — 스트릭 마일스톤과 동일 패턴 (AD_MAX_PER_DAY=2 제한은 유지)
+    const next = { ...p, bond: p.bond + AD_GAIN, adsToday: p.adsToday + 1 };
+    return { p: next, res: { ok: true, gained: AD_GAIN } };
   }), [update]);
 
   const evolve = useCallback((k: string) => { update(k, (p) => ({ p: doEvolve(p), res: { ok: true, gained: 0 } })); }, [update]);

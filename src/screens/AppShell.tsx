@@ -40,6 +40,21 @@ import ScreenProfiles from './app/ScreenProfiles';
 import ScreenAddProfile from './app/ScreenAddProfile';
 import ScreenLegal from './app/ScreenLegal';
 
+// 보상형 광고 해제 라우트 영속화 — 같은 날 재방문 시 광고 없이 바로 열림 (날짜 바뀌면 리셋)
+const REWARDED_STORE_KEY = 'ieum-saju.rewarded.v1';
+const todayYmd = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const loadRewardedUnlocked = (): Set<Route> => {
+  try {
+    const raw = localStorage.getItem(REWARDED_STORE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as { date: string; routes: string[] };
+    if (parsed.date !== todayYmd()) return new Set();
+    return new Set(parsed.routes as Route[]);
+  } catch { return new Set(); }
+};
 
 export default function AppShell() {
   const { myeongsik, reset } = useSaju();
@@ -53,12 +68,19 @@ export default function AppShell() {
   });
   // 단일 네비게이션 스택 — 펫 화면(home)이 루트. 탭바 없음, 상단 아이콘으로 이동.
   const [stack, setStack] = useState<Route[]>(['home']);
-  const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() => new Set());
+  const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() => loadRewardedUnlocked());
   const { adBoost } = useSpiritState();
   const [adToast, setAdToast] = useState<string | null>(null);
   // 보상형 광고로 운세를 열면 정령 기운도 함께 적립 (하루 광고 한도/상한 내) — 광고=보상 루프
   const unlock = (r: Route) => {
-    setAdUnlocked((s) => new Set(s).add(r));
+    setAdUnlocked((s) => {
+      const next = new Set(s).add(r);
+      // localStorage에 날짜와 함께 영속화 — 같은 날 재방문 시 광고 불필요
+      try {
+        localStorage.setItem(REWARDED_STORE_KEY, JSON.stringify({ date: todayYmd(), routes: [...next] }));
+      } catch { /* ignore */ }
+      return next;
+    });
     const res = adBoost(spirit.key);
     if (res.ok && res.gained > 0) {
       setAdToast(`정령 기운 +${res.gained} ✦`);
@@ -74,7 +96,7 @@ export default function AppShell() {
   const resetApp = () => {
     void deleteRemoteAndUnlink(); // 탈퇴: 원격 백업도 삭제 (best effort)
     reset();
-    try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); localStorage.removeItem('ieum-saju.v2-welcome.v1'); } catch { /* ignore */ }
+    try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); localStorage.removeItem('ieum-saju.v2-welcome.v1'); localStorage.removeItem(REWARDED_STORE_KEY); } catch { /* ignore */ }
     setAdUnlocked(new Set());
     setStack(['home']);
     setFlow(['onboarding']);
@@ -240,17 +262,27 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
   const [sijin, setSijin] = useState('未');
   const [unknownTime, setUnknownTime] = useState(true);
   const [gender, setGender] = useState<'male' | 'female' | null>(null);
+  const [calErr, setCalErr] = useState<string | null>(null);
 
   const yNum = parseInt(year, 10), mNum = parseInt(month, 10), dNum = parseInt(day, 10);
   const canNext = name.trim().length > 0 && year.length === 4 && month !== '' && day !== '' && gender !== null;
 
   const submit = () => {
     if (!canNext || gender === null) return;
-    setSelf({
+    setCalErr(null);
+    const input = {
       name: name.trim(), year: yNum, month: mNum, day: dNum,
       calendar: cal, leapMonth: cal === 'lunar' ? leap : false,
       hour: unknownTime ? undefined : SIJIN_HOUR_V2[sijin], minute: 0, gender,
-    });
+    };
+    // 음력 날짜는 저장 전 변환 가능 여부 미리 검증
+    if (cal === 'lunar') {
+      try { computeMyeongsik(input); } catch {
+        setCalErr('이 음력 날짜는 변환이 어려워요. 양력 날짜로 입력해 주시겠어요?');
+        return;
+      }
+    }
+    setSelf(input);
     goFlow('reveal');
   };
 
@@ -284,6 +316,7 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
         </div>
       </Rise>
       <div style={{ marginTop: 24 }}><V2Button onClick={submit} style={{ opacity: canNext ? 1 : 0.4, cursor: canNext ? 'pointer' : 'not-allowed' }}>정령 깨우기 ✦</V2Button></div>
+      {calErr && <p style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: 'var(--v2-peach)', textAlign: 'center', lineHeight: 1.5 }}>{calErr}</p>}
     </V2Screen>
   );
 }
@@ -1114,9 +1147,9 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
       showNotice('연결에 실패했어요 — 토스 앱 안에서 다시 시도해주세요');
     }
   };
-  // 진화 ETA — 자연 페이스(~50/일) 기준 예상일. "내일 또 와야지" 동기 한 줄.
+  // 진화 ETA — 교감+보너스+광고 평균 페이스(~60/일) 기준 예상일. "내일 또 와야지" 동기 한 줄.
   const remainBond = Math.max(0, thresholdOf(stage) - prog.bond);
-  const etaDays = Math.max(1, Math.ceil(remainBond / 50));
+  const etaDays = Math.max(1, Math.ceil(remainBond / 60));
   // 영험 엔드게임: 멘토 모드 — 다 키운 정령이 도감의 다음 정령에게 기운을 나눠줌
   const menteeCands = useMemo(() => {
     if (stage < 4) return [] as { key: string; sp: Spirit }[];
@@ -1441,9 +1474,15 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               percent={stage >= 4 ? (mentee ? tgtPct : 100) : pct}
               label={stage >= 4 ? (mentee ? `🧙 멘토 모드 — ${mentee.sp.name}` : '기운') : '다음 진화까지'}
               sub={stage >= 4
-                ? (mentee ? `제자 정령에게 기운을 나눠요 · 오늘 +${tgtProg.gainedToday} 교감했어요` : '최종 진화 완료 — 새 정령을 만나면 기운을 나눠줄 수 있어요 ✦')
-                : `오늘 +${prog.gainedToday} 교감했어요 · 이 속도면 ${etaDays <= 1 ? '내일' : `약 ${etaDays}일 뒤`} ${nextKo}(으)로 진화해요`}
+                ? (mentee ? `제자 정령에게 기운을 나눠요 · 오늘 +${tgtProg.gainedToday + tgtProg.adsToday * AD_GAIN} 교감했어요` : '최종 진화 완료 — 새 정령을 만나면 기운을 나눠줄 수 있어요 ✦')
+                : `오늘 +${prog.gainedToday + prog.adsToday * AD_GAIN} 교감했어요`}
             />
+            {/* 진화 D-day 배너 — 1~3단계만 표시 (4단계 영험은 숨김) */}
+            {stage < 4 && (
+              <div style={{ marginTop: 7, fontSize: 11, fontWeight: 700, color: 'var(--v2-ink-mute)', textAlign: 'right' }}>
+                다음 진화까지 기운 {remainBond} · 약 {etaDays <= 1 ? 'D-1' : `D-${etaDays}`}
+              </div>
+            )}
             {/* 멘티 선택 (영험 + 후보 2명 이상) */}
             {stage >= 4 && menteeCands.length > 1 && (
               <div style={{ display: 'flex', gap: 6, marginTop: 9, overflowX: 'auto' }} className="ie-scroll">
@@ -1501,10 +1540,10 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
                 <button onClick={() => go('gunghap')} className="v2-press" style={{ padding: '11px 8px', borderRadius: 12, border: '1px solid var(--v2-glass-line2)', background: 'var(--v2-glass)', color: 'var(--v2-ink)', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>💑 궁합으로 만나기</button>
               </div>
             )}
-            {(stage < 4 || mentee) && tgtRem.capLeft > 0 && tgtRem.adsLeft > 0 && (
+            {(stage < 4 || mentee) && tgtRem.adsLeft > 0 && (
               <button onClick={doAd} disabled={adLoading} className="v2-press" style={{ marginTop: 11, width: '100%', padding: '10px', borderRadius: 12, border: '1px dashed var(--v2-glass-line2)', background: 'rgba(255,210,122,.08)', color: 'var(--v2-butter)', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>{adLoading ? '광고 여는 중…' : `🎬 광고 보고 +${AD_GAIN} 교감 (오늘 ${tgtRem.adsLeft}회 가능)`}</button>
             )}
-            {(stage < 4 || mentee) && tgtRem.capLeft === 0 && (
+            {(stage < 4 || mentee) && tgtRem.capLeft === 0 && tgtRem.adsLeft === 0 && (
               <div style={{ marginTop: 11, textAlign: 'center', fontSize: 11.5, color: 'var(--v2-ink-dim)' }}>오늘은 충분히 자랐어요 🌙 내일 또 만나요</div>
             )}
           </V2Glass>}

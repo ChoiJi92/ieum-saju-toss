@@ -36,6 +36,9 @@ export type SharePayload = {
 
 const APP_SCHEME = 'intoss://ieum-saju';
 
+/** 공유 링크 미리보기(OG) 이미지 — 궁합·앱 공유 공통 브랜드 카드 (백엔드 정적 호스팅) */
+export const OG_IMAGE_URL = 'https://ieum-saju-api.vercel.app/og-brand.png';
+
 // ── base64url (UTF-8 안전 — 한글 이름) ──
 function encodeB64Url(s: string): string {
   const bytes = new TextEncoder().encode(s);
@@ -114,7 +117,7 @@ export async function shareGunghapResult(p: SharePayload): Promise<ShareResult> 
   try {
     const api = await import('@apps-in-toss/web-framework');
     if (typeof api.getTossShareLink === 'function' && typeof api.share === 'function') {
-      const link = await api.getTossShareLink(deeplink);
+      const link = await api.getTossShareLink(deeplink, OG_IMAGE_URL);
       await api.share({ message: `${msg}\n${link}` });
       return 'shared';
     }

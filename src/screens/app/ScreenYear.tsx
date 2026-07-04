@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { V2Screen, V2TopBar, V2Label, V2Glass, DomainHeader, SectionCard, DomainEmpty, Chip, BulletList } from './_kit';
 import { useSaju } from '../../lib/saju-state';
 import { yearForecast, type MonthNote, type FieldDetail } from '../../lib/year';
@@ -48,6 +49,16 @@ function FieldCard({ meta, detail }: { meta: typeof FIELD_META[number]; detail: 
 
 export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { myeongsik, profile } = useSaju();
+  // 대운 타임라인에서 선택한 시기 (null = 현재 대운)
+  const [selDaewoonAge, setSelDaewoonAge] = useState<number | null>(null);
+  // 세운 타임라인에서 선택한 해 (null = 올해)
+  const [selSeunYear, setSelSeunYear] = useState<number | null>(null);
+  // 첫 렌더에 현재 대운/올해 칩이 화면에 들어오도록 1회 스크롤 (callback ref — 훅은 조건부 블록 안에서 못 쓰므로)
+  const daewoonScrolled = useRef(false);
+  const seunScrolled = useRef(false);
+  const scrollOnceIntoView = (flag: React.MutableRefObject<boolean>) => (el: HTMLButtonElement | null) => {
+    if (el && !flag.current) { flag.current = true; el.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+  };
   const today = new Date();
   const year = today.getFullYear();
   const f = myeongsik ? yearForecast(myeongsik, year, today) : null;
@@ -123,50 +134,60 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
         const daewoonList = getDaewoon(myeongsik, { year: profile.year, gender: profile.gender });
         // 매칭 없으면(첫 대운 시작 전 나이 등) 엉뚱한 대운 대신 안내 문구로 폴백
         const currentDaewoon = daewoonList.find((d) => d.isCurrent) ?? null;
+        // 칩에서 고른 시기 우선, 없으면 현재 대운
+        const shownDaewoon = daewoonList.find((d) => d.age === selDaewoonAge) ?? currentDaewoon;
         const seunList = getSeun(myeongsik, { year: profile.year });
-        // 올해-1 ~ 올해+3 (5개)
-        const seunSlice = seunList.filter((s) => s.year >= year - 1 && s.year <= year + 3);
+        // 칩에서 고른 해 우선, 없으면 올해
+        const shownSeun = seunList.find((s) => s.year === selSeunYear) ?? seunList.find((s) => s.isCurrent) ?? null;
         return (
           <>
             <V2Label>인생의 큰 흐름 · 대운</V2Label>
-            {/* 가로 스크롤 칩 타임라인 */}
+            {/* 가로 스크롤 칩 타임라인 — 탭하면 해당 시기 해석으로 전환 */}
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }} className="ie-scroll">
-              {daewoonList.map((d) => (
-                <div
-                  key={d.age}
-                  style={{
-                    flexShrink: 0,
-                    padding: '8px 13px',
-                    borderRadius: 'var(--v2-r-md)',
-                    background: d.isCurrent ? 'var(--v2-lavender)1f' : 'var(--v2-glass-line2)',
-                    border: d.isCurrent ? '1.5px solid var(--v2-lavender)' : '1px solid var(--v2-glass-line)',
-                    textAlign: 'center',
-                    minWidth: 62,
-                  }}
-                >
-                  <div style={{ fontSize: 10.5, fontWeight: 700, color: d.isCurrent ? 'var(--v2-lavender)' : 'var(--v2-ink-mute)', marginBottom: 3 }}>{d.age}살~</div>
-                  <div style={{ fontSize: 13, fontWeight: 900, color: d.isCurrent ? 'var(--v2-lavender)' : 'var(--v2-ink)' }}>{d.label}</div>
-                  {d.sipsung && (
-                    <div style={{ fontSize: 10, color: 'var(--v2-ink-mute)', marginTop: 2 }}>{d.sipsung}</div>
-                  )}
-                </div>
-              ))}
+              {daewoonList.map((d) => {
+                const isSel = shownDaewoon?.age === d.age;
+                return (
+                  <button
+                    key={d.age}
+                    ref={d.isCurrent ? scrollOnceIntoView(daewoonScrolled) : undefined}
+                    onClick={() => setSelDaewoonAge(d.age)}
+                    style={{
+                      flexShrink: 0, cursor: 'pointer', fontFamily: 'var(--v2-font)',
+                      padding: '8px 13px',
+                      borderRadius: 'var(--v2-r-md)',
+                      background: isSel ? 'var(--v2-lavender)1f' : 'var(--v2-glass-line2)',
+                      border: isSel ? '1.5px solid var(--v2-lavender)' : '1px solid var(--v2-glass-line)',
+                      textAlign: 'center',
+                      minWidth: 62,
+                    }}
+                  >
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: isSel ? 'var(--v2-lavender)' : d.isCurrent ? 'var(--v2-butter)' : 'var(--v2-ink-mute)', marginBottom: 3 }}>{d.isCurrent ? '지금 · ' : ''}{d.age}살~</div>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: isSel ? 'var(--v2-lavender)' : 'var(--v2-ink)' }}>{d.label}</div>
+                    {d.sipsung && (
+                      <div style={{ fontSize: 10, color: 'var(--v2-ink-mute)', marginTop: 2 }}>{d.sipsung}</div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
-            {/* 현재 대운 해석 카드 — 매칭 없으면(첫 대운 전) 안내 문구 */}
-            {currentDaewoon ? (
+            {/* 선택한 대운 해석 카드 — 매칭 없으면(첫 대운 전) 안내 문구 */}
+            {shownDaewoon ? (
               <V2Glass style={{ borderLeft: '2px solid var(--v2-lavender)66' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--v2-ink)' }}>{currentDaewoon.label} 대운</span>
-                  <span style={{ fontSize: 12.5, color: 'var(--v2-ink-mute)' }}>({currentDaewoon.age}세 ~ {currentDaewoon.age + 9}세)</span>
-                  {currentDaewoon.sipsung && (
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', background: 'var(--v2-lavender)1f', padding: '3px 10px', borderRadius: 999 }}>{currentDaewoon.sipsung}</span>
+                  <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--v2-ink)' }}>{shownDaewoon.label} 대운</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--v2-ink-mute)' }}>({shownDaewoon.age}세 ~ {shownDaewoon.age + 9}세)</span>
+                  {shownDaewoon.isCurrent && (
+                    <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--v2-butter)' }}>지금 여기</span>
+                  )}
+                  {shownDaewoon.sipsung && (
+                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', background: 'var(--v2-lavender)1f', padding: '3px 10px', borderRadius: 999 }}>{shownDaewoon.sipsung}</span>
                   )}
                 </div>
                 <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'var(--v2-ink-mid)' }}>
-                  {currentDaewoon.sipsung ? DAEWOON_TEXT[currentDaewoon.sipsung] : '이 대운의 흐름이 곧 펼쳐질 거예요. 명식 계산이 완료되면 더 자세한 해석을 볼 수 있어요.'}
+                  {shownDaewoon.sipsung ? DAEWOON_TEXT[shownDaewoon.sipsung] : '이 대운의 흐름이 곧 펼쳐질 거예요. 명식 계산이 완료되면 더 자세한 해석을 볼 수 있어요.'}
                 </div>
                 <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--v2-ink-mute)', lineHeight: 1.55 }}>
-                  대운 시작 나이는 절기 기준 간이 계산으로 ±2살 오차가 있을 수 있어요
+                  다른 시기를 눌러 그때의 흐름도 볼 수 있어요 · 대운 시작 나이는 절기 기준 간이 계산으로 ±2살 오차가 있을 수 있어요
                 </div>
               </V2Glass>
             ) : (
@@ -181,34 +202,55 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
             )}
 
             <V2Label>해마다의 흐름 · 세운</V2Label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {seunSlice.map((s) => (
-                <div
-                  key={s.year}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 12,
-                    padding: '11px 14px',
-                    borderRadius: 'var(--v2-r-md)',
-                    background: s.isCurrent ? 'var(--v2-lavender)14' : 'var(--v2-glass-bg)',
-                    border: s.isCurrent ? '1.5px solid var(--v2-lavender)' : '1px solid var(--v2-glass-line)',
-                  }}
-                >
-                  <div style={{ flexShrink: 0, minWidth: 50, textAlign: 'center' }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 900, color: s.isCurrent ? 'var(--v2-lavender)' : 'var(--v2-ink)' }}>{s.year}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--v2-ink-mute)' }}>{s.label}</div>
+            {/* 가로 스크롤 연도 칩 — 탭하면 그 해 해석으로 전환 (대운과 동일 패턴) */}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }} className="ie-scroll">
+              {seunList.map((s) => {
+                const isSel = shownSeun?.year === s.year;
+                return (
+                  <button
+                    key={s.year}
+                    ref={s.isCurrent ? scrollOnceIntoView(seunScrolled) : undefined}
+                    onClick={() => setSelSeunYear(s.year)}
+                    style={{
+                      flexShrink: 0, cursor: 'pointer', fontFamily: 'var(--v2-font)',
+                      padding: '8px 13px',
+                      borderRadius: 'var(--v2-r-md)',
+                      background: isSel ? 'var(--v2-lavender)1f' : 'var(--v2-glass-line2)',
+                      border: isSel ? '1.5px solid var(--v2-lavender)' : '1px solid var(--v2-glass-line)',
+                      textAlign: 'center',
+                      minWidth: 62,
+                    }}
+                  >
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: isSel ? 'var(--v2-lavender)' : s.isCurrent ? 'var(--v2-butter)' : 'var(--v2-ink-mute)', marginBottom: 3 }}>{s.isCurrent ? '올해 · ' : ''}{s.year}</div>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: isSel ? 'var(--v2-lavender)' : 'var(--v2-ink)' }}>{s.label}</div>
                     {s.sipsung && (
-                      <div style={{ fontSize: 10, color: s.isCurrent ? 'var(--v2-lavender)' : 'var(--v2-ink-mute)', marginTop: 1 }}>{s.sipsung}</div>
+                      <div style={{ fontSize: 10, color: 'var(--v2-ink-mute)', marginTop: 2 }}>{s.sipsung}</div>
                     )}
-                  </div>
-                  <div style={{ width: 1, alignSelf: 'stretch', background: s.isCurrent ? 'var(--v2-lavender)44' : 'var(--v2-glass-line)' }} />
-                  <div style={{ flex: 1, fontSize: 13, lineHeight: 1.6, color: s.isCurrent ? 'var(--v2-ink)' : 'var(--v2-ink-mid)', fontWeight: s.isCurrent ? 600 : 400 }}>
-                    {s.sipsung ? SEUN_TEXT[s.sipsung] : '이 해의 세운 해석을 준비 중이에요.'}
-                  </div>
-                </div>
-              ))}
+                  </button>
+                );
+              })}
             </div>
+            {/* 선택한 해 해석 카드 */}
+            {shownSeun && (
+              <V2Glass style={{ borderLeft: '2px solid var(--v2-lavender)66' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--v2-ink)' }}>{shownSeun.year}년 · {shownSeun.label}</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--v2-ink-mute)' }}>{shownSeun.age}살</span>
+                  {shownSeun.isCurrent && (
+                    <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--v2-butter)' }}>올해</span>
+                  )}
+                  {shownSeun.sipsung && (
+                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', background: 'var(--v2-lavender)1f', padding: '3px 10px', borderRadius: 999 }}>{shownSeun.sipsung}</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'var(--v2-ink-mid)' }}>
+                  {shownSeun.sipsung ? SEUN_TEXT[shownSeun.sipsung] : '이 해의 세운 해석을 준비 중이에요.'}
+                </div>
+                <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--v2-ink-mute)', lineHeight: 1.55 }}>
+                  다른 해를 눌러 그해의 흐름도 볼 수 있어요
+                </div>
+              </V2Glass>
+            )}
           </>
         );
       })()}

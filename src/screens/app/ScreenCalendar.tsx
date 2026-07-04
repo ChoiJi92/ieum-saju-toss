@@ -77,8 +77,8 @@ export default function ScreenCalendar({ back }: { go: (r: Route) => void; back:
               <span style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>약속·계약 날짜, 사주로 골라보세요</span>
             )}
           </div>
-          {/* 용도 칩 가로 스크롤 */}
-          <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4 }}>
+          {/* 용도 칩 가로 스크롤 — 스크롤바는 숨김(ie-scroll) */}
+          <div className="ie-scroll" style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4 }}>
             {PURPOSES.map((p) => {
               const isOn = selPurpose === p.key;
               return (

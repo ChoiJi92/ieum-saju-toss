@@ -130,13 +130,13 @@ export const SEUN_TEXT: Record<Sipsung, string> = {
   편인: '직관과 영감이 빛나며 새로운 가능성을 여는 해예요.',
 };
 
-/** 세운 11년 (현재 ±5년) */
+/** 세운 16년 (5년 전 ~ 10년 후 — 과거 회고 + 미래 미리보기) */
 export function getSeun(myeongsik: Myeongsik, profile: { year: number }): SeunItem[] {
   const ilgan = myeongsik.ilgan.c;
   const today = new Date();
   const currentYear = today.getFullYear();
   const items: SeunItem[] = [];
-  for (let offset = -3; offset <= 7; offset++) {
+  for (let offset = -5; offset <= 10; offset++) {
     const y = currentYear + offset;
     const r = calculateSaju(y, 3, 15, 12, 0, { applyTimeCorrection: false });
     const ystem = r.yearPillarHanja[0];

@@ -12,6 +12,7 @@ import { shareSpiritCard } from '../lib/spirit-card';
 import { todaySpirit, gunghapScore, catchChance, caughtKeys, todayCatchState, attemptCatch } from '../lib/spirit-catch';
 import { initCloudSync, isLinked, linkWithToss, linkCredsFromToss, pushNow, deleteRemoteAndUnlink } from '../lib/cloud-sync';
 import { signInWithToss, tossInfoToSajuInput, getMockTossUser } from '../lib/toss-auth';
+import { detectEntryShare, hasPendingShare } from '../lib/invite';
 import {
   ELEMENTS, ELEM_ORDER, ZOD_ORDER,
   makeSpirit, spiritFromMyeongsik,
@@ -119,6 +120,13 @@ export default function AppShell() {
 
   // 클라우드 동기화 부팅 — 백업 연결돼 있으면 풀/병합 + 자동 푸시 (미연결이면 no-op)
   useEffect(() => { initCloudSync(); }, []);
+  // 궁합 결과 공유 링크 진입 감지 — 기존 유저는 바로 궁합으로, 신규 유저는 온보딩 후 enterApp에서 라우팅
+  useEffect(() => {
+    void detectEntryShare().then((share) => {
+      if (share && myeongsik && !flow) setStack((s) => (s[s.length - 1] === 'gunghap' ? s : [...s, 'gunghap']));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // 보상형 광고 미리 데워두기 — 첫 게이트 진입 시 콜드스타트 대기 제거 (이미 사주 있는 유저 한정)
   useEffect(() => { if (myeongsik) { const t = window.setTimeout(() => { void preloadRewardedAdForResult(); }, 2000); return () => window.clearTimeout(t); } }, [myeongsik]);
 
@@ -132,7 +140,12 @@ export default function AppShell() {
   };
 
   const goFlow = (s: FlowScreen) => setFlow((f) => (f ? [...f, s] : [s]));
-  const enterApp = () => { try { localStorage.setItem('ieum-saju.v2-welcome.v1', '1'); } catch { /* ignore */ } setFlow(null); setStack(['home']); };
+  const enterApp = () => {
+    try { localStorage.setItem('ieum-saju.v2-welcome.v1', '1'); } catch { /* ignore */ }
+    setFlow(null);
+    // 공유 링크 타고 들어와 온보딩을 막 끝낸 유저 → 바로 궁합으로 (공유 정보는 궁합 화면이 소비)
+    setStack(hasPendingShare() ? ['home', 'gunghap'] : ['home']);
+  };
   const go = (r: Route) => setStack((s) => [...s, r]);
   const goHome = () => setStack(['home']);
   // 구 화면 호환 shim — 탭 개념 제거. home/grow→루트, 그 외→push.

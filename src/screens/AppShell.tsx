@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
 import { showRewardedAdForResult, preloadRewardedAdForResult } from '../lib/ads';
-import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchProgress } from '../lib/spirit-economy';
+import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchProgress, MISSION_REWARD, DEX_MILESTONES, DEX_REWARD } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
+import { buildTodayLuck } from '../lib/luck-guide';
 import { pillarSeed } from '../lib/personalize';
 import { shareSpiritCard } from '../lib/spirit-card';
 import { todaySpirit, gunghapScore, catchChance, caughtKeys, todayCatchState, attemptCatch } from '../lib/spirit-catch';
@@ -40,6 +41,49 @@ import ScreenProfiles from './app/ScreenProfiles';
 import ScreenAddProfile from './app/ScreenAddProfile';
 import ScreenLegal from './app/ScreenLegal';
 
+// 보상형 광고 해제 라우트 영속화 — 같은 날 재방문 시 광고 없이 바로 열림 (날짜 바뀌면 리셋)
+const REWARDED_STORE_KEY = 'ieum-saju.rewarded.v1';
+const todayYmd = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const loadRewardedUnlocked = (): Set<Route> => {
+  try {
+    const raw = localStorage.getItem(REWARDED_STORE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as { date: string; routes: string[] };
+    if (parsed.date !== todayYmd()) return new Set();
+    return new Set(parsed.routes as Route[]);
+  } catch { return new Set(); }
+};
+
+// 도감 마일스톤 보상 클레임 영속화 — 클레임한 마일스톤 숫자 배열 (날짜 무관, 평생 1회씩)
+const DEX_MILESTONE_STORE_KEY = 'ieum-saju.dex-milestones.v1';
+const loadDexClaimed = (): number[] => {
+  try {
+    const raw = localStorage.getItem(DEX_MILESTONE_STORE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as number[]).filter((n) => typeof n === 'number') : [];
+  } catch { return []; }
+};
+const saveDexClaimed = (nums: number[]) => {
+  try { localStorage.setItem(DEX_MILESTONE_STORE_KEY, JSON.stringify(nums)); } catch { /* ignore */ }
+};
+
+// 일일 미션 보상 클레임 게이트 — 앱 레벨 하루 1회 (정령별 저장 X: 멘토 모드에서 제자 바꿔가며 반복 수령 방지)
+const MISSION_STORE_KEY = 'ieum-saju.mission.v1';
+const loadMissionClaimedToday = (): boolean => {
+  try {
+    const raw = localStorage.getItem(MISSION_STORE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { date: string; claimed: boolean };
+    return parsed.date === todayYmd() && parsed.claimed === true;
+  } catch { return false; }
+};
+const saveMissionClaimedToday = () => {
+  try { localStorage.setItem(MISSION_STORE_KEY, JSON.stringify({ date: todayYmd(), claimed: true })); } catch { /* ignore */ }
+};
 
 export default function AppShell() {
   const { myeongsik, reset } = useSaju();
@@ -53,12 +97,19 @@ export default function AppShell() {
   });
   // 단일 네비게이션 스택 — 펫 화면(home)이 루트. 탭바 없음, 상단 아이콘으로 이동.
   const [stack, setStack] = useState<Route[]>(['home']);
-  const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() => new Set());
+  const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() => loadRewardedUnlocked());
   const { adBoost } = useSpiritState();
   const [adToast, setAdToast] = useState<string | null>(null);
   // 보상형 광고로 운세를 열면 정령 기운도 함께 적립 (하루 광고 한도/상한 내) — 광고=보상 루프
   const unlock = (r: Route) => {
-    setAdUnlocked((s) => new Set(s).add(r));
+    setAdUnlocked((s) => {
+      const next = new Set(s).add(r);
+      // localStorage에 날짜와 함께 영속화 — 같은 날 재방문 시 광고 불필요
+      try {
+        localStorage.setItem(REWARDED_STORE_KEY, JSON.stringify({ date: todayYmd(), routes: [...next] }));
+      } catch { /* ignore */ }
+      return next;
+    });
     const res = adBoost(spirit.key);
     if (res.ok && res.gained > 0) {
       setAdToast(`정령 기운 +${res.gained} ✦`);
@@ -74,7 +125,7 @@ export default function AppShell() {
   const resetApp = () => {
     void deleteRemoteAndUnlink(); // 탈퇴: 원격 백업도 삭제 (best effort)
     reset();
-    try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); localStorage.removeItem('ieum-saju.v2-welcome.v1'); } catch { /* ignore */ }
+    try { localStorage.removeItem('ieum-saju.spirit.v2'); localStorage.removeItem('ieum-saju.streak.v1'); localStorage.removeItem('ieum-saju.v2-welcome.v1'); localStorage.removeItem(REWARDED_STORE_KEY); localStorage.removeItem(DEX_MILESTONE_STORE_KEY); localStorage.removeItem(MISSION_STORE_KEY); } catch { /* ignore */ }
     setAdUnlocked(new Set());
     setStack(['home']);
     setFlow(['onboarding']);
@@ -240,17 +291,27 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
   const [sijin, setSijin] = useState('未');
   const [unknownTime, setUnknownTime] = useState(true);
   const [gender, setGender] = useState<'male' | 'female' | null>(null);
+  const [calErr, setCalErr] = useState<string | null>(null);
 
   const yNum = parseInt(year, 10), mNum = parseInt(month, 10), dNum = parseInt(day, 10);
   const canNext = name.trim().length > 0 && year.length === 4 && month !== '' && day !== '' && gender !== null;
 
   const submit = () => {
     if (!canNext || gender === null) return;
-    setSelf({
+    setCalErr(null);
+    const input = {
       name: name.trim(), year: yNum, month: mNum, day: dNum,
       calendar: cal, leapMonth: cal === 'lunar' ? leap : false,
       hour: unknownTime ? undefined : SIJIN_HOUR_V2[sijin], minute: 0, gender,
-    });
+    };
+    // 음력 날짜는 저장 전 변환 가능 여부 미리 검증
+    if (cal === 'lunar') {
+      try { computeMyeongsik(input); } catch {
+        setCalErr('이 음력 날짜는 변환이 어려워요. 양력 날짜로 입력해 주시겠어요?');
+        return;
+      }
+    }
+    setSelf(input);
     goFlow('reveal');
   };
 
@@ -284,6 +345,7 @@ function ScreenInput({ goFlow, back }: { goFlow: (s: FlowScreen) => void; back: 
         </div>
       </Rise>
       <div style={{ marginTop: 24 }}><V2Button onClick={submit} style={{ opacity: canNext ? 1 : 0.4, cursor: canNext ? 'pointer' : 'not-allowed' }}>정령 깨우기 ✦</V2Button></div>
+      {calErr && <p style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: 'var(--v2-peach)', textAlign: 'center', lineHeight: 1.5 }}>{calErr}</p>}
     </V2Screen>
   );
 }
@@ -906,6 +968,13 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myeongsik, fortune?.mood]);
+  // 오늘의 행운 — 일진 천간 오행 기반 색·방향·숫자
+  const todayLuck = useMemo(() => {
+    if (!myeongsik) return null;
+    const d = new Date();
+    return buildTodayLuck(todayDayStem(d), pillarSeed(myeongsik), d);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myeongsik, fortune?.mood]);
   const now = new Date();
   const dateLabel = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
   const ring = fortune?.sections.overall.score ?? 0;
@@ -986,6 +1055,17 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
         </V2Glass>
       </Rise>
       <Rise delay={200}><div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}><ScoreRing score={ring} color="var(--v2-lavender)" /><div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{dims.map(([l, v, c, ic]) => <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 14, background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)' }}><span style={{ color: c, fontSize: 14, fontWeight: 800, width: 16 }}>{ic}</span><span style={{ fontSize: 11, color: 'var(--v2-ink-dim)', flex: 1 }}>{l}</span><span style={{ fontSize: 14, fontWeight: 800 }}>{v}</span></div>)}</div></div></Rise>
+      {/* 오늘의 행운 색·방향·숫자 */}
+      {todayLuck && (
+        <Rise delay={240}>
+          <V2Label>오늘의 행운 · {todayLuck.elementKr} 기운의 날</V2Label>
+          <V2Glass style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center', gap: 0 }}>
+            <div><div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginBottom: 5 }}>🎨 행운 색</div><div style={{ fontSize: 14.5, fontWeight: 800 }}>{todayLuck.color}</div></div>
+            <div style={{ borderLeft: '1px solid var(--v2-glass-line2)', borderRight: '1px solid var(--v2-glass-line2)' }}><div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginBottom: 5 }}>🧭 행운 방향</div><div style={{ fontSize: 14.5, fontWeight: 800 }}>{todayLuck.direction}</div></div>
+            <div><div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginBottom: 5 }}>🔢 행운 숫자</div><div style={{ fontSize: 14.5, fontWeight: 800 }}>{todayLuck.number}</div></div>
+          </V2Glass>
+        </Rise>
+      )}
       <Rise delay={280}><V2Label>오늘의 풀이</V2Label><div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{bodies.map(([l, body]) => <V2Glass key={l}><div style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', marginBottom: 6 }}>{l}</div><div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--v2-ink-mid)' }}>{body}</div></V2Glass>)}</div></Rise>
       {/* 정령의 풀이 — 단계별로 깊어지는 해석 (키울 이유) */}
       {guide && (
@@ -1074,7 +1154,7 @@ function HomeOrEgg(props: { go: (r: Route) => void; back: () => void; switchTab:
 function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profile, myeongsik, profiles } = useSaju();
   const name = profile?.name ?? '나';
-  const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, evolve, remaining, streak, tickStreak } = useSpiritState();
+  const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, grantBond, evolve, remaining, streak, tickStreak } = useSpiritState();
   const prog = progressOf(spirit.key);
   const stage = prog.stage;
   const pct = percent(spirit.key);
@@ -1114,9 +1194,9 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
       showNotice('연결에 실패했어요 — 토스 앱 안에서 다시 시도해주세요');
     }
   };
-  // 진화 ETA — 자연 페이스(~50/일) 기준 예상일. "내일 또 와야지" 동기 한 줄.
+  // 진화 ETA — 교감+보너스+광고 평균 페이스(~60/일) 기준 예상일. "내일 또 와야지" 동기 한 줄.
   const remainBond = Math.max(0, thresholdOf(stage) - prog.bond);
-  const etaDays = Math.max(1, Math.ceil(remainBond / 50));
+  const etaDays = Math.max(1, Math.ceil(remainBond / 60));
   // 영험 엔드게임: 멘토 모드 — 다 키운 정령이 도감의 다음 정령에게 기운을 나눠줌
   const menteeCands = useMemo(() => {
     if (stage < 4) return [] as { key: string; sp: Spirit }[];
@@ -1141,6 +1221,26 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   const tgtProg = progressOf(targetKey);
   const tgtRem = remaining(targetKey);
   const tgtPct = percent(targetKey);
+  // 일일 미션 3종 — 기존 상태에서 파생 (새 추적 없음). 교감은 교감 버튼과 동일 대상(targetKey),
+  // 운세 확인 보너스는 항상 내 정령(spirit.key)에 적립되므로 그쪽에서 파생 (멘토 모드에서도 완료 가능)
+  const catchSt = todayCatchState();
+  const missions = [
+    { label: '교감 3종 완료', done: tgtProg.actions.feed && tgtProg.actions.pet && tgtProg.actions.meditate },
+    { label: '오늘의 운세 확인', done: progressOf(spirit.key).bonuses.fortune === true },
+    { label: '오늘의 정령 잡기 시도', done: catchSt.attempts > 0 || catchSt.caught },
+  ] as const;
+  const missionDone = missions.filter((m) => m.done).length;
+  const missionAllDone = missionDone === missions.length;
+  // 클레임 게이트는 앱 레벨 일일 키 — 정령별로 두면 멘토 모드에서 제자 바꿔가며 반복 수령 가능
+  const [missionClaimed, setMissionClaimed] = useState(() => loadMissionClaimedToday());
+  const doClaimMission = () => {
+    // localStorage 재확인 + 동기 저장 먼저 → 그다음 지급 (연타 이중지급 방지: localStorage는 동기라 두 번째 클릭이 바로 차단됨)
+    if (!missionAllDone || missionClaimed || loadMissionClaimedToday()) return;
+    saveMissionClaimedToday();
+    setMissionClaimed(true);
+    const r = grantBond(targetKey, MISSION_REWARD);
+    if (r.ok && r.gained > 0) { playFx(r.gained, '🎁'); showNotice(`🎁 오늘의 미션 완료 — 교감 +${r.gained}`); }
+  };
   const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
   const canBypass = import.meta.env.DEV && import.meta.env.VITE_AD_DEV_BYPASS !== 'false' && isLocalhost;
   const scrollTop = () => { (anchorRef.current?.closest('.ie-scroll') as HTMLElement | null)?.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -1441,9 +1541,15 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               percent={stage >= 4 ? (mentee ? tgtPct : 100) : pct}
               label={stage >= 4 ? (mentee ? `🧙 멘토 모드 — ${mentee.sp.name}` : '기운') : '다음 진화까지'}
               sub={stage >= 4
-                ? (mentee ? `제자 정령에게 기운을 나눠요 · 오늘 +${tgtProg.gainedToday} 교감했어요` : '최종 진화 완료 — 새 정령을 만나면 기운을 나눠줄 수 있어요 ✦')
-                : `오늘 +${prog.gainedToday} 교감했어요 · 이 속도면 ${etaDays <= 1 ? '내일' : `약 ${etaDays}일 뒤`} ${nextKo}(으)로 진화해요`}
+                ? (mentee ? `제자 정령에게 기운을 나눠요 · 오늘 +${tgtProg.gainedToday + tgtProg.adsToday * AD_GAIN} 교감했어요` : '최종 진화 완료 — 새 정령을 만나면 기운을 나눠줄 수 있어요 ✦')
+                : `오늘 +${prog.gainedToday + prog.adsToday * AD_GAIN} 교감했어요`}
             />
+            {/* 진화 D-day 배너 — 1~3단계만 표시 (4단계 영험은 숨김) */}
+            {stage < 4 && (
+              <div style={{ marginTop: 7, fontSize: 11, fontWeight: 700, color: 'var(--v2-ink-mute)', textAlign: 'right' }}>
+                다음 진화까지 기운 {remainBond} · 약 {etaDays <= 1 ? 'D-1' : `D-${etaDays}`}
+              </div>
+            )}
             {/* 멘티 선택 (영험 + 후보 2명 이상) */}
             {stage >= 4 && menteeCands.length > 1 && (
               <div style={{ display: 'flex', gap: 6, marginTop: 9, overflowX: 'auto' }} className="ie-scroll">
@@ -1501,14 +1607,40 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
                 <button onClick={() => go('gunghap')} className="v2-press" style={{ padding: '11px 8px', borderRadius: 12, border: '1px solid var(--v2-glass-line2)', background: 'var(--v2-glass)', color: 'var(--v2-ink)', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>💑 궁합으로 만나기</button>
               </div>
             )}
-            {(stage < 4 || mentee) && tgtRem.capLeft > 0 && tgtRem.adsLeft > 0 && (
+            {(stage < 4 || mentee) && tgtRem.adsLeft > 0 && (
               <button onClick={doAd} disabled={adLoading} className="v2-press" style={{ marginTop: 11, width: '100%', padding: '10px', borderRadius: 12, border: '1px dashed var(--v2-glass-line2)', background: 'rgba(255,210,122,.08)', color: 'var(--v2-butter)', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--v2-font)' }}>{adLoading ? '광고 여는 중…' : `🎬 광고 보고 +${AD_GAIN} 교감 (오늘 ${tgtRem.adsLeft}회 가능)`}</button>
             )}
-            {(stage < 4 || mentee) && tgtRem.capLeft === 0 && (
+            {(stage < 4 || mentee) && tgtRem.capLeft === 0 && tgtRem.adsLeft === 0 && (
               <div style={{ marginTop: 11, textAlign: 'center', fontSize: 11.5, color: 'var(--v2-ink-dim)' }}>오늘은 충분히 자랐어요 🌙 내일 또 만나요</div>
             )}
           </V2Glass>}
       </Rise>
+      {/* 오늘의 미션 — 기존 상태에서 파생(교감 3종/운세 확인/포획 시도). 3개 완료 시 상한 미적용 보상 +MISSION_REWARD */}
+      {(stage < 4 || mentee) && (
+        <Rise delay={220} style={{ marginTop: 10 }}>
+          <V2Glass style={{ padding: '13px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--v2-ink)' }}>🎯 오늘의 미션</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, color: missionAllDone ? 'var(--v2-mint)' : 'var(--v2-ink-dim)' }}>{missionDone}/3</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {missions.map((m) => (
+                <div key={m.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 700, color: m.done ? 'var(--v2-mint)' : 'var(--v2-ink-mute)' }}>
+                  <span style={{ fontSize: 13, width: 15, textAlign: 'center' }}>{m.done ? '✓' : '○'}</span>
+                  <span>{m.label}</span>
+                </div>
+              ))}
+            </div>
+            {missionClaimed ? (
+              <div style={{ marginTop: 11, textAlign: 'center', fontSize: 12, fontWeight: 800, color: 'var(--v2-mint)' }}>오늘 미션 완료 ✓</div>
+            ) : missionAllDone ? (
+              <button onClick={doClaimMission} className="v2-press" style={{ marginTop: 11, width: '100%', padding: '11px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(100deg, #FFD27A, #5BD9AC)', color: '#1b1230', fontSize: 13, fontWeight: 900 }}>🎁 보상 받기 +{MISSION_REWARD}</button>
+            ) : (
+              <div style={{ marginTop: 11, textAlign: 'center', fontSize: 11, color: 'var(--v2-ink-dim)' }}>3개 다 완료하면 교감 +{MISSION_REWARD} 보상을 받아요</div>
+            )}
+          </V2Glass>
+        </Rise>
+      )}
       </div>
       {evolving && (
         <div onClick={finishEvolve} style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16,11,28,.86)', cursor: 'pointer' }}>
@@ -1546,8 +1678,10 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
 
 function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profiles, activeId, setActive } = useSaju();
-  const { progressOf, percent } = useSpiritState();
+  const { progressOf, percent, grantBond } = useSpiritState();
   const [filter, setFilter] = useState<ElementKey | 'all'>('all');
+  const [dexClaimed, setDexClaimed] = useState<number[]>(() => loadDexClaimed());
+  const [dexToast, setDexToast] = useState<string | null>(null);
   const [wish, setWish] = useState<ReturnType<typeof makeSpirit> | null>(null); // 미수집 셀 탭 → 획득 CTA
   // 획득 정령 탭 → 상세 시트 (그 정령의 진짜 모습 + 주인 + 전환 버튼)
   const [view, setView] = useState<{ sp: Spirit; ownerId: string; ownerName: string } | null>(null);
@@ -1569,14 +1703,34 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
     return { ek, key: sp.key, sp, got: unlocked.has(sp.key), ready: sp.available };
   })).filter((c) => filter === 'all' || c.ek === filter);
   const ownedCount = unlocked.size;
-  const nextGoal = [3, 5, 10, 20, 40, 60].find((n) => n > ownedCount) ?? 60;
+  const nextGoal = DEX_MILESTONES.find((n) => n > ownedCount) ?? 60;
+  // 달성했지만 아직 클레임 안 한 마일스톤 — 밀려 있으면 합산해서 한 번에 지급
+  const pendingMilestones = DEX_MILESTONES.filter((n) => ownedCount >= n && !dexClaimed.includes(n));
+  const pendingReward = pendingMilestones.length * DEX_REWARD;
+  const claimDexMilestones = () => {
+    // localStorage에서 fresh하게 재계산 — setState는 비동기라 연타 시 stale한 dexClaimed로 이중지급될 수 있음
+    const fresh = loadDexClaimed();
+    const pending = DEX_MILESTONES.filter((n) => ownedCount >= n && !fresh.includes(n));
+    if (pending.length === 0) return;
+    const next = [...fresh, ...pending];
+    saveDexClaimed(next); // 동기 저장 먼저 → 두 번째 클릭은 fresh 재조회에서 바로 차단
+    setDexClaimed(next);
+    const r = grantBond(spirit.key, pending.length * DEX_REWARD); // 본인 정령에 지급
+    if (r.ok && r.gained > 0) {
+      setDexToast(`정령 기운 +${r.gained} ✦`);
+      window.setTimeout(() => setDexToast(null), 2400);
+    }
+  };
   return (
     <V2Screen seed={17} style={{ paddingBottom: 0 }}>
       <V2TopBar onBack={back} title="정령 도감" />
+      {dexToast && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(91,217,172,.16)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🎁 {dexToast}</div>}
       <Rise><V2Glass style={{ display: 'flex', alignItems: 'center', gap: 14 }} glow="0 0 24px rgba(255,210,122,.16)"><ScoreRing score={Math.round((ownedCount / 60) * 100)} color="var(--v2-butter)" /><div style={{ flex: 1 }}>
         <div style={{ fontSize: 15, fontWeight: 800 }}>{ownedCount} / 60 정령을 만났어요</div>
         <div style={{ height: 5, borderRadius: 999, background: 'rgba(255,255,255,.08)', margin: '8px 0 6px', overflow: 'hidden' }}><div style={{ width: `${(ownedCount / 60) * 100}%`, height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--v2-butter), var(--v2-peach))', transition: 'width .5s ease' }} /></div>
-        <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', lineHeight: 1.5 }}>{ownedCount >= 60 ? '도감 완성! 모든 정령을 만났어요 🎉' : `다음 목표 ${nextGoal}마리 — ${nextGoal - ownedCount}마리 남았어요. 못 만난 정령을 눌러보세요 ✦`}</div>
+        {pendingMilestones.length > 0
+          ? <button onClick={claimDexMilestones} className="v2-press" style={{ marginTop: 4, width: '100%', padding: '10px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(100deg, #FFD27A, #5BD9AC)', color: '#1b1230', fontSize: 12.5, fontWeight: 900 }}>🎁 {pendingMilestones[pendingMilestones.length - 1]}마리 달성 보상 받기 +{pendingReward}</button>
+          : <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', lineHeight: 1.5 }}>{ownedCount >= 60 ? '도감 완성! 모든 정령을 만났어요 🎉' : `다음 목표 ${nextGoal}마리 — ${nextGoal - ownedCount}마리 남았어요. 못 만난 정령을 눌러보세요 ✦`}</div>}
       </div></V2Glass></Rise>
       <Rise delay={80}><div style={{ display: 'flex', gap: 7, overflowX: 'auto', margin: '18px 0 14px' }} className="ie-scroll"><FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label="전체" color="var(--v2-lavender)" />{ELEM_ORDER.map((ek) => <FilterChip key={ek} active={filter === ek} onClick={() => setFilter(ek)} label={`${ELEMENTS[ek].cn} ${ELEMENTS[ek].ko}`} color={ELEMENTS[ek].raw} />)}</div></Rise>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9 }}>{cells.map((c, i) => <Rise key={c.key} delay={Math.min(i * 12, 300)}><div onClick={() => c.got ? setView(owners.get(c.key) ?? { sp: c.sp, ownerId: '', ownerName: '' }) : setWish(c.sp)} style={{ position: 'relative', padding: '14px 6px 11px', borderRadius: 'var(--v2-r-md)', textAlign: 'center', cursor: 'pointer', background: c.got ? `linear-gradient(160deg, ${c.sp.elem.raw}1c, var(--v2-glass))` : 'var(--v2-glass)', border: `1px solid ${c.got ? c.sp.elem.raw + '44' : 'var(--v2-glass-line2)'}`, opacity: c.got ? 1 : (c.ready ? 0.85 : 0.5), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', minHeight: 142 }}>

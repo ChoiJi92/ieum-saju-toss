@@ -30,6 +30,34 @@ export const STEM_OHAENG: Record<string, OhaengKey> = {
 /** 오행 상생 (A가 생하는 대상) */
 const SHENG: Record<OhaengKey, OhaengKey> = { wood: 'fire', fire: 'earth', earth: 'metal', metal: 'water', water: 'wood' };
 
+/** 오행 수리 (하도낙서) — 각 오행의 전통 숫자 쌍 */
+const NUMBERS_BY_OHAENG: Record<OhaengKey, [number, number]> = {
+  water: [1, 6], fire: [2, 7], wood: [3, 8], metal: [4, 9], earth: [5, 10],
+};
+
+export type TodayLuck = { color: string; direction: string; number: number; elementKr: string };
+
+/** 간단 문자열 해시 — 동일 시드+날짜 조합은 항상 같은 값 반환 */
+function miniHash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) { h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+
+/** 오늘의 행운 — 일진 천간 오행 기반 색·방향 + 개인 시드로 숫자 선택 */
+export function buildTodayLuck(dayStem: string, personalSeed: string, date: Date): TodayLuck {
+  const el: OhaengKey = STEM_OHAENG[dayStem] ?? 'wood';
+  const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+  const pair = NUMBERS_BY_OHAENG[el];
+  const idx = miniHash(personalSeed + dateStr) % 2;
+  return {
+    color: COLOR_BY_OHAENG[el],
+    direction: DIR_BY_OHAENG[el],
+    number: pair[idx],
+    elementKr: OHAENG_KR[el],
+  };
+}
+
 export type LuckGuide = {
   elementKr: string;    // 목·화·토·금·수
   elementPulie: string; // 나무·불·흙·쇠·물

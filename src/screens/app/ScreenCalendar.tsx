@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSaju } from '../../lib/saju-state';
-import { iljinMonth, type IljinDay } from '../../lib/iljin';
+import { iljinMonth, bestDaysFor, PURPOSES, type IljinDay, type PurposeKey } from '../../lib/iljin';
 import { V2Screen, V2TopBar, V2Glass, DomainEmpty } from './_kit';
 import type { Route, Tab } from './nav';
 import type { Spirit } from '../../lib/spirit';
@@ -11,6 +11,7 @@ export default function ScreenCalendar({ back }: { go: (r: Route) => void; back:
   const now = new Date();
   const [ym, setYm] = useState<{ y: number; mo: number }>({ y: now.getFullYear(), mo: now.getMonth() + 1 });
   const [sel, setSel] = useState<number | null>(null);
+  const [selPurpose, setSelPurpose] = useState<PurposeKey | null>(null);
 
   const cal = useMemo(
     () => (myeongsik ? iljinMonth(myeongsik, ym.y, ym.mo) : null),
@@ -19,8 +20,16 @@ export default function ScreenCalendar({ back }: { go: (r: Route) => void; back:
   if (!myeongsik || !cal) return <DomainEmpty title="일진 달력" back={back} />;
 
   const isCurMonth = ym.y === now.getFullYear() && ym.mo === now.getMonth() + 1;
+  const isPastMonth = ym.y < now.getFullYear() || (ym.y === now.getFullYear() && ym.mo < now.getMonth() + 1);
   const todayDay = isCurMonth ? now.getDate() : -1;
   const selDay: IljinDay | null = sel ? cal.days[sel - 1] ?? null : null;
+
+  // 택일 추천 — 현재 달이면 내일부터, 미래 달이면 1일부터, 과거 달이면 없음
+  const taekMinDay = isCurMonth ? now.getDate() + 1 : 1;
+  const taekDays: IljinDay[] = (!isPastMonth && selPurpose)
+    ? bestDaysFor(cal, selPurpose, { minDay: taekMinDay, take: 3 })
+    : [];
+  const taekDaySet = new Set(taekDays.map((d) => d.day));
 
   const move = (d: number) => {
     setSel(null);
@@ -58,6 +67,64 @@ export default function ScreenCalendar({ back }: { go: (r: Route) => void; back:
         ))}
       </div>
 
+      {/* 택일 — 용도별 좋은 날 (과거 달이면 숨김) */}
+      {!isPastMonth && (
+        <div style={{ marginBottom: 14 }}>
+          {/* 헤더 라벨 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--v2-lavender)' }}>📌 택일</span>
+            {!selPurpose && (
+              <span style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>약속·계약 날짜, 사주로 골라보세요</span>
+            )}
+          </div>
+          {/* 용도 칩 가로 스크롤 — 스크롤바는 숨김(ie-scroll) */}
+          <div className="ie-scroll" style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4 }}>
+            {PURPOSES.map((p) => {
+              const isOn = selPurpose === p.key;
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => setSelPurpose(isOn ? null : p.key)}
+                  style={{
+                    flexShrink: 0, cursor: 'pointer', fontFamily: 'var(--v2-font)',
+                    fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                    padding: '5px 12px', borderRadius: 20,
+                    background: isOn ? 'rgba(183,156,255,.22)' : 'var(--v2-glass)',
+                    border: isOn ? '1.5px solid var(--v2-lavender)' : '1px solid var(--v2-glass-line2)',
+                    color: isOn ? 'var(--v2-lavender)' : 'var(--v2-ink-mid)',
+                  }}
+                >
+                  {p.emoji} {p.label}
+                </button>
+              );
+            })}
+          </div>
+          {/* 추천 날 칩 */}
+          {selPurpose && (
+            <div style={{ marginTop: 8, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              {taekDays.length === 0 ? (
+                <span style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)' }}>이번 달엔 딱 맞는 날이 없어요. 다음 달을 볼까요?</span>
+              ) : taekDays.map((d) => (
+                <button
+                  key={d.day}
+                  onClick={() => setSel(d.day)}
+                  style={{
+                    cursor: 'pointer', fontFamily: 'var(--v2-font)',
+                    fontSize: 12, fontWeight: 700,
+                    padding: '5px 12px', borderRadius: 20,
+                    background: 'rgba(183,156,255,.13)',
+                    border: '1px solid rgba(183,156,255,.45)',
+                    color: 'var(--v2-lavender)',
+                  }}
+                >
+                  {d.day}일 · {d.sipsung ?? '–'} {d.score}점
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 요일 헤더 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 5, marginBottom: 5 }}>
         {['일', '월', '화', '수', '목', '금', '토'].map((w, i) => (
@@ -72,14 +139,24 @@ export default function ScreenCalendar({ back }: { go: (r: Route) => void; back:
           const c = cellColor(d);
           const isToday = d.day === todayDay;
           const isSel = d.day === sel;
+          const isTaek = taekDaySet.has(d.day);
+          // 우선순위: isSel > isToday > isTaek
+          const borderStyle = isSel
+            ? '1.5px solid var(--v2-lavender)'
+            : isToday
+            ? '1.5px solid var(--v2-butter)'
+            : isTaek
+            ? '1.5px solid rgba(183,156,255,.6)'
+            : `1px solid ${c.bd}`;
+          const bgStyle = isTaek && !isSel ? 'rgba(183,156,255,.10)' : c.bg;
           return (
             <button
               key={d.day}
               onClick={() => setSel(d.day === sel ? null : d.day)}
               style={{
                 aspectRatio: '1', minHeight: 44, borderRadius: 12, cursor: 'pointer', fontFamily: 'var(--v2-font)',
-                background: c.bg,
-                border: isSel ? '1.5px solid var(--v2-lavender)' : isToday ? '1.5px solid var(--v2-butter)' : `1px solid ${c.bd}`,
+                background: bgStyle,
+                border: borderStyle,
                 boxShadow: isSel ? '0 0 12px rgba(183,156,255,.4)' : 'none',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, padding: 0,
               }}

@@ -14,7 +14,8 @@
     "cutout:spirits": "python3 scripts/cutout-spirits.py",
     "deploy": "ait deploy",
     "sync:spirits:raw": "node scripts/sync-spirit-assets.mjs",
-    "verify:jamidusu": "npx tsx scripts/verify-jamidusu.ts"
+    "verify:jamidusu": "npx tsx scripts/verify-jamidusu.ts",
+    "gen:brightness": "npx tsx scripts/gen-jamidusu-brightness.ts"
   },
   "dependencies": {
     "@apps-in-toss/web-framework": "2.5.1",

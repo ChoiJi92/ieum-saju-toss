@@ -1,5 +1,8 @@
 import { solarToLunar } from '@fullstackfamily/manseryeok';
 import { adjustKoreanSolarTime, type SajuInput } from './saju';
+import { placeMinorStars, MUTAGEN_TABLE, BRIGHTNESS_TABLE, MINOR_STARS } from './jamidusu-stars';
+import type { MinorStar, Mutagen, Brightness, MutagenStar } from './jamidusu-stars';
+export type { MinorStar, Mutagen, Brightness, MutagenStar } from './jamidusu-stars'; // 소비자가 jamidusu-stars를 직접 참조하지 않도록 단일 진입점 유지
 
 /**
  * 자미두수 안성법 엔진 (Phase 1~2: 명궁·12궁·오행국·자미·14주성)
@@ -56,6 +59,9 @@ export type JamiPalace = {
   stemIndex: number;       // 궁 천간 (오호둔 배정)
   stars: MainStar[];       // 14주성 중 이 궁에 든 별 (0~2개)
   isBody: boolean;         // 신궁 여부
+  minorStars: MinorStar[];                                   // 보조성 (육길·육살·록존·천마)
+  brightness: Partial<Record<MainStar, Brightness>>;         // 주성별 밝기
+  mutagens: Partial<Record<MainStar | MinorStar, Mutagen>>;  // 이 궁 별에 붙은 생년사화
 };
 
 export type JamiChart = {
@@ -182,15 +188,38 @@ export function erectChart(input: JamiInput): JamiChart {
     ['파군', (F + 10) % 12],
   ];
 
-  // 12궁: 명궁에서 역행
-  const palaces: JamiPalace[] = Array.from({ length: 12 }, (_, branch) => ({
-    branch,
-    name: PALACE_ORDER[(lifeBranch - branch + 12) % 12],
-    stemIndex: palaceStem(yearStemIndex, branch),
-    stars: [] as MainStar[],
-    isBody: branch === bodyBranch,
-  }));
-  for (const [star, branch] of starAt) palaces[branch].stars.push(star);
+  // 보조성·사화 사전 계산
+  const yearBranchIndex = (((lunarYear - 4) % 12) + 12) % 12;
+  const minorPlacement = placeMinorStars({ yearStemIndex, yearBranchIndex, month: effectiveMonth, hourBranch });
+  const [rok, gwon, gwa, gi] = MUTAGEN_TABLE[yearStemIndex];
+  const mutagenOf: Partial<Record<MutagenStar, Mutagen>> = {};
+  mutagenOf[rok] = '록'; mutagenOf[gwon] = '권'; mutagenOf[gwa] = '과'; mutagenOf[gi] = '기';
+
+  // 12궁: 명궁에서 역행 (주성 먼저 배치 후 보조성·밝기·사화 합류)
+  const starsAtBranch: MainStar[][] = Array.from({ length: 12 }, () => []);
+  for (const [star, branch] of starAt) starsAtBranch[branch].push(star);
+
+  const palaces: JamiPalace[] = Array.from({ length: 12 }, (_, branch) => {
+    const starsHere = starsAtBranch[branch];
+    const minorHere = MINOR_STARS.filter((m) => minorPlacement[m] === branch);
+    const brightness: Partial<Record<MainStar, Brightness>> = {};
+    for (const s of starsHere) brightness[s] = BRIGHTNESS_TABLE[s][branch];
+    const mutagens: Partial<Record<MainStar | MinorStar, Mutagen>> = {};
+    for (const s of [...starsHere, ...minorHere]) {
+      const mu = mutagenOf[s as MutagenStar];
+      if (mu) mutagens[s] = mu;
+    }
+    return {
+      branch,
+      name: PALACE_ORDER[(lifeBranch - branch + 12) % 12],
+      stemIndex: palaceStem(yearStemIndex, branch),
+      stars: starsHere,
+      isBody: branch === bodyBranch,
+      minorStars: minorHere,
+      brightness,
+      mutagens,
+    };
+  });
 
   return { input, effectiveMonth, yearStemIndex, lifeBranch, bodyBranch, bureau, ziweiBranch, palaces };
 }

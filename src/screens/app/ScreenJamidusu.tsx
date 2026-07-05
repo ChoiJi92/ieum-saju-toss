@@ -7,11 +7,13 @@ import {
   STAR_HANJA,
   JIJI_HANJA,
   type JamiChart,
-  type PalaceName,
   type MainStar,
 } from '../../lib/jamidusu';
 import { STAR_CONTENT, aliasOf } from '../../lib/jamidusu-content';
+import { MUTAGEN_TABLE, LUCKY_MINOR, UNLUCKY_MINOR } from '../../lib/jamidusu-stars';
+import { BRIGHTNESS_NOTES, MUTAGEN_NOTES, MINOR_STAR_NOTES } from '../../lib/jamidusu-content-palace';
 import { preloadRewardedAdForResult, showRewardedAdForResult } from '../../lib/ads';
+import { JamiChartGrid } from './JamiChartGrid';
 import {
   V2Screen,
   V2TopBar,
@@ -45,203 +47,32 @@ function StarName({ star }: { star: MainStar }) {
 }
 
 // ─────────────────────────────────────────────
-// 부분 컴포넌트: 아코디언 (궁 풀이)
-// ─────────────────────────────────────────────
-
-function PalaceAccordion({
-  chart,
-  palaceName,
-  field,
-  icon,
-}: {
-  chart: JamiChart;
-  palaceName: PalaceName;
-  field: 'spouse' | 'wealth' | 'career';
-  icon: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const { stars, borrowed } = starsWithBorrow(chart, palaceName);
-
-  const fieldLabel: Record<typeof field, string> = {
-    spouse: '부처궁 — 인연',
-    wealth: '재백궁 — 재물',
-    career: '관록궁 — 직업',
-  };
-
-  // 방어: 쌍성이면 첫 별 내용 사용; stars 없으면 안내 문구
-  const content =
-    stars.length === 0
-      ? '별이 고요한 궁이에요.'
-      : STAR_CONTENT[stars[0]][field];
-
-  return (
-    <div
-      style={{
-        borderRadius: 'var(--v2-r-md)',
-        background: 'var(--v2-glass)',
-        border: `1px solid ${open ? 'var(--v2-glass-line)' : 'var(--v2-glass-line2)'}`,
-        overflow: 'hidden',
-        transition: 'border-color .2s',
-      }}
-    >
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="v2-press"
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '14px 16px',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          fontFamily: 'var(--v2-font)',
-          textAlign: 'left',
-        }}
-      >
-        <span style={{ fontSize: 19, flexShrink: 0 }}>{icon}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--v2-ink)' }}>
-            {fieldLabel[field]}
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 2 }}>
-            {stars.length > 0
-              ? stars.join(' · ')
-              : '공궁'}
-          </div>
-        </div>
-        <span
-          style={{
-            color: 'var(--v2-ink-mute)',
-            fontSize: 12,
-            transform: open ? 'rotate(180deg)' : 'none',
-            transition: 'transform .22s cubic-bezier(.4,0,.2,1)',
-            flexShrink: 0,
-          }}
-        >
-          ▾
-        </span>
-      </button>
-      {open && (
-        <div
-          style={{
-            padding: '2px 16px 16px',
-            fontSize: 13.5,
-            lineHeight: 1.65,
-            color: 'var(--v2-ink-mid)',
-            borderTop: '1px solid var(--v2-glass-line2)',
-          }}
-        >
-          {borrowed && (
-            <div
-              style={{
-                fontSize: 12,
-                color: 'var(--v2-lavender)',
-                marginBottom: 8,
-                marginTop: 8,
-                fontWeight: 700,
-              }}
-            >
-              {palaceName}이 비어 맞은편 별을 빌려 봐요
-            </div>
-          )}
-          {content}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// 부분 컴포넌트: 미니 명반 2×2 그리드 카드
-// ─────────────────────────────────────────────
-
-function MiniPalaceCard({
-  chart,
-  palaceName,
-  accentColor,
-}: {
-  chart: JamiChart;
-  palaceName: PalaceName;
-  accentColor: string;
-}) {
-  const palace = palaceOf(chart, palaceName);
-  const { stars, borrowed } = starsWithBorrow(chart, palaceName);
-
-  return (
-    <div
-      style={{
-        padding: '14px 14px 12px',
-        borderRadius: 'var(--v2-r-md)',
-        background: 'var(--v2-glass)',
-        border: `1px solid ${accentColor}33`,
-        boxShadow: `0 0 12px ${accentColor}18`,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        minWidth: 0,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: accentColor, letterSpacing: '0.5px' }}>
-          {palaceName}
-        </span>
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 700,
-            color: 'var(--v2-ink-dim)',
-          }}
-        >
-          {JIJI_HANJA[palace.branch]}
-        </span>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-        {stars.length > 0 ? (
-          stars.map((s) => (
-            <span
-              key={s}
-              style={{
-                fontSize: 11,
-                fontWeight: 800,
-                padding: '3px 7px',
-                borderRadius: 999,
-                background: `${accentColor}22`,
-                color: accentColor,
-                border: `1px solid ${accentColor}44`,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {s}
-            </span>
-          ))
-        ) : (
-          <span style={{ fontSize: 11, color: 'var(--v2-ink-mute)' }}>공궁</span>
-        )}
-        {borrowed && (
-          <span
-            style={{
-              fontSize: 10,
-              color: 'var(--v2-ink-dim)',
-              padding: '3px 6px',
-              borderRadius: 999,
-              background: 'rgba(255,255,255,.06)',
-              border: '1px solid var(--v2-glass-line2)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            차성
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
 // 결과 화면
 // ─────────────────────────────────────────────
+
+// 사화 뱃지 색상 — 알파 변형은 rgba 리터럴 (CSS var에 알파 접미 불가)
+const MUTAGEN_COLOR: Record<string, string> = {
+  록: 'var(--v2-mint)',
+  권: 'var(--v2-peach)',
+  과: 'var(--v2-butter)',
+  기: 'var(--v2-lavender)',
+};
+const MUTAGEN_BG: Record<string, string> = {
+  록: 'rgba(91,217,172,.13)',
+  권: 'rgba(255,158,130,.13)',
+  과: 'rgba(255,210,122,.13)',
+  기: 'rgba(183,156,255,.13)',
+};
+const MUTAGEN_LINE: Record<string, string> = {
+  록: 'rgba(91,217,172,.27)',
+  권: 'rgba(255,158,130,.27)',
+  과: 'rgba(255,210,122,.27)',
+  기: 'rgba(183,156,255,.27)',
+};
+
+// 밝기 표시 등급
+const BRIGHT_GRADES = new Set(['묘', '왕', '득']);
+const DARK_GRADES = new Set(['불', '함']);
 
 function ResultView({
   chart,
@@ -255,6 +86,11 @@ function ResultView({
   const lifePalace = palaceOf(chart, '명궁');
   const { stars: lifeStars, borrowed: lifeBorrowed } = starsWithBorrow(chart, '명궁');
 
+  // 차성 명궁이면 밝기·사화는 대궁(실제 앉은 궁) 기준
+  const srcPalace = lifeBorrowed
+    ? chart.palaces[(lifePalace.branch + 6) % 12]
+    : lifePalace;
+
   // 방어: 명궁 공궁 + 대궁도 공궁(이론상 불가능)
   const hasAnyStar = lifeStars.length > 0;
 
@@ -262,15 +98,83 @@ function ResultView({
   // catchline: 별이 있으면 첫 별 기준
   const catchline = hasAnyStar ? STAR_CONTENT[lifeStars[0]].catchline : '';
 
-  const bureauColor = (() => {
+  // 오행국 뱃지 톤 — 알파 변형은 rgba 리터럴 (CSS var에 알파 접미 불가)
+  const bureauTone = (() => {
     const el = chart.bureau.element;
-    if (el === '목') return 'var(--v2-mint)';
-    if (el === '화') return 'var(--v2-peach)';
-    if (el === '토') return 'var(--v2-butter)';
-    if (el === '금') return 'var(--v2-lavender)';
-    if (el === '수') return '#74bcd6';
-    return 'var(--v2-lavender)';
+    if (el === '목') return { color: 'var(--v2-mint)', bg: 'rgba(91,217,172,.13)', line: 'rgba(91,217,172,.27)' };
+    if (el === '화') return { color: 'var(--v2-peach)', bg: 'rgba(255,158,130,.13)', line: 'rgba(255,158,130,.27)' };
+    if (el === '토') return { color: 'var(--v2-butter)', bg: 'rgba(255,210,122,.13)', line: 'rgba(255,210,122,.27)' };
+    if (el === '수') return { color: '#74bcd6', bg: 'rgba(116,188,214,.13)', line: 'rgba(116,188,214,.27)' };
+    // 금 + 폴백
+    return { color: 'var(--v2-lavender)', bg: 'rgba(183,156,255,.13)', line: 'rgba(183,156,255,.27)' };
   })();
+
+  // 생년사화 4줄: MUTAGEN_TABLE[yearStemIndex] → [록성, 권성, 과성, 기성]
+  const yearMutagenStars = MUTAGEN_TABLE[chart.yearStemIndex];
+  const mutagenLabels: [string, string][] = [
+    [`화록 ${yearMutagenStars[0]}`, '록'],
+    [`화권 ${yearMutagenStars[1]}`, '권'],
+    [`화과 ${yearMutagenStars[2]}`, '과'],
+    [`화기 ${yearMutagenStars[3]}`, '기'],
+  ];
+
+  // JamiChartGrid center 블록
+  const gridCenter = (
+    <div
+      style={{
+        padding: '6px 8px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 3,
+        width: '100%',
+      }}
+    >
+      {alias && (
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 800,
+            color: 'var(--v2-lavender)',
+            lineHeight: 1.3,
+            textAlign: 'center',
+          }}
+        >
+          {alias}
+        </div>
+      )}
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color: bureauTone.color,
+          padding: '1px 5px',
+          borderRadius: 999,
+          background: bureauTone.bg,
+          border: `1px solid ${bureauTone.line}`,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {chart.bureau.label}
+      </div>
+      <div style={{ marginTop: 2, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
+        {mutagenLabels.map(([label, key]) => (
+          <div
+            key={key}
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              color: MUTAGEN_COLOR[key] ?? 'var(--v2-ink-dim)',
+              lineHeight: 1.4,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <V2Screen seed={53}>
@@ -293,7 +197,7 @@ function ResultView({
             {alias ? `${alias}을 품은` : '별이 고요한'} {spirit.name}
           </div>
           <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center', gap: 8 }}>
-            <Chip color={bureauColor}>{chart.bureau.label}</Chip>
+            <Chip color={bureauTone.color}>{chart.bureau.label}</Chip>
             {lifeBorrowed && (
               <Chip color="var(--v2-ink-dim)">차성</Chip>
             )}
@@ -341,33 +245,128 @@ function ResultView({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {lifeStars.map((star, idx) => (
-              <div key={star}>
-                {lifeStars.length > 1 && (
-                  <div style={{ marginBottom: 8 }}>
-                    <span
+            {lifeStars.map((star, idx) => {
+              const br = srcPalace.brightness[star];
+              const mu = srcPalace.mutagens[star];
+              return (
+                <div key={star}>
+                  {/* 별 이름 + 밝기 첨자 + 사화 뱃지 */}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+                    {lifeStars.length > 1 && (
+                      <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--v2-ink-dim)' }}>
+                        {idx + 1}
+                      </span>
+                    )}
+                    <StarName star={star} />
+                    {br && (
+                      <sub style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>{br}</sub>
+                    )}
+                    {mu && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          color: MUTAGEN_COLOR[mu] ?? 'var(--v2-ink)',
+                          padding: '1px 5px',
+                          borderRadius: 999,
+                          background: MUTAGEN_BG[mu] ?? 'transparent',
+                          border: `1px solid ${MUTAGEN_LINE[mu] ?? 'var(--v2-glass-line2)'}`,
+                        }}
+                      >
+                        화{mu}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 명궁 풀이 */}
+                  <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)' }}>
+                    {STAR_CONTENT[star].life}
+                  </div>
+
+                  {/* 밝기 모디파이어 — 묘·왕·득 → bright(mint), 불·함 → dark(peach), 리·평은 생략 */}
+                  {br && BRIGHT_GRADES.has(br) && (
+                    <div
                       style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: 'var(--v2-ink-dim)',
-                        marginRight: 6,
+                        marginTop: 6,
+                        fontSize: 12.5,
+                        lineHeight: 1.6,
+                        color: 'var(--v2-mint)',
                       }}
                     >
-                      {idx + 1}
-                    </span>
-                    <StarName star={star} />
-                  </div>
-                )}
-                {lifeStars.length === 1 && (
-                  <div style={{ marginBottom: 10 }}>
-                    <StarName star={star} />
-                  </div>
-                )}
-                <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)' }}>
-                  {STAR_CONTENT[star].life}
+                      {BRIGHTNESS_NOTES[star].bright}
+                    </div>
+                  )}
+                  {br && DARK_GRADES.has(br) && (
+                    <div
+                      style={{
+                        marginTop: 6,
+                        fontSize: 12.5,
+                        lineHeight: 1.6,
+                        color: 'var(--v2-peach)',
+                      }}
+                    >
+                      {BRIGHTNESS_NOTES[star].dark}
+                    </div>
+                  )}
+
+                  {/* 사화 노트 */}
+                  {mu && MUTAGEN_NOTES[star as keyof typeof MUTAGEN_NOTES]?.[mu] && (
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 12.5,
+                        lineHeight: 1.6,
+                        color: MUTAGEN_COLOR[mu] ?? 'var(--v2-ink-dim)',
+                      }}
+                    >
+                      {MUTAGEN_NOTES[star as keyof typeof MUTAGEN_NOTES]![mu]}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+        )}
+
+        {/* 보조성 칩 */}
+        {lifePalace.minorStars.length > 0 && (
+          <div
+            style={{
+              marginTop: 14,
+              paddingTop: 12,
+              borderTop: '1px solid var(--v2-glass-line2)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 6,
+            }}
+          >
+            {lifePalace.minorStars.map((m) => {
+              // 육길=mint, 육살=peach, 록존·천마(중성/길)=butter — 알파 변형은 rgba 리터럴 (CSS var에 알파 접미 불가)
+              const tone = LUCKY_MINOR.includes(m)
+                ? { color: 'var(--v2-mint)', bg: 'rgba(91,217,172,.13)', line: 'rgba(91,217,172,.27)' }
+                : UNLUCKY_MINOR.includes(m)
+                  ? { color: 'var(--v2-peach)', bg: 'rgba(255,158,130,.13)', line: 'rgba(255,158,130,.27)' }
+                  : { color: 'var(--v2-butter)', bg: 'rgba(255,210,122,.13)', line: 'rgba(255,210,122,.27)' };
+              return (
+                <span
+                  key={m}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: 999,
+                    color: tone.color,
+                    background: tone.bg,
+                    border: `1px solid ${tone.line}`,
+                    whiteSpace: 'nowrap',
+                    cursor: 'default',
+                  }}
+                  title={MINOR_STAR_NOTES[m]}
+                >
+                  {m}
+                </span>
+              );
+            })}
           </div>
         )}
 
@@ -394,30 +393,11 @@ function ResultView({
         </div>
       </V2Glass>
 
-      {/* 3. 미니 명반 2×2 그리드 */}
-      <V2Label>핵심 4궁</V2Label>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 10,
-        }}
-      >
-        <MiniPalaceCard chart={chart} palaceName="명궁" accentColor="var(--v2-lavender)" />
-        <MiniPalaceCard chart={chart} palaceName="부처궁" accentColor="var(--v2-rose)" />
-        <MiniPalaceCard chart={chart} palaceName="재백궁" accentColor="var(--v2-butter)" />
-        <MiniPalaceCard chart={chart} palaceName="관록궁" accentColor="var(--v2-mint)" />
-      </div>
+      {/* 3. 풀 12궁 명반 그리드 */}
+      <V2Label>전체 명반</V2Label>
+      <JamiChartGrid chart={chart} center={gridCenter} />
 
-      {/* 4. 궁별 풀이 아코디언 */}
-      <V2Label>궁별 풀이</V2Label>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <PalaceAccordion chart={chart} palaceName="부처궁" field="spouse" icon="💑" />
-        <PalaceAccordion chart={chart} palaceName="재백궁" field="wealth" icon="💰" />
-        <PalaceAccordion chart={chart} palaceName="관록궁" field="career" icon="🏢" />
-      </div>
-
-      {/* 5. 하단 안내 */}
+      {/* 4. 하단 안내 */}
       <div
         style={{
           marginTop: 32,
@@ -427,7 +407,7 @@ function ResultView({
           lineHeight: 1.5,
         }}
       >
-        전체 12궁 명반은 준비 중이에요
+        대한(10년 운)은 준비 중이에요
       </div>
 
       <div style={{ height: 96 }} />

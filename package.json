@@ -13,7 +13,8 @@
     "sync:spirits": "python3 scripts/cutout-spirits.py",
     "cutout:spirits": "python3 scripts/cutout-spirits.py",
     "deploy": "ait deploy",
-    "sync:spirits:raw": "node scripts/sync-spirit-assets.mjs"
+    "sync:spirits:raw": "node scripts/sync-spirit-assets.mjs",
+    "verify:jamidusu": "npx tsx scripts/verify-jamidusu.ts"
   },
   "dependencies": {
     "@apps-in-toss/web-framework": "2.5.1",
@@ -38,6 +39,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
+    "iztro": "2.5.8",
     "playwright": "^1.60.0",
     "postcss": "^8.5.14",
     "tailwindcss": "^4",

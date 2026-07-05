@@ -1,20 +1,10 @@
 import { useState } from 'react';
-import { V2Screen, V2TopBar, V2Button, BIRTH_YEARS, selectChevron, BottomSheet } from './_kit';
+import { V2Screen, V2TopBar, V2Button, BIRTH_YEARS, selectChevron, BottomSheet, SIJIN_LIST, SIJIN_HOUR } from './_kit';
 import { useSaju, type ProfileRelation } from '../../lib/saju-state';
 import { computeMyeongsik } from '../../lib/saju';
 import type { Tab } from './nav';
 
-// 시진(時辰) 목록 — 자·축·인·묘·진·사·오·미·신·유·술·해
-const SIJIN_LIST: [string, string][] = [
-  ['子', '자시 (23:30~01:30)'], ['丑', '축시 (01:30~03:30)'], ['寅', '인시 (03:30~05:30)'],
-  ['卯', '묘시 (05:30~07:30)'], ['辰', '진시 (07:30~09:30)'], ['巳', '사시 (09:30~11:30)'],
-  ['午', '오시 (11:30~13:30)'], ['未', '미시 (13:30~15:30)'], ['申', '신시 (15:30~17:30)'],
-  ['酉', '유시 (17:30~19:30)'], ['戌', '술시 (19:30~21:30)'], ['亥', '해시 (21:30~23:30)'],
-];
-// 시진 → 대표 시각(hour) 매핑
-const SIJIN_HOUR: Record<string, number> = { 子: 0, 丑: 2, 寅: 4, 卯: 6, 辰: 8, 巳: 10, 午: 12, 未: 14, 申: 16, 酉: 18, 戌: 20, 亥: 22 };
-
-/** 시진 선택 필드 + 바텀시트 */
+/** 시진 선택 필드 + 바텀시트 (모름 포함) */
 function SijinField({ sijin, unknownTime, onPick, field }: {
   sijin: string; unknownTime: boolean;
   onPick: (next: { sijin: string; unknownTime: boolean }) => void;

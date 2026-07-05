@@ -130,7 +130,7 @@ function record(name, ok, detail) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// S2: 생시 없는 유저 — 잠금 화면 + 광고 버튼 없음
+// S2: 생시 없는 유저 — 잠금 화면 → 시진 입력 → 티저 자동 전환
 // ─────────────────────────────────────────────────────────────────────────────
 {
   const browser = await chromium.launch({ channel: 'chrome' });
@@ -156,12 +156,42 @@ function record(name, ok, detail) {
   const lockText = await page.getByText('자미두수는 태어난 시간이 필요해요', { exact: false }).count();
   record('S2-1 잠금 텍스트', lockText > 0);
 
-  const inputLink = await page.getByText('생시 입력하러 가기', { exact: false }).count();
-  record('S2-2 생시 입력 링크', inputLink > 0);
+  const lockSub = await page.getByText('정확하지 않은 계산은 보여드리지 않아요', { exact: false }).count();
+  record('S2-2 잠금 부제목', lockSub > 0);
 
   // 광고 버튼 없어야 함
   const adBtn = await page.getByText('광고 보고 내 별 보기', { exact: false }).count();
   record('S2-3 광고 버튼 없음', adBtn === 0, adBtn > 0 ? '광고 버튼이 보임' : undefined);
+
+  // 새 CTA: 태어난 시간 입력하기
+  const inputBtn = page.getByText('태어난 시간 입력하기', { exact: false }).first();
+  const inputBtnCount = await inputBtn.count();
+  record('S2-4 시간 입력 버튼 존재', inputBtnCount > 0);
+
+  if (inputBtnCount > 0) {
+    // 버튼 탭 → 시진 바텀시트 열림
+    await inputBtn.click();
+    await page.waitForTimeout(500);
+
+    // 시진 목록에서 미시 선택
+    const miRow = page.getByText('미시 (13:30~15:30)', { exact: false }).first();
+    const miCount = await miRow.count();
+    record('S2-5 시진 시트 미시 항목', miCount > 0);
+
+    if (miCount > 0) {
+      await miRow.click();
+      await page.waitForTimeout(1200);
+
+      // updateProfile 후 chart 재계산 → 티저 화면으로 전환
+      const teaserText = await page.getByText('내 명궁에 어떤 별이 떠 있을까?', { exact: false }).count();
+      record('S2-6 시진 입력 후 티저 전환', teaserText > 0);
+    } else {
+      record('S2-6 시진 입력 후 티저 전환', false, '미시 항목 없어 건너뜀');
+    }
+  } else {
+    record('S2-5 시진 시트 미시 항목', false, '입력 버튼 없어 건너뜀');
+    record('S2-6 시진 입력 후 티저 전환', false, '건너뜀');
+  }
 
   record('S2-X pageerror 없음', errors.length === 0, errors[0]?.slice(0, 100));
   await page.screenshot({ path: '/tmp/smoke-s2.png' });

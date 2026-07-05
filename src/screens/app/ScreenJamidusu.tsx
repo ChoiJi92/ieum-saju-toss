@@ -22,6 +22,8 @@ import {
   Rise,
   Chip,
   DomainEmpty,
+  SijinSheet,
+  SIJIN_HOUR,
 } from './_kit';
 import type { Route, Tab } from './nav';
 import type { Spirit } from '../../lib/spirit';
@@ -448,13 +450,15 @@ export default function ScreenJamidusu({
   spirit: Spirit;
   tab: Tab;
 }) {
-  const { profile, selfProfile } = useSaju();
+  const { profile, selfProfile, activeId, updateProfile } = useSaju();
   const base = profile ?? selfProfile;
 
   const [revealed, setRevealed] = useState(false);
   const [adLoading, setAdLoading] = useState(false);
   const [adMsg, setAdMsg] = useState<string | null>(null);
   const failRef = useRef(0);
+  const [sijinSheetOpen, setSijinSheetOpen] = useState(false);
+  const [selectedSijin, setSelectedSijin] = useState('未');
 
   const isLocalhost =
     typeof window !== 'undefined' &&
@@ -513,8 +517,22 @@ export default function ScreenJamidusu({
           >
             정확하지 않은 계산은 보여드리지 않아요.
           </div>
-          <V2Button onClick={() => go('profiles')}>생시 입력하러 가기</V2Button>
+          {activeId ? (
+            <V2Button onClick={() => setSijinSheetOpen(true)}>태어난 시간 입력하기</V2Button>
+          ) : (
+            <V2Button onClick={() => go('profiles')}>생시 입력하러 가기</V2Button>
+          )}
         </div>
+        {sijinSheetOpen && (
+          <SijinSheet
+            selected={selectedSijin}
+            onClose={() => setSijinSheetOpen(false)}
+            onPick={(k) => {
+              setSelectedSijin(k);
+              if (activeId) updateProfile(activeId, { hour: SIJIN_HOUR[k] });
+            }}
+          />
+        )}
       </V2Screen>
     );
   }

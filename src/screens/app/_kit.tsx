@@ -596,6 +596,48 @@ export function DomainEmpty({ title, back }: { title: string; back: () => void }
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 시진 데이터 (자·축·인·묘·진·사·오·미·신·유·술·해) — ScreenAddProfile / ScreenJamidusu 공유
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 시진(時辰) 목록 — 자·축·인·묘·진·사·오·미·신·유·술·해 */
+export const SIJIN_LIST: [string, string][] = [
+  ['子', '자시 (23:30~01:30)'], ['丑', '축시 (01:30~03:30)'], ['寅', '인시 (03:30~05:30)'],
+  ['卯', '묘시 (05:30~07:30)'], ['辰', '진시 (07:30~09:30)'], ['巳', '사시 (09:30~11:30)'],
+  ['午', '오시 (11:30~13:30)'], ['未', '미시 (13:30~15:30)'], ['申', '신시 (15:30~17:30)'],
+  ['酉', '유시 (17:30~19:30)'], ['戌', '술시 (19:30~21:30)'], ['亥', '해시 (21:30~23:30)'],
+];
+
+/** 시진 → 대표 시각(hour) 매핑 */
+export const SIJIN_HOUR: Record<string, number> = { 子: 0, 丑: 2, 寅: 4, 卯: 6, 辰: 8, 巳: 10, 午: 12, 未: 14, 申: 16, 酉: 18, 戌: 20, 亥: 22 };
+
+/**
+ * 시진 바텀시트 (모름 없음) — ScreenJamidusu 잠금 화면용.
+ * 현재 선택값(selected)과 onPick 콜백을 받는다.
+ */
+export function SijinSheet({ selected, onClose, onPick }: {
+  selected: string;
+  onClose: () => void;
+  onPick: (k: string) => void;
+}) {
+  return (
+    <BottomSheet onClose={onClose} maxHeight="76dvh">
+      {SIJIN_LIST.map(([k, lbl]) => {
+        const sel = selected === k;
+        return (
+          <div
+            key={k}
+            onClick={() => { onPick(k); onClose(); }}
+            style={{ padding: '13px 22px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', background: sel ? 'rgba(183,156,255,.12)' : 'transparent', color: sel ? 'var(--v2-ink)' : 'var(--v2-ink-mid)', fontSize: 15, fontWeight: 700 }}
+          >
+            <span style={{ width: 16, color: 'var(--v2-lavender)' }}>{sel ? '✓' : ''}</span>{lbl}
+          </div>
+        );
+      })}
+    </BottomSheet>
+  );
+}
+
 export function BulletList({ items }: { items: string[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>

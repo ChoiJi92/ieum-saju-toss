@@ -1,8 +1,9 @@
 // 자미두수 스모크 4분기: 생시있는유저/생시없는유저/홈별칭호/공궁케이스
 // 실행: node scripts/test-jamidusu-smoke.mjs  (dev 서버 :3001 필요)
+// Phase 3 갱신: 풀 12궁 그리드 + 바텀시트 + 진태양시 안내 + 푸터 텍스트
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:3001';
+const BASE = 'http://localhost:3004';
 
 // ── 공통 헬퍼 ──
 
@@ -28,16 +29,17 @@ async function seedUser(page, profile) {
 
 /**
  * 현재 페이지(홈)에서 운세 더보기 → 자미두수 메뉴 클릭 → 자미두수 화면으로 이동.
- * 이동 후 최대 2000ms 대기.
+ * 고정 sleep 대신 텍스트 visible 기반으로 대기해 플레이키 방지.
  */
 async function navigateToJamidusu(page) {
   // 운세 더보기 버튼 클릭
   await page.getByText('운세 더보기').first().click();
-  await page.waitForTimeout(600);
-  // 자미두수 메뉴 항목 클릭 (sub: '내 명궁의 별')
+  // 자미두수 메뉴가 나타날 때까지 대기
   const jamiBtn = page.getByText('자미두수', { exact: false }).first();
+  await jamiBtn.waitFor({ state: 'visible' });
   await jamiBtn.click();
-  await page.waitForTimeout(1200);
+  // 자미두수 화면 랜딩 — 티저 또는 잠금 텍스트 중 하나가 보일 때까지 대기
+  await page.getByText(/내 명궁에 어떤 별이 떠 있을까\?|자미두수는 태어난 시간이 필요해요/, { exact: false }).first().waitFor({ state: 'visible' }).catch(() => {});
 }
 
 // 오행국 뱃지 텍스트 패턴 (土5국, 水2국, 木3국, 金4국, 火6국)
@@ -62,7 +64,7 @@ function record(name, ok, detail) {
 // ─────────────────────────────────────────────────────────────────────────────
 {
   const browser = await chromium.launch({ channel: 'chrome' });
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 844 } });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -103,24 +105,68 @@ function record(name, ok, detail) {
     const bureauMatch = allText.match(BUREAU_RE)?.[0] ?? '없음';
     record('S1-4 오행국 뱃지', bureauOk, bureauMatch);
 
-    // 미니 명반: 부처궁/재백궁/관록궁 텍스트 노출
-    const spouseCount = await page.getByText('부처궁', { exact: false }).count();
-    const wealthCount = await page.getByText('재백궁', { exact: false }).count();
-    const careerCount = await page.getByText('관록궁', { exact: false }).count();
-    record('S1-5 미니 명반 부처궁', spouseCount > 0);
-    record('S1-6 미니 명반 재백궁', wealthCount > 0);
-    record('S1-7 미니 명반 관록궁', careerCount > 0);
+    // 그리드 12궁 셀: 셀은 p.name.replace('궁','') 로 렌더 → 축약형 확인
+    // cnt===1 조건: 각 궁명이 정확히 한 번만 렌더돼야 중복 렌더 오탐을 막음
+    const PALACE_ABBRS = ['명', '형제', '부처', '자녀', '재백', '질액', '천이', '노복', '관록', '전택', '복덕', '부모'];
+    let gridCellCount = 0;
+    for (const abbr of PALACE_ABBRS) {
+      const cnt = await page.getByText(abbr, { exact: true }).count();
+      if (cnt === 1) gridCellCount++;
+    }
+    record('S1-5 그리드 12궁 셀', gridCellCount === 12, `${gridCellCount}/12`);
+
+    // 명궁 카드 밝기 첨자: JamiChartGrid에서 <sub> 태그로만 렌더됨
+    // body.innerText()로 잡으면 '리'·'평' 등이 일반 문장에서도 매칭돼 항상 통과하므로
+    // <sub> 요소의 innerText만 한정해 검사
+    const BRIGHTNESS_GRADES = ['묘', '왕', '득', '리', '평', '불', '함'];
+    const subTexts = await page.locator('sub').allInnerTexts();
+    const hasBrightness = subTexts.some((t) => BRIGHTNESS_GRADES.includes(t.trim()));
+    record('S1-6 명궁 카드 밝기 첨자', hasBrightness, hasBrightness ? undefined : '밝기 등급 텍스트 없음');
+
+    // 복덕 셀 탭 → 바텀시트 "복덕궁" 제목 + 풀이 텍스트 노출
+    const bokdeokCell = page.getByText('복덕', { exact: true }).first();
+    const bokdeokCount = await bokdeokCell.count();
+    if (bokdeokCount > 0) {
+      // 시트 열기 전 body 텍스트 스냅샷
+      const bodyBefore = await page.locator('body').innerText();
+      await bokdeokCell.click();
+      // 바텀시트 제목 "복덕궁"이 나타날 때까지 대기
+      const sheetTitleLoc = page.getByText('복덕궁', { exact: false }).first();
+      await sheetTitleLoc.waitFor({ state: 'visible' }).catch(() => {});
+      const sheetTitle = await page.getByText('복덕궁', { exact: false }).count();
+      record('S1-7 복덕 바텀시트 제목', sheetTitle > 0);
+      // 풀이 텍스트: 시트가 추가한 텍스트 diff > 100자 → 풀이 렌더됨
+      // (시트 열기 전 body는 이미 200자 이상이므로 절대 length 기준은 항상 통과 — diff로 판별)
+      const bodyAfter = await page.locator('body').innerText();
+      const hasProse = bodyAfter.length - bodyBefore.length > 100;
+      record('S1-8 복덕 바텀시트 풀이 텍스트', hasProse, hasProse ? undefined : `시트 추가 텍스트 부족(+${bodyAfter.length - bodyBefore.length}자)`);
+      // 시트 닫기 — BottomSheet 백드롭(position:fixed, inset:0, zIndex:70)을 클릭
+      // (10,10)은 그리드 셀과 겹칠 수 있으므로 백드롭 오버레이를 직접 locator로 잡아 클릭
+      const backdrop = page.locator('[style*="rgba(10,7,20"]').first();
+      const backdropCount = await backdrop.count();
+      if (backdropCount > 0) {
+        await backdrop.click({ position: { x: 10, y: 10 } });
+      } else {
+        await page.keyboard.press('Escape');
+      }
+      // 시트가 DOM에서 사라질 때까지 대기
+      await sheetTitleLoc.waitFor({ state: 'hidden' }).catch(() => {});
+    } else {
+      record('S1-7 복덕 바텀시트 제목', false, '복덕 셀 없어 건너뜀');
+      record('S1-8 복덕 바텀시트 풀이 텍스트', false, '건너뜀');
+    }
 
     // 푸터
-    const footerCount = await page.getByText('전체 12궁 명반은 준비 중이에요', { exact: false }).count();
-    record('S1-8 푸터', footerCount > 0);
+    const footerCount = await page.getByText('대한(10년 운)은 준비 중이에요', { exact: false }).count();
+    record('S1-9 푸터 "대한(10년 운)은 준비 중"', footerCount > 0);
   } else {
     record('S1-3 결과 히어로 "을 품은"', false, '광고 버튼 없어 건너뜀');
     record('S1-4 오행국 뱃지', false, '건너뜀');
-    record('S1-5 미니 명반 부처궁', false, '건너뜀');
-    record('S1-6 미니 명반 재백궁', false, '건너뜀');
-    record('S1-7 미니 명반 관록궁', false, '건너뜀');
-    record('S1-8 푸터', false, '건너뜀');
+    record('S1-5 그리드 12궁 셀', false, '건너뜀');
+    record('S1-6 명궁 카드 밝기 첨자', false, '건너뜀');
+    record('S1-7 복덕 바텀시트 제목', false, '건너뜀');
+    record('S1-8 복덕 바텀시트 풀이 텍스트', false, '건너뜀');
+    record('S1-9 푸터 "대한(10년 운)은 준비 중"', false, '건너뜀');
   }
 
   record('S1-X pageerror 없음', errors.length === 0, errors[0]?.slice(0, 100));
@@ -134,7 +180,7 @@ function record(name, ok, detail) {
 // ─────────────────────────────────────────────────────────────────────────────
 {
   const browser = await chromium.launch({ channel: 'chrome' });
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 844 } });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -171,26 +217,33 @@ function record(name, ok, detail) {
   if (inputBtnCount > 0) {
     // 버튼 탭 → 시진 바텀시트 열림
     await inputBtn.click();
-    await page.waitForTimeout(500);
+    // 진태양시 안내 문구가 보일 때까지 대기
+    await page.getByText('진태양시', { exact: false }).first().waitFor({ state: 'visible' }).catch(() => {});
 
-    // 시진 목록에서 미시 선택
+    // S2-5: 시진 시트 진태양시 안내
+    const sijinNoteCount = await page.getByText('진태양시', { exact: false }).count();
+    record('S2-5 시진 시트 진태양시 안내', sijinNoteCount > 0);
+
+    // S2-6: 시진 목록에서 미시 항목 확인
     const miRow = page.getByText('미시 (13:30~15:30)', { exact: false }).first();
     const miCount = await miRow.count();
-    record('S2-5 시진 시트 미시 항목', miCount > 0);
+    record('S2-6 시진 시트 미시 항목', miCount > 0);
 
     if (miCount > 0) {
       await miRow.click();
-      await page.waitForTimeout(1200);
+      // updateProfile 후 chart 재계산 → 티저 화면으로 전환될 때까지 대기
+      await page.getByText('내 명궁에 어떤 별이 떠 있을까?', { exact: false }).first().waitFor({ state: 'visible' }).catch(() => {});
 
-      // updateProfile 후 chart 재계산 → 티저 화면으로 전환
+      // S2-7: 시진 입력 후 티저 전환
       const teaserText = await page.getByText('내 명궁에 어떤 별이 떠 있을까?', { exact: false }).count();
-      record('S2-6 시진 입력 후 티저 전환', teaserText > 0);
+      record('S2-7 시진 입력 후 티저 전환', teaserText > 0);
     } else {
-      record('S2-6 시진 입력 후 티저 전환', false, '미시 항목 없어 건너뜀');
+      record('S2-7 시진 입력 후 티저 전환', false, '미시 항목 없어 건너뜀');
     }
   } else {
-    record('S2-5 시진 시트 미시 항목', false, '입력 버튼 없어 건너뜀');
-    record('S2-6 시진 입력 후 티저 전환', false, '건너뜀');
+    record('S2-5 시진 시트 진태양시 안내', false, '입력 버튼 없어 건너뜀');
+    record('S2-6 시진 시트 미시 항목', false, '입력 버튼 없어 건너뜀');
+    record('S2-7 시진 입력 후 티저 전환', false, '건너뜀');
   }
 
   record('S2-X pageerror 없음', errors.length === 0, errors[0]?.slice(0, 100));
@@ -205,7 +258,7 @@ function record(name, ok, detail) {
 {
   // 3a: 생시 있는 유저 → 홈에서 "을 품은 정령" 노출
   const browser = await chromium.launch({ channel: 'chrome' });
-  const ctxA = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ctxA = await browser.newContext({ viewport: { width: 375, height: 844 } });
   const pageA = await ctxA.newPage();
   const errorsA = [];
   pageA.on('pageerror', (e) => errorsA.push(String(e)));
@@ -229,7 +282,7 @@ function record(name, ok, detail) {
   await ctxA.close();
 
   // 3b: 생시 없는 유저 → 홈에서 "을 품은 정령" 없음
-  const ctxB = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ctxB = await browser.newContext({ viewport: { width: 375, height: 844 } });
   const pageB = await ctxB.newPage();
   const errorsB = [];
   pageB.on('pageerror', (e) => errorsB.push(String(e)));
@@ -259,7 +312,7 @@ function record(name, ok, detail) {
 // ─────────────────────────────────────────────────────────────────────────────
 {
   const browser = await chromium.launch({ channel: 'chrome' });
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 844 } });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -292,11 +345,11 @@ function record(name, ok, detail) {
     const borrowedBanner = await page.getByText('빌려 봐요', { exact: false }).count();
     record('S4-2 공궁 차성 배너 "빌려 봐요"', borrowedBanner > 0);
 
-    // 검증용: 실제 배너 텍스트 출력
+    // 차성 배너 없을 때 보조 진단 — record 경유로 결과에 포함
     if (borrowedBanner === 0) {
       const bodyText = await page.locator('body').innerText();
       const hasLifePalaceSection = bodyText.includes('명궁 — 내 삶의 중심별');
-      console.log(`  [S4 debug] 명궁 섹션 있음: ${hasLifePalaceSection}`);
+      record('S4-2a 명궁 섹션 존재(진단)', hasLifePalaceSection, '차성 배너 없을 때만 체크');
     }
   } else {
     record('S4-2 공궁 차성 배너 "빌려 봐요"', false, '광고 버튼 없어 건너뜀');

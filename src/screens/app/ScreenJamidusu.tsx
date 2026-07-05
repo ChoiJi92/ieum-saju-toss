@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../../lib/saju-state';
 import {
   chartFromSajuInput,
@@ -463,10 +463,13 @@ export default function ScreenJamidusu({
     import.meta.env.VITE_AD_DEV_BYPASS !== 'false' &&
     isLocalhost;
 
-  // 광고 미리 준비
+  // 명반 계산 — 생시(hour) 없으면 null (렌더마다 재계산 방지)
+  const chart = useMemo(() => (base ? chartFromSajuInput(base) : null), [base]);
+
+  // 광고 미리 준비 — 생시가 있어 결과를 보여줄 수 있을 때만 (잠금 분기에선 광고 로직 자체가 안 돎)
   useEffect(() => {
-    if (!canBypass) void preloadRewardedAdForResult();
-  }, [canBypass]);
+    if (chart && !canBypass) void preloadRewardedAdForResult();
+  }, [chart, canBypass]);
 
   // ── 1) 생시 없음 잠금 화면 ──
   if (!base) {
@@ -501,9 +504,6 @@ export default function ScreenJamidusu({
       </V2Screen>
     );
   }
-
-  // 명반 계산 — base가 있으면 반드시 SajuInput 형태
-  const chart = chartFromSajuInput(base);
 
   // ── 2) 생시 없음 (프로필은 있지만 hour 미입력) ──
   if (chart === null) {

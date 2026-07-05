@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { V2Screen, V2TopBar, V2Button, BIRTH_YEARS, selectChevron, BottomSheet, SIJIN_LIST, SIJIN_HOUR } from './_kit';
+import { V2Screen, V2TopBar, V2Button, BIRTH_YEARS, selectChevron, BottomSheet, SIJIN_LIST, SIJIN_HOUR, SIJIN_NOTE } from './_kit';
 import { useSaju, type ProfileRelation } from '../../lib/saju-state';
 import { computeMyeongsik } from '../../lib/saju';
 import type { Tab } from './nav';
@@ -19,6 +19,9 @@ function SijinField({ sijin, unknownTime, onPick, field }: {
       </button>
       {open && (
         <BottomSheet onClose={() => setOpen(false)} maxHeight="76dvh">
+          <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 4, lineHeight: 1.4 }}>
+            {SIJIN_NOTE}
+          </div>
           {[['__unknown', '모름 (시간을 몰라요)'] as [string, string], ...SIJIN_LIST].map(([k, lbl]) => {
             const sel = (k === '__unknown' && unknownTime) || (k !== '__unknown' && !unknownTime && sijin === k);
             return (

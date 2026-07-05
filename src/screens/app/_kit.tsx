@@ -611,6 +611,9 @@ export const SIJIN_LIST: [string, string][] = [
 /** 시진 → 대표 시각(hour) 매핑 */
 export const SIJIN_HOUR: Record<string, number> = { 子: 0, 丑: 2, 寅: 4, 卯: 6, 辰: 8, 巳: 10, 午: 12, 未: 14, 申: 16, 酉: 18, 戌: 20, 亥: 22 };
 
+/** 시진 선택 안내 문구 — SijinSheet / ScreenAddProfile SijinField 공유 */
+export const SIJIN_NOTE = '한국 진태양시 기준(−30분 보정)이라 시간대가 30분씩 밀려 있어요';
+
 /**
  * 시진 바텀시트 (모름 없음) — ScreenJamidusu 잠금 화면용.
  * 현재 선택값(selected)과 onPick 콜백을 받는다.
@@ -622,6 +625,9 @@ export function SijinSheet({ selected, onClose, onPick }: {
 }) {
   return (
     <BottomSheet onClose={onClose} maxHeight="76dvh">
+      <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 4, lineHeight: 1.4 }}>
+        {SIJIN_NOTE}
+      </div>
       {SIJIN_LIST.map(([k, lbl]) => {
         const sel = selected === k;
         return (

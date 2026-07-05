@@ -6,7 +6,8 @@
 //  C) 콘텐츠 무결성: 14주성 × (별칭호+캐치+명궁+부처+재백+관록) 텍스트 존재/길이
 import { astro } from 'iztro';
 import { solarToLunar } from '@fullstackfamily/manseryeok';
-import { erectChart, JIJI_HANJA, JIJI_KR, type MainStar, type MinorStar } from '../src/lib/jamidusu';
+import { erectChart, JIJI_HANJA, JIJI_KR, PALACE_ORDER, type MainStar, type MinorStar } from '../src/lib/jamidusu';
+import type { MutagenStar } from '../src/lib/jamidusu-stars';
 
 let fail = 0;
 const bad = (msg: string) => { fail++; console.error('  ❌', msg); };
@@ -152,6 +153,7 @@ console.log(`  대조 ${total}건 (변환불가 skip ${skipped}건) — ${fail =
 try {
   const content = await import('../src/lib/jamidusu-content');
   console.log('C) 콘텐츠 무결성');
+  const preFail14 = fail;
   for (const s of STARS) {
     const e = content.STAR_CONTENT[s];
     if (!e) { bad(`${s} 콘텐츠 없음`); continue; }
@@ -161,7 +163,41 @@ try {
       if (!e[k] || e[k].length < 60) bad(`${s}.${k} 풀이 너무 짧음 (${e[k]?.length ?? 0}자)`);
     }
   }
-  if (fail === 0) console.log('  ✅ 14주성 통과');
+  console.log(fail === preFail14 ? '  ✅ 14주성 통과' : `  ❌ 14주성 ${fail - preFail14}건`);
+
+  // C 확장: 8궁 풀이·밝기 노트·보조성·사화 193유닛
+  // Phase 3 완료 후에는 필수 — 로드 실패를 스킵이 아니라 bad()로 처리 (침묵 통과 방지)
+  try {
+    const { PALACE_READINGS, BRIGHTNESS_NOTES, MUTAGEN_NOTES, MINOR_STAR_NOTES } = await import('../src/lib/jamidusu-content-palace');
+    const { MINOR_STARS: MINOR_STARS_LIST, MUTAGEN_TABLE } = await import('../src/lib/jamidusu-stars');
+
+    const FORBIDDEN = ['일주', '월주', '년주', '시주', '십성', '비견', '겁재', '식신', '상관', '편재', '정재', '편관', '정관', '편인', '정인', 'TODO', '…'];
+    const STEMS_KR = ['갑', '을', '병', '정', '무', '기', '경', '신', '임', '계'];
+    const checkText = (label: string, t: string | undefined) => {
+      if (!t || t.trim().length < 10) { bad(`C 누락/빈약: ${label}`); return; }
+      for (const w of FORBIDDEN) if (t.includes(w)) bad(`C 금지어 "${w}": ${label}`);
+    };
+
+    const preFail = fail;
+    for (const s of STARS) {
+      const r = PALACE_READINGS[s];
+      if (!r) { bad(`C PALACE_READINGS 없음: ${s}`); continue; }
+      for (const pal of PALACE_ORDER) checkText(`${s}×${pal}`, r[pal]);
+      // 4궁 재사용은 원문 텍스트와 일치해야 함 — 복붙 이본 방지
+      if (r.명궁 !== content.STAR_CONTENT[s].life || r.부처궁 !== content.STAR_CONTENT[s].spouse || r.재백궁 !== content.STAR_CONTENT[s].wealth || r.관록궁 !== content.STAR_CONTENT[s].career) {
+        bad(`C 4궁 매핑 불일치: ${s}`);
+      }
+      checkText(`${s} bright`, BRIGHTNESS_NOTES[s]?.bright);
+      checkText(`${s} dark`, BRIGHTNESS_NOTES[s]?.dark);
+    }
+    for (const m of MINOR_STARS_LIST) checkText(`보조성 ${m}`, MINOR_STAR_NOTES[m]);
+    // 사화 테이블에 등장하는 (별,화) 조합 전수 커버
+    for (const [stem, [rok, gwon, gwa, gi]] of Object.entries(MUTAGEN_TABLE)) {
+      const pairs: Array<[string, '록' | '권' | '과' | '기']> = [[rok, '록'], [gwon, '권'], [gwa, '과'], [gi, '기']];
+      for (const [star, mu] of pairs) checkText(`사화 ${star}×${mu} (${STEMS_KR[Number(stem)] ?? stem}년간)`, MUTAGEN_NOTES[star as MutagenStar]?.[mu]);
+    }
+    console.log(fail === preFail ? '  ✅ C 확장: 193유닛 무결' : `  ❌ C 확장 ${fail - preFail}건`);
+  } catch (e) { bad(`C 확장 로드 실패: ${e}`); }
 } catch { console.log('C) 콘텐츠 스킵 (jamidusu-content.ts 미작성)'); }
 
 if (fail > 0) { console.error(`\n❌ 검증 실패 ${fail}건 — 엔진/콘텐츠를 고치세요. 기대값 수정 금지.`); process.exit(1); }

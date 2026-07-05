@@ -91,7 +91,7 @@ function PersonForm(props: {
   );
 }
 
-export default function ScreenGunghap({ back }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+export default function ScreenGunghap({ back, switchTab, guestOnboard }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab; guestOnboard?: () => void }) {
   const { profile, selfProfile, addProfile } = useSaju();
   const base = profile ?? selfProfile; // 지금 선택된(보고 있는) 사람
 
@@ -144,6 +144,16 @@ export default function ScreenGunghap({ back }: { go: (r: Route) => void; back: 
     if (a && b) { setResult(calcGunghap(a, b, p2name)); setIsSharedView(false); }
   };
 
+  // 공유 결과를 본 사람이 "내 궁합도 보기" — 남의 정보 지우고 본인 기준 빈 폼으로 시작
+  const startOwnGunghap = () => {
+    setP1name(base?.name ?? '나');
+    setP1year(base ? String(base.year) : '');
+    setP1month(base ? String(base.month) : '');
+    setP1day(base ? String(base.day) : '');
+    setP2name(''); setP2gender(null); setP2year(''); setP2month(''); setP2day('');
+    setResult(null); setSaved(false); setIsSharedView(false);
+  };
+
   // 결과 공유 — 두 사람 정보를 SharePayload로 만들어 공유
   const doShare = async () => {
     const payload: SharePayload = {
@@ -181,7 +191,7 @@ export default function ScreenGunghap({ back }: { go: (r: Route) => void; back: 
   if (r) {
     return (
       <V2Screen seed={37}>
-        <V2TopBar onBack={() => { setResult(null); setSaved(false); setIsSharedView(false); }} title="궁합" />
+        <V2TopBar onBack={guestOnboard ?? (isSharedView ? () => switchTab('home') : () => { setResult(null); setSaved(false); setIsSharedView(false); })} title="궁합" />
         <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: 'var(--v2-ink-mid)', marginTop: 6 }}>
           {p1name || '나'} <span style={{ color: 'var(--v2-rose)' }}>♥</span> {p2name || '상대'}
         </div>
@@ -217,9 +227,9 @@ export default function ScreenGunghap({ back }: { go: (r: Route) => void; back: 
           {isSharedView ? (
             <V2Button
               kind="ghost"
-              onClick={() => { setResult(null); setSaved(false); setIsSharedView(false); }}
+              onClick={guestOnboard ?? startOwnGunghap}
             >
-              너도 궁금한 사람 있어? 궁합 보러 가기
+              {guestOnboard ? '나만의 정령 만들기 ✦' : '너도 궁금한 사람 있어? 궁합 보러 가기'}
             </V2Button>
           ) : (
             <>

@@ -12,6 +12,7 @@ import { shareSpiritCard } from '../lib/spirit-card';
 import { todaySpirit, gunghapScore, catchChance, caughtKeys, todayCatchState, attemptCatch } from '../lib/spirit-catch';
 import { initCloudSync, isLinked, linkWithToss, linkCredsFromToss, pushNow, deleteRemoteAndUnlink } from '../lib/cloud-sync';
 import { signInWithToss, tossInfoToSajuInput, getMockTossUser } from '../lib/toss-auth';
+import { detectEntryShare, hasPendingShare } from '../lib/invite';
 import {
   ELEMENTS, ELEM_ORDER, ZOD_ORDER,
   makeSpirit, spiritFromMyeongsik,
@@ -119,6 +120,26 @@ export default function AppShell() {
 
   // 클라우드 동기화 부팅 — 백업 연결돼 있으면 풀/병합 + 자동 푸시 (미연결이면 no-op)
   useEffect(() => { initCloudSync(); }, []);
+  // 궁합 결과 공유 링크 진입 감지
+  //  - 기존 유저: 바로 궁합 결과로
+  //  - 신규 유저(프로필 없음): 온보딩 건너뛰고 공유 결과 미리보기(게스트) → CTA로 온보딩 유도
+  const [shareDetected, setShareDetected] = useState(false);
+  const [guestShareView, setGuestShareView] = useState(false);
+  useEffect(() => {
+    // 감지가 늦어져도 신규 유저가 대기화면에 갇히지 않도록 안전 타임아웃
+    const fallback = window.setTimeout(() => setShareDetected(true), 1000);
+    void detectEntryShare().then((share) => {
+      window.clearTimeout(fallback);
+      if (share && myeongsik && !flow) {
+        setStack((s) => (s[s.length - 1] === 'gunghap' ? s : [...s, 'gunghap']));
+      } else if (share && !myeongsik) {
+        setGuestShareView(true);
+        setFlow(null); // 온보딩 스킵 — 결과 먼저 보여주고 CTA로 온보딩 유도
+      }
+      setShareDetected(true);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // 보상형 광고 미리 데워두기 — 첫 게이트 진입 시 콜드스타트 대기 제거 (이미 사주 있는 유저 한정)
   useEffect(() => { if (myeongsik) { const t = window.setTimeout(() => { void preloadRewardedAdForResult(); }, 2000); return () => window.clearTimeout(t); } }, [myeongsik]);
 
@@ -132,7 +153,12 @@ export default function AppShell() {
   };
 
   const goFlow = (s: FlowScreen) => setFlow((f) => (f ? [...f, s] : [s]));
-  const enterApp = () => { try { localStorage.setItem('ieum-saju.v2-welcome.v1', '1'); } catch { /* ignore */ } setFlow(null); setStack(['home']); };
+  const enterApp = () => {
+    try { localStorage.setItem('ieum-saju.v2-welcome.v1', '1'); } catch { /* ignore */ }
+    setFlow(null);
+    // 공유 링크 타고 들어와 온보딩을 막 끝낸 유저 → 바로 궁합으로 (공유 정보는 궁합 화면이 소비)
+    setStack(hasPendingShare() ? ['home', 'gunghap'] : ['home']);
+  };
   const go = (r: Route) => setStack((s) => [...s, r]);
   const goHome = () => setStack(['home']);
   // 구 화면 호환 shim — 탭 개념 제거. home/grow→루트, 그 외→push.
@@ -141,6 +167,22 @@ export default function AppShell() {
     if (flow) { setFlow((f) => (f && f.length > 1 ? f.slice(0, -1) : f)); return; }
     setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
   };
+
+  // 0) 신규 유저가 공유 링크로 들어온 경우 — 감지 끝날 때까지 잠깐 대기 (온보딩 깜빡임 방지)
+  if (!myeongsik && !shareDetected) {
+    return (
+      <V2Screen seed={3}>
+        <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid rgba(183,156,255,.25)', borderTopColor: 'var(--v2-lavender)', animation: 'v2-spin-slow 0.8s linear infinite' }} />
+        </div>
+      </V2Screen>
+    );
+  }
+  // 0-1) 신규 유저 게스트 — 공유 궁합 결과 미리보기 (프로필 없이 결과만, CTA/뒤로가기는 온보딩으로)
+  if (guestShareView && !myeongsik) {
+    const startOnboard = () => { setGuestShareView(false); setFlow(['onboarding']); };
+    return <ScreenGunghap go={startOnboard} back={startOnboard} switchTab={startOnboard} spirit={spirit} tab={'home' as Tab} guestOnboard={startOnboard} />;
+  }
 
   // 1) 온보딩 플로우 (탭 바깥)
   if (flow) {

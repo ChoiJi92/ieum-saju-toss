@@ -1,3 +1,6 @@
+import { solarToLunar } from '@fullstackfamily/manseryeok';
+import { adjustKoreanSolarTime, type SajuInput } from './saju';
+
 /**
  * 자미두수 안성법 엔진 (Phase 1~2: 명궁·12궁·오행국·자미·14주성)
  *
@@ -203,4 +206,61 @@ export function starsWithBorrow(chart: JamiChart, name: PalaceName): { stars: Ma
   const p = palaceOf(chart, name);
   if (p.stars.length > 0) return { stars: p.stars, borrowed: false };
   return { stars: chart.palaces[(p.branch + 6) % 12].stars, borrowed: true };
+}
+
+// ── SajuInput 어댑터 ──
+
+/**
+ * 프로필(SajuInput) → 명반. 생시 없으면 null (자시 가정 등 추측 계산 절대 금지 — 신뢰 원칙).
+ *
+ * 날짜: 달력 생일 그대로 음력 변환 (사주 일주와 동일 관행 — 야자시여도 날짜 유지).
+ * 시지: 사주 엔진과 동일한 adjustKoreanSolarTime(-30분 보정) 후 시진.
+ *   hourBranch 공식: Math.floor(((adj.hour + 1) % 24) / 2)
+ *     ex) adj.hour=23 → (24%24=0)/2=0 → 자시(0)
+ *         adj.hour=3  → 4/2=2          → 인시(2)
+ *
+ * 경계 케이스:
+ *   hour=0, min=10 → adj.hour=23, adj.min=40 (전날 23:40)
+ *     → hourBranch=(24%24)/2=0 → 자시(0) 유지.
+ *     날짜: 달력 생일 그대로 넘기므로 일주 롤백 없음 (사주 엔진과 동일 관행).
+ *   hour=23 (야자시) → adj.hour=22, adj.min=30 → hourBranch=(23%24)/2=11 → 해시(亥)?
+ *     → 실제: (22+1)%24=23, floor(23/2)=11 → 해시(11).
+ *     ※ 사주 엔진의 야자시(hour===23) 특수처리(子+다음날 일간)는 시주(사주) 전용.
+ *        자미두수는 시지만 필요하고, 23시=해시(亥)로 입력하는 유파가 일반적이므로
+ *        자시(0) 강제 변환 없이 보정 시각 기준 시지 그대로 사용.
+ *        (iztro/전통 자미두수: 23시는 亥시로 처리)
+ */
+export function chartFromSajuInput(input: SajuInput): JamiChart | null {
+  if (input.hour === undefined) return null;
+
+  // -30분 한국 태양시 보정 (사주 엔진과 동일 함수 재사용)
+  const adj = adjustKoreanSolarTime(
+    input.year, input.month, input.day,
+    input.hour, input.minute ?? 0
+  );
+
+  // 시지: 보정 후 시각 기준
+  const hourBranch = Math.floor(((adj.hour + 1) % 24) / 2);
+
+  // 날짜: 달력 생일 그대로 음력 변환 (보정된 날짜 아님)
+  let lunar: { year: number; month: number; day: number; isLeapMonth: boolean };
+  if (input.calendar === 'lunar') {
+    lunar = {
+      year: input.year,
+      month: input.month,
+      day: input.day,
+      isLeapMonth: input.leapMonth ?? false,
+    };
+  } else {
+    const result = solarToLunar(input.year, input.month, input.day);
+    lunar = result.lunar;
+  }
+
+  return erectChart({
+    lunarYear: lunar.year,
+    lunarMonth: lunar.month,
+    lunarDay: lunar.day,
+    isLeapMonth: lunar.isLeapMonth,
+    hourBranch,
+  });
 }

@@ -21,6 +21,7 @@ import {
   SelfSpiritSlot,
   Rise,
   Chip,
+  DomainEmpty,
 } from './_kit';
 import type { Route, Tab } from './nav';
 import type { Spirit } from '../../lib/spirit';
@@ -104,7 +105,7 @@ function PalaceAccordion({
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 2 }}>
             {stars.length > 0
-              ? stars.map((s) => s).join(' · ')
+              ? stars.join(' · ')
               : '공궁'}
           </div>
         </div>
@@ -464,45 +465,24 @@ export default function ScreenJamidusu({
     isLocalhost;
 
   // 명반 계산 — 생시(hour) 없으면 null (렌더마다 재계산 방지)
-  const chart = useMemo(() => (base ? chartFromSajuInput(base) : null), [base]);
+  // 프로필 데이터가 손상된 극단 케이스도 크래시 대신 잠금 화면으로 (라이브 앱 방어)
+  const chart = useMemo(() => {
+    if (!base) return null;
+    try {
+      return chartFromSajuInput(base);
+    } catch {
+      return null;
+    }
+  }, [base]);
 
   // 광고 미리 준비 — 생시가 있어 결과를 보여줄 수 있을 때만 (잠금 분기에선 광고 로직 자체가 안 돎)
   useEffect(() => {
     if (chart && !canBypass) void preloadRewardedAdForResult();
   }, [chart, canBypass]);
 
-  // ── 1) 생시 없음 잠금 화면 ──
+  // ── 1) 프로필 자체가 없음 — 기존 도메인 공통 빈 화면 (궁합과 동일 관행) ──
   if (!base) {
-    return (
-      <V2Screen seed={53}>
-        <V2TopBar onBack={back} title="자미두수" />
-        <div style={{ textAlign: 'center', marginTop: 80, padding: '0 24px' }}>
-          <div style={{ fontSize: 40, marginBottom: 20 }}>🔒</div>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 800,
-              color: 'var(--v2-ink)',
-              marginBottom: 10,
-              lineHeight: 1.4,
-            }}
-          >
-            자미두수는 태어난 시간이 필요해요
-          </div>
-          <div
-            style={{
-              fontSize: 13.5,
-              lineHeight: 1.6,
-              color: 'var(--v2-ink-mid)',
-              marginBottom: 32,
-            }}
-          >
-            정확하지 않은 계산은 보여드리지 않아요.
-          </div>
-          <V2Button onClick={() => go('profiles')}>생시 입력하러 가기</V2Button>
-        </div>
-      </V2Screen>
-    );
+    return <DomainEmpty title="자미두수" back={back} />;
   }
 
   // ── 2) 생시 없음 (프로필은 있지만 hour 미입력) ──

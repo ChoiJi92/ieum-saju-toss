@@ -1,5 +1,5 @@
 // scripts/verify-jamidusu.ts
-// 자미두수 엔진 검증 — A) 손검증 픽스처 B) iztro 본명반+대한·유년(D-2) 전수 대조 C) 콘텐츠 무결 D) 대한·유년 손검증
+// 자미두수 엔진 검증 — A) 손검증 픽스처 B) iztro 본명반+대한·유년(D-2) 전수 대조 C) 콘텐츠 무결 D) 대한·유년 손검증+콘텐츠 무결
 //  A) 손검증 픽스처 4건 (2026-07-05 iztro + 수기 안성 대조 확정치 + 실측 픽스처 1건)
 //  B) iztro 전수 대조: 1950~2030 양력 13일 간격 × 시지 4종 → 음력 변환 후 양쪽 안성 비교
 //     (주성·보조성·밝기·사화 4항목 대조)
@@ -10,6 +10,7 @@ import { solarToLunar } from '@fullstackfamily/manseryeok';
 import { erectChart, JIJI_HANJA, JIJI_KR, PALACE_ORDER, type MainStar, type MinorStar } from '../src/lib/jamidusu';
 import type { MutagenStar } from '../src/lib/jamidusu-stars';
 import { computeDaehan, computeYunyeon, currentLunarYearNow, CHEONGAN_KR } from '../src/lib/jamidusu-horoscope';
+import { MUTAGEN_PALACE_NOTES, DAEHAN_PALACE_NOTES, YUNYEON_PALACE_NOTES, HOROSCOPE_LEAD, DAEHAN_BEFORE_FIRST } from '../src/lib/jamidusu-content-horoscope';
 
 let fail = 0;
 const bad = (msg: string) => { fail++; console.error('  ❌', msg); };
@@ -287,6 +288,27 @@ console.log('D) 대한·유년 오버레이');
   if (currentLunarYearNow(new Date(2026, 1, 17)) !== 2026) bad('D-1 설 당일 경계');
 
   console.log(fail === preFail ? '  ✅ D-1 손검증 일치' : '  ❌ D-1 손검증 불일치');
+}
+
+// D-3: 오버레이 콘텐츠 무결 (74유닛 = 48 + 12 + 12 + 고정 문구 2)
+{
+  const preFail = fail;
+  // C 게이트 실제 목록 + 자미두수엔 없는 사주 용어('십신','대운','TBD') 추가
+  const FORBIDDEN = ['일주', '월주', '년주', '시주', '십성', '십신', '대운', '비견', '겁재', '식신', '상관', '편재', '정재', '편관', '정관', '편인', '정인', 'TODO', 'TBD', '…'];
+  const units: [string, string][] = [];
+  for (const [mu, row] of Object.entries(MUTAGEN_PALACE_NOTES)) for (const [pal, txt] of Object.entries(row)) units.push([`사화${mu}×${pal}`, txt as string]);
+  for (const [pal, txt] of Object.entries(DAEHAN_PALACE_NOTES)) units.push([`대한×${pal}`, txt]);
+  for (const [pal, txt] of Object.entries(YUNYEON_PALACE_NOTES)) units.push([`유년×${pal}`, txt]);
+  units.push(['리드', HOROSCOPE_LEAD], ['첫대한전', DAEHAN_BEFORE_FIRST]);
+  if (units.length !== 74) bad(`D-3 유닛 수 ${units.length} ≠ 74`);
+  for (const [k, txt] of units) {
+    if (!txt || txt.trim().length < 10) bad(`D-3 ${k} 길이 미달`);
+    for (const w of FORBIDDEN) if (txt.includes(w)) bad(`D-3 ${k} 금지어 "${w}"`);
+  }
+  // 시제 중립: MUTAGEN_PALACE_NOTES 에 "올해"/"10년" 금지 (대한·유년 공용이므로)
+  for (const [mu, row] of Object.entries(MUTAGEN_PALACE_NOTES)) for (const [pal, txt] of Object.entries(row))
+    if ((txt as string).includes('올해') || (txt as string).includes('10년')) bad(`D-3 사화${mu}×${pal} 시제 중립 위반`);
+  console.log(fail === preFail ? '  ✅ D-3 콘텐츠 무결 (74유닛)' : '  ❌ D-3 콘텐츠 무결 실패');
 }
 
 if (fail > 0) { console.error(`\n❌ 검증 실패 ${fail}건 — 엔진/콘텐츠를 고치세요. 기대값 수정 금지.`); process.exit(1); }

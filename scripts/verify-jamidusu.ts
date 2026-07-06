@@ -1,18 +1,24 @@
 // scripts/verify-jamidusu.ts
-// 자미두수 엔진 3중 검증 — 커밋 전 필수 실행: npx tsx scripts/verify-jamidusu.ts
+// 자미두수 엔진 검증 — A) 손검증 픽스처 B) iztro 본명반+대한·유년(D-2) 전수 대조 C) 콘텐츠 무결 D) 대한·유년 손검증
 //  A) 손검증 픽스처 4건 (2026-07-05 iztro + 수기 안성 대조 확정치 + 실측 픽스처 1건)
 //  B) iztro 전수 대조: 1950~2030 양력 13일 간격 × 시지 4종 → 음력 변환 후 양쪽 안성 비교
 //     (주성·보조성·밝기·사화 4항목 대조)
 //  C) 콘텐츠 무결성: 14주성 × (별칭호+캐치+명궁+부처+재백+관록) 텍스트 존재/길이
+//  D-2) iztro horoscope 전수 대조: 대한·유년 지지·천간·사화·나이구간 9,068건 대조
 import { astro } from 'iztro';
 import { solarToLunar } from '@fullstackfamily/manseryeok';
 import { erectChart, JIJI_HANJA, JIJI_KR, PALACE_ORDER, type MainStar, type MinorStar } from '../src/lib/jamidusu';
 import type { MutagenStar } from '../src/lib/jamidusu-stars';
+import { computeDaehan, computeYunyeon, currentLunarYearNow, CHEONGAN_KR } from '../src/lib/jamidusu-horoscope';
 
 let fail = 0;
 const bad = (msg: string) => { fail++; console.error('  ❌', msg); };
 // 계통 오류(테이블 붕괴 등)로 불일치가 쏟아질 때 7분짜리 B 전수 대조를 끝까지 돌리지 않기 위한 조기 중단 기준
 const BAIL_THRESHOLD = 20;
+
+// D-2 고정 기준일: 양력 2026-7-1 (설 경계·연말 모호성 없는 한여름)
+const REF_YEAR = currentLunarYearNow(new Date(2026, 6, 1));
+if (REF_YEAR !== 2026) bad(`D-2 기준년 ${REF_YEAR} ≠ 2026 (만세력 변환 이상)`);
 
 // ── A) 손검증 픽스처 ──
 console.log('A) 손검증 픽스처');
@@ -99,10 +105,14 @@ for (let t = start; t <= end; t += 13 * 86400000) {
     total++;
     const mine = erectChart({ lunarYear: lunar.year, lunarMonth: lunar.month, lunarDay: lunar.day, isLeapMonth: lunar.isLeapMonth, hourBranch: h });
     // 같은 음력을 iztro 에 직접 입력 (달력 소스 차이 배제 — 순수 안성 로직만 비교)
+    // h 0·6 = 남성, h 2·9 = 여성 → 대한 방향 4상한(양남/음남/양녀/음녀) 전부 커버
+    // ko-KR 사전: female='여자' — '여성'은 미매핑되어 iztro 대한 방향이 여성 전건 역행으로 오염됨
+    const izGender = h === 0 || h === 6 ? '남성' : '여자';
     let iz: ReturnType<typeof astro.byLunar>;
     const tag = `${sy}-${sm}-${sd} h${h} (음 ${lunar.year}-${lunar.isLeapMonth ? '윤' : ''}${lunar.month}-${lunar.day})`;
     try {
-      iz = astro.byLunar(`${lunar.year}-${lunar.month}-${lunar.day}`, h, '여성', lunar.isLeapMonth, true, 'ko-KR');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      iz = astro.byLunar(`${lunar.year}-${lunar.month}-${lunar.day}`, h, izGender as any, lunar.isLeapMonth, true, 'ko-KR');
     } catch { skipped++; total--; continue; }
     // 달력 소스 차이 배제: manseryeok 이 윤달로 반환했지만 iztro lunar-lite 가 비윤달로 역산하는 경우,
     // 혹은 그 반대인 경우는 달력 데이터 불일치이므로 순수 안성 로직 비교 대상에서 제외한다.
@@ -143,6 +153,33 @@ for (let t = start; t <= end; t += 13 * 86400000) {
         const myMu = mine.palaces[bIdx].mutagens[kr] ?? '';
         if ((s.mutagen ?? '') !== myMu) bad(`${tag} ${JIJI_KR[bIdx]}궁 보조 ${kr} 사화 [${myMu}] ≠ iztro [${s.mutagen ?? ''}]`);
       }
+    }
+    // ── D-2: 대한·유년 전수 대조 (고정 기준일 2026-7-1) ──
+    if (lunar.year <= REF_YEAR) { // 기준일 이후 출생(2027~2030 코퍼스 꼬리)은 대상 밖
+      const gd = izGender === '남성' ? 'male' : 'female';
+      const hz = iz.horoscope('2026-7-1');
+      const myAge = REF_YEAR - lunar.year + 1;
+      if (hz.age.nominalAge !== myAge) bad(`${tag} 허세 ${myAge} ≠ iztro ${hz.age.nominalAge}`);
+      const dh = computeDaehan(mine, gd, REF_YEAR);
+      if (dh === null) {
+        // 첫 대한 전 (2021~2026년생 등) — 우리 판정이 맞는지 역확인: iztro 대한 시작나이 > 허세
+        if (izLife.decadal.range[0] <= myAge) bad(`${tag} 첫대한전 판정 오류 (iztro 시작 ${izLife.decadal.range[0]} ≤ ${myAge})`);
+      } else {
+        if (hz.decadal.earthlyBranch !== JIJI_KR[dh.palaceBranch]) bad(`${tag} 대한궁 ${JIJI_KR[dh.palaceBranch]} ≠ iztro ${hz.decadal.earthlyBranch}`);
+        if (hz.decadal.heavenlyStem !== CHEONGAN_KR[dh.stemIndex]) bad(`${tag} 대한천간 ${CHEONGAN_KR[dh.stemIndex]} ≠ iztro ${hz.decadal.heavenlyStem}`);
+        const myDhStars = dh.hits.map((x) => x.star).join(',');
+        if (hz.decadal.mutagen.join(',') !== myDhStars) bad(`${tag} 대한사화 [${myDhStars}] ≠ iztro [${hz.decadal.mutagen.join(',')}]`);
+        const izDhPal = iz.palaces.find((p) => p.earthlyBranch === JIJI_KR[dh.palaceBranch]);
+        if (!izDhPal) {
+          bad(`${tag} 대한궁 지지 ${JIJI_KR[dh.palaceBranch]} iztro 미발견`);
+        } else if (izDhPal.decadal.range[0] !== dh.ageStart || izDhPal.decadal.range[1] !== dh.ageEnd) {
+          bad(`${tag} 대한구간 ${dh.ageStart}-${dh.ageEnd} ≠ iztro ${izDhPal.decadal.range.join('-')}`);
+        }
+      }
+      const yy = computeYunyeon(mine, REF_YEAR);
+      if (hz.yearly.earthlyBranch !== JIJI_KR[yy.taesaeBranch]) bad(`${tag} 태세 ${JIJI_KR[yy.taesaeBranch]} ≠ iztro ${hz.yearly.earthlyBranch}`);
+      const myYyStars = yy.hits.map((x) => x.star).join(',');
+      if (hz.yearly.mutagen.join(',') !== myYyStars) bad(`${tag} 유년사화 [${myYyStars}] ≠ iztro [${hz.yearly.mutagen.join(',')}]`);
     }
     if (fail > BAIL_THRESHOLD) { console.error(`불일치 ${BAIL_THRESHOLD}건 초과 — 중단`); process.exit(1); }
   }
@@ -203,11 +240,11 @@ try {
 // ── D) 대한·유년 오버레이 검증 ──
 console.log('D) 대한·유년 오버레이');
 {
-  const { computeDaehan, computeYunyeon, currentLunarYearNow } = await import('../src/lib/jamidusu-horoscope');
   const preFail = fail;
 
-  // D-1 손검증: 1984-3-15(음) 인시생 — 양간(甲子년). 남=순행, 여=역행
-  // 근거: iztro 프로브 1984-3-15 남성 → 43세(2026년) 사(5), 여성 → 해(11), 1985음남 → 해(11)
+  // D-1 손검증: 1984-3-15(음) 인시생 — 양간(甲子년). 남=순행 사(5), 여=역행 해(11)
+  // 1985-3-15(음) — 음간(乙丑년). 음남=역행 해(11), 음녀=순행 사(5) ← 버그 사분면
+  // 근거: zh-CN/en-US 교차 실측 4상한 + D-2 iztro horoscope 9,068건 전수 대조 확정
   const c84 = erectChart({ lunarYear: 1984, lunarMonth: 3, lunarDay: 15, isLeapMonth: false, hourBranch: 2 });
   // 2026년 허세: 2026-1984+1 = 43세
   const dhM = computeDaehan(c84, 'male', 2026);
@@ -225,6 +262,14 @@ console.log('D) 대한·유년 오버레이');
   else {
     if (dhM85.ageStart > 42 || dhM85.ageEnd < 42) bad(`D-1 음남 나이구간 ${dhM85.ageStart}-${dhM85.ageEnd}에 42 미포함`);
     if (dhM85.palaceBranch !== 11) bad(`D-1 음남 대한궁 ${dhM85.palaceBranch}`); // 해(11): (2-3+12)%12=11
+  }
+  // D-1 음녀(乙丑 1985) — 버그가 살았던 사분면. 음녀=순행이므로 대한궁=사(5).
+  // 근거: zh-CN/en-US 교차 실측 1985 음녀 42세 → 巳[35,44] range 포함, (명궁 인=2, index 3 순행 → (2+3)%12=5)
+  const dhF85 = computeDaehan(c85, 'female', 2026);
+  if (!dhF85) bad('D-1 1985 음녀 대한 null');
+  else {
+    if (dhF85.ageStart > 42 || dhF85.ageEnd < 42) bad(`D-1 음녀 나이구간 ${dhF85.ageStart}-${dhF85.ageEnd}에 42 미포함`);
+    if (dhF85.palaceBranch !== 5) bad(`D-1 음녀 대한궁 ${dhF85.palaceBranch} ≠ 5(사) — 음녀=순행`);
   }
   // D-1 유년: 2026 = 병오년 → 태세궁 지지 6(午), 천간 2(丙) → 사화 [천동,천기,문창,염정]
   const yy = computeYunyeon(c84, 2026);

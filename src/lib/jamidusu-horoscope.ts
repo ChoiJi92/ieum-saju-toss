@@ -56,18 +56,34 @@ export function mutagenHits(chart: JamiChart, stemIndex: number): [MutagenHit, M
 }
 
 /** 현재 대한. 허세 나이가 오행국 수(첫 대한 시작 나이) 미만이면 null.
- *  방향: 양남음녀 순행(지지 +) / 음남양녀 역행(지지 −)
- *  근거: iztro 프로브(1984-3-15 남/녀, 1985-3-15 남 decadal.range 비교):
- *    1984 양간 남성: 명궁=인(2) 순행, 43세 대한궁=사(5) = (2+3)%12 ✓
- *    1984 양간 여성: 명궁=인(2) 역행, 43세 대한궁=해(11) = (2-3+12)%12 ✓
- *    1985 음간 남성: 명궁=인(2) 역행, 42세 대한궁=해(11) = (2-3+12)%12 ✓
- *  게이트 D-2 9,068건 전수 대조로 고정 */
+ *
+ *  ── 방향 규칙 ──
+ *  고전 규칙(紫微斗數): 양남음녀 순행 / 음남양녀 역행.
+ *  iztro 소스 palace.js getHoroscope 주석과 완전 일치:
+ *    "大限由命宫起，阳男阴女顺行；阴男阳女逆行"
+ *
+ *  ── ko-KR 로케일 버그 발견 내역 ──
+ *  iztro ko-KR 사전(node_modules/iztro/lib/i18n/locales/ko-KR/gender.js)은
+ *    male: '남성', female: '여자'
+ *  로 정의된다. 이전 버전 스크립트는 여성에 '여성'을 넘겨 왔고, 이 값은 사전 미매핑 →
+ *  iztro 내부 GENDER[genderKey] === undefined → 대한 방향 판정이 항상 false →
+ *  **여성 전건 역행**으로 오염되는 버그 경로였다.
+ *  검증 스크립트(verify-jamidusu.ts)는 '여자'를 사용하여 iztro 와 올바르게 비교한다.
+ *
+ *  ── 4상한 실측 근거 ──
+ *  zh-CN / en-US 로케일 교차 실측 + D-2 iztro horoscope 9,068건 전수 대조로 고정:
+ *    1984 甲子(양간) 남성: 명궁=인(2) 순행, 43세 대한궁=사(5)  = (2+3)%12 ✓
+ *    1984 甲子(양간) 여성: 명궁=인(2) 역행, 43세 대한궁=해(11) = (2-3+12)%12 ✓
+ *    1985 乙丑(음간) 남성: 명궁=인(2) 역행, 42세 대한궁=해(11) = (2-3+12)%12 ✓
+ *    1985 乙丑(음간) 여성: 명궁=인(2) 순행, 42세 대한궁=사(5)  = (2+3)%12 ✓
+ */
 export function computeDaehan(chart: JamiChart, gender: 'male' | 'female', currentLunarYear: number): DaehanInfo | null {
   const age = currentLunarYear - chart.input.lunarYear + 1; // 허세
   const start = chart.bureau.number;
   if (age < start) return null;
   const index = Math.floor((age - start) / 10);
   const yangYear = chart.yearStemIndex % 2 === 0; // 짝수 인덱스 = 양간
+  // 양남음녀 순행 / 음남양녀 역행 (고전 규칙 + iztro palace.js 일치)
   const forward = (yangYear && gender === 'male') || (!yangYear && gender === 'female');
   const palaceBranch = (((chart.lifeBranch + (forward ? index : -index)) % 12) + 12) % 12;
   const palace = chart.palaces[palaceBranch];

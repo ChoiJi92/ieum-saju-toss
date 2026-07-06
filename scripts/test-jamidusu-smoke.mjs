@@ -156,9 +156,24 @@ function record(name, ok, detail) {
       record('S1-8 복덕 바텀시트 풀이 텍스트', false, '건너뜀');
     }
 
-    // 푸터
-    const footerCount = await page.getByText('대한(10년 운)은 준비 중이에요', { exact: false }).count();
-    record('S1-9 푸터 "대한(10년 운)은 준비 중"', footerCount > 0);
+    // 지금 나의 운 (Phase 4)
+    // 실측(2026-07-06): S1 프로필(1995-03-15 female) 렌더 후 사화 라벨 등장 횟수
+    //   화록·화권·화과·화기 각 3회 (생년사화 명궁카드 1 + 대한 1 + 올해 1)
+    //   → cnt >= 3 = "올해 카드까지 렌더됨" 검증 (>= 2는 생년+대한만으로 통과해 올해 누락 회귀를 못 잡음)
+    const nowLuck = await page.getByText('지금 나의 운', { exact: true }).count();
+    record('S1-9 지금 나의 운 섹션', nowLuck === 1);
+    const bodyNow = await page.locator('body').innerText();
+    record('S1-10 대한 헤더 패턴', /\d{1,3}-\d{1,3}세/.test(bodyNow) && /궁 대한/.test(bodyNow));
+    record('S1-11 올해 카드 헤더', /\d{4} [가-힣]{2}년/.test(bodyNow) && bodyNow.includes('올해는') && /올해는 [가-힣]+궁 위/.test(bodyNow));
+    // 사화 라벨 카운트 — 대한+올해 각 4종 모두 렌더됐는지 확인
+    // 각 라벨은 실측 3회 등장(생년사화 명궁카드 1 + 대한 1 + 올해 1) → >= 3: 올해 카드 누락 회귀 검출
+    let mutagenRows = 0;
+    for (const m of ['화록', '화권', '화과', '화기']) {
+      const cnt = (bodyNow.match(new RegExp(m, 'g')) ?? []).length;
+      if (cnt >= 3) mutagenRows++;
+    }
+    record('S1-12 사화 줄 (대한+올해 각 4)', mutagenRows === 4, `${mutagenRows}/4 라벨`);
+    record('S1-13 준비중 푸터 제거', !bodyNow.includes('대한(10년 운)은 준비 중'));
   } else {
     record('S1-3 결과 히어로 "을 품은"', false, '광고 버튼 없어 건너뜀');
     record('S1-4 오행국 뱃지', false, '건너뜀');
@@ -166,7 +181,11 @@ function record(name, ok, detail) {
     record('S1-6 명궁 카드 밝기 첨자', false, '건너뜀');
     record('S1-7 복덕 바텀시트 제목', false, '건너뜀');
     record('S1-8 복덕 바텀시트 풀이 텍스트', false, '건너뜀');
-    record('S1-9 푸터 "대한(10년 운)은 준비 중"', false, '건너뜀');
+    record('S1-9 지금 나의 운 섹션', false, '건너뜀');
+    record('S1-10 대한 헤더 패턴', false, '건너뜀');
+    record('S1-11 올해 카드 헤더', false, '건너뜀');
+    record('S1-12 사화 줄 (대한+올해 각 4)', false, '건너뜀');
+    record('S1-13 준비중 푸터 제거', false, '건너뜀');
   }
 
   record('S1-X pageerror 없음', errors.length === 0, errors[0]?.slice(0, 100));
@@ -362,13 +381,58 @@ function record(name, ok, detail) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// S5: 첫 대한 전 — 어린 프로필은 대한 카드 대신 안내 문구
+// 실측: 2024-07-15 solar female → 火6국 (bureau.number=6), 허세 2026-2024+1=3 < 6 → daehan null
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const browser = await chromium.launch({ channel: 'chrome' });
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 844 } });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+
+  // 실측: 2024-07-15 → 火6국, 허세 3세 < 6 → 첫 대한 전
+  // ⚠️ 2024년생은 2029년(허세 6)에 첫 대한 진입 → 그해 S5 프로필 재조정 필요
+  const PROFILE_KID = {
+    id: 'test-s5', relation: '본인', isSelf: true, createdAt: 1,
+    name: '아름', year: 2024, month: 7, day: 15, calendar: 'solar', gender: 'female',
+    hour: 10, minute: 0,
+  };
+
+  await page.goto(BASE);
+  await seedUser(page, PROFILE_KID);
+  await page.reload();
+  await page.waitForTimeout(800);
+  await navigateToJamidusu(page);
+
+  const adBtn = page.getByText('광고 보고 내 별 보기', { exact: false }).first();
+  if ((await adBtn.count()) > 0) {
+    await adBtn.click();
+    await page.waitForTimeout(1500);
+    const body5 = await page.locator('body').innerText();
+    record('S5-1 첫 대한 전 안내', body5.includes('아직 첫 대한이 시작되기 전'));
+    record('S5-2 올해 카드는 표시', body5.includes('올해는'));
+    record('S5-3 대한 헤더 없음', !/\d{1,3}-\d{1,3}세/.test(body5));
+  } else {
+    record('S5-1 첫 대한 전 안내', false, '광고 버튼 없어 건너뜀');
+    record('S5-2 올해 카드는 표시', false, '건너뜀');
+    record('S5-3 대한 헤더 없음', false, '건너뜀');
+  }
+
+  record('S5-X pageerror 없음', errors.length === 0, errors[0]?.slice(0, 100));
+  await page.screenshot({ path: '/tmp/smoke-s5.png' });
+  await ctx.close();
+  await browser.close();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 결과 출력
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n자미두수 스모크 결과:');
 for (const r of results) console.log(r);
 console.log(`\n총계: ${passed}/${passed + failed} PASS`);
 if (failed > 0) {
-  console.log(`실패 ${failed}건 — 스크린샷: /tmp/smoke-s{1..4}.png`);
+  console.log(`실패 ${failed}건 — 스크린샷: /tmp/smoke-s{1..5}.png`);
   process.exit(1);
 }
 process.exit(0);

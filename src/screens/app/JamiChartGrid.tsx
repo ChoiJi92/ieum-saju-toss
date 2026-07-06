@@ -5,7 +5,7 @@ import { JIJI_HANJA, starsWithBorrow } from '../../lib/jamidusu';
 import { LUCKY_MINOR, UNLUCKY_MINOR } from '../../lib/jamidusu-stars';
 import { PALACE_READINGS, BRIGHTNESS_NOTES, MUTAGEN_NOTES, MINOR_STAR_NOTES } from '../../lib/jamidusu-content-palace';
 import { BottomSheet } from './_kit';
-import { MUTAGEN_COLOR, BRIGHT_GRADES, DARK_GRADES } from './jami-tokens';
+import { MUTAGEN_COLOR, MUTAGEN_BG, MUTAGEN_LINE, MUTAGEN_LABEL, BRIGHTNESS_LABEL, BRIGHT_GRADES, DARK_GRADES } from './jami-tokens';
 
 // 고전 명반 배열: 4×4, 바깥 12칸 = 지지, 가운데 2×2 = 요약
 // branch 0=子 1=丑 2=寅 3=卯 4=辰 5=巳 6=午 7=未 8=申 9=酉 10=戌 11=亥
@@ -212,6 +212,26 @@ export function JamiChartGrid({
         })}
       </div>
 
+      {/* 범례 — 셀 속 작은 글자가 뭔지 처음 보는 유저용 안내 */}
+      <div
+        style={{
+          marginTop: 8,
+          fontSize: 10.5,
+          lineHeight: 1.6,
+          color: 'var(--v2-ink-dim)',
+          fontFamily: 'var(--v2-font)',
+        }}
+      >
+        별 옆 작은 글자는 밝기(묘 가장 밝음 → 함 가장 어두움),{' '}
+        {(['록', '권', '과', '기'] as const).map((m, i) => (
+          <span key={m}>
+            {i > 0 && '·'}
+            <span style={{ color: MUTAGEN_COLOR[m], fontWeight: 700 }}>{m}</span>
+          </span>
+        ))}
+        는 타고난 사화 기운이에요. 궁을 탭하면 쉬운 풀이가 나와요.
+      </div>
+
       {/* 궁 바텀시트 */}
       {open && borrowResult && srcPalace && (
         <BottomSheet onClose={() => setOpenBranch(null)}>
@@ -278,23 +298,42 @@ export function JamiChartGrid({
                     alignItems: 'baseline',
                     gap: 6,
                     marginBottom: 6,
+                    flexWrap: 'wrap',
                   }}
                 >
                   <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--v2-ink)' }}>
                     {s}
                   </span>
                   {br && (
-                    <span data-brightness style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>{br}</span>
+                    <span
+                      data-brightness
+                      style={{
+                        fontSize: 11,
+                        color: 'var(--v2-ink-dim)',
+                        padding: '1px 6px',
+                        borderRadius: 999,
+                        background: 'var(--v2-glass)',
+                        border: '1px solid var(--v2-glass-line2)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {BRIGHTNESS_LABEL[br] ? `${br} · ${BRIGHTNESS_LABEL[br]}` : br}
+                    </span>
                   )}
                   {mu && (
                     <span
                       style={{
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: 800,
                         color: MUTAGEN_COLOR[mu] ?? 'var(--v2-ink)',
+                        padding: '1px 6px',
+                        borderRadius: 999,
+                        background: MUTAGEN_BG[mu] ?? 'transparent',
+                        border: `1px solid ${MUTAGEN_LINE[mu] ?? 'var(--v2-glass-line2)'}`,
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {mu}
+                      {MUTAGEN_LABEL[mu] ? `화${mu} · ${MUTAGEN_LABEL[mu]}` : `화${mu}`}
                     </span>
                   )}
                 </div>

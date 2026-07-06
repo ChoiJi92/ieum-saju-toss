@@ -16,7 +16,7 @@ import { computeDaehan, computeYunyeon, currentLunarYearNow, type MutagenHit } f
 import { MUTAGEN_PALACE_NOTES, DAEHAN_PALACE_NOTES, YUNYEON_PALACE_NOTES, HOROSCOPE_LEAD, DAEHAN_BEFORE_FIRST, YUNYEON_SAME_AS_DAEHAN } from '../../lib/jamidusu-content-horoscope';
 import { preloadRewardedAdForResult, showRewardedAdForResult } from '../../lib/ads';
 import { JamiChartGrid } from './JamiChartGrid';
-import { MUTAGEN_COLOR, BRIGHT_GRADES, DARK_GRADES } from './jami-tokens';
+import { MUTAGEN_COLOR, MUTAGEN_BG, MUTAGEN_LINE, MUTAGEN_LABEL, BRIGHTNESS_LABEL, BRIGHT_GRADES, DARK_GRADES } from './jami-tokens';
 import {
   V2Screen,
   V2TopBar,
@@ -53,19 +53,6 @@ function StarName({ star }: { star: MainStar }) {
 // ─────────────────────────────────────────────
 // 결과 화면
 // ─────────────────────────────────────────────
-
-const MUTAGEN_BG: Record<string, string> = {
-  록: 'rgba(91,217,172,.13)',
-  권: 'rgba(255,158,130,.13)',
-  과: 'rgba(255,210,122,.13)',
-  기: 'rgba(183,156,255,.13)',
-};
-const MUTAGEN_LINE: Record<string, string> = {
-  록: 'rgba(91,217,172,.27)',
-  권: 'rgba(255,158,130,.27)',
-  과: 'rgba(255,210,122,.27)',
-  기: 'rgba(183,156,255,.27)',
-};
 
 /** 사화 1줄: `화록 태양 — 관록궁` 뱃지 + 시제 중립 노트. 화기는 emphasize(peach 박스). */
 function MutagenHitRow({ hit, lead, emphasize }: { hit: MutagenHit; lead: string; emphasize?: boolean }) {
@@ -291,7 +278,20 @@ function ResultView({
                     )}
                     <StarName star={star} />
                     {br && (
-                      <span data-brightness style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>{br}</span>
+                      <span
+                        data-brightness
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--v2-ink-dim)',
+                          padding: '1px 6px',
+                          borderRadius: 999,
+                          background: 'var(--v2-glass)',
+                          border: '1px solid var(--v2-glass-line2)',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {BRIGHTNESS_LABEL[br] ? `${br} · ${BRIGHTNESS_LABEL[br]}` : br}
+                      </span>
                     )}
                     {mu && (
                       <span
@@ -299,13 +299,14 @@ function ResultView({
                           fontSize: 11,
                           fontWeight: 800,
                           color: MUTAGEN_COLOR[mu] ?? 'var(--v2-ink)',
-                          padding: '1px 5px',
+                          padding: '1px 6px',
                           borderRadius: 999,
                           background: MUTAGEN_BG[mu] ?? 'transparent',
                           border: `1px solid ${MUTAGEN_LINE[mu] ?? 'var(--v2-glass-line2)'}`,
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        화{mu}
+                        {MUTAGEN_LABEL[mu] ? `화${mu} · ${MUTAGEN_LABEL[mu]}` : `화${mu}`}
                       </span>
                     )}
                   </div>

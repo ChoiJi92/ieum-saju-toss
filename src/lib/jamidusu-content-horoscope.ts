@@ -170,3 +170,6 @@ export const YUNYEON_PALACE_NOTES: Record<PalaceName, string> = {
 /** 고정 문구 */
 export const HOROSCOPE_LEAD = '타고난 명반 위로 지금 지나가는 운의 흐름이에요';
 export const DAEHAN_BEFORE_FIRST = '아직 첫 대한이 시작되기 전이에요. 타고난 명반의 이야기가 천천히 깨어나는 중이에요.';
+/** 대한궁 천간 == 유년 천간 — 사화 4개가 완전히 동일하므로 올해 카드에선 반복 대신 이어짐 한 줄 (P5-A) */
+export const YUNYEON_SAME_AS_DAEHAN =
+  '올해의 사화가 지금 지나는 대한과 똑같아요. 위 10년의 흐름이 올해 한층 진하게 이어진다는 뜻이에요.';

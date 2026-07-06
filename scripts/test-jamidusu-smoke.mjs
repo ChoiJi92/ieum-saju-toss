@@ -426,13 +426,65 @@ function record(name, ok, detail) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// S6: 대한·유년 같은 천간 — 올해 카드 사화 4행 대신 이어짐 문구 (P5-A)
+// 프로필: 1974-03-15 男 10시 — 2026(병오년) 현재 대한 46-55세 관록궁, 대한궁 천간=병 (유년 천간과 충돌)
+// ⚠️ 유년 천간이 바뀌는 2027년(정미년)엔 이 프로필은 충돌이 아님 → 그해 충돌 프로필 재선정 필요
+//    재선정 시 제약: 명궁에 생년사화 별이 앉지 않는 프로필이어야 함 (앉으면 기준 카운트 2→3으로 깨짐)
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const browser = await chromium.launch({ channel: 'chrome' });
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 844 } });
+  const page = await ctx.newPage();
+  const errors6 = [];
+  page.on('pageerror', (e) => errors6.push(String(e)));
+
+  const PROFILE_S6 = {
+    id: 'test-s6', relation: '본인', isSelf: true, createdAt: 1,
+    name: '준혁', year: 1974, month: 3, day: 15, calendar: 'solar', gender: 'male',
+    hour: 10, minute: 0,
+  };
+
+  await page.goto(BASE);
+  await seedUser(page, PROFILE_S6);
+  await page.reload();
+  await page.waitForTimeout(800);
+  await navigateToJamidusu(page);
+
+  const adBtn = page.getByText('광고 보고 내 별 보기', { exact: false }).first();
+  const adBtnCount = await adBtn.count();
+  if (adBtnCount > 0) {
+    await adBtn.click();
+    await page.waitForTimeout(1500);
+    const body6 = await page.locator('body').innerText();
+
+    record('S6-1 이어짐 문구', body6.includes('대한과 똑같아요'), body6.includes('대한과 똑같아요') ? '' : '병오년(2026)이 지났다면 S6 충돌 프로필 재선정 필요');
+    record('S6-2 대한 카드 정상', /\d{1,3}-\d{1,3}세/.test(body6) && /궁 대한/.test(body6));
+    let dedupRows = 0;
+    for (const m of ['화록', '화권', '화과', '화기']) {
+      const cnt = (body6.match(new RegExp(m, 'g')) ?? []).length;
+      if (cnt === 2) dedupRows++; // 생년사화 그리드센터 1 + 대한 1; 올해 행 제거됨 (3이면 dedupe 미적용, 1이면 대한 카드 누락)
+    }
+    record('S6-3 올해 사화 행 제거', dedupRows === 4, `${dedupRows}/4 라벨`);
+  } else {
+    record('S6-1 이어짐 문구', false, '광고 버튼 없어 건너뜀');
+    record('S6-2 대한 카드 정상', false, '건너뜀');
+    record('S6-3 올해 사화 행 제거', false, '건너뜀');
+  }
+
+  record('S6-X pageerror 없음', errors6.length === 0, errors6[0]?.slice(0, 100));
+  await page.screenshot({ path: '/tmp/smoke-s6.png' });
+  await ctx.close();
+  await browser.close();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 결과 출력
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n자미두수 스모크 결과:');
 for (const r of results) console.log(r);
 console.log(`\n총계: ${passed}/${passed + failed} PASS`);
 if (failed > 0) {
-  console.log(`실패 ${failed}건 — 스크린샷: /tmp/smoke-s{1..5}.png`);
+  console.log(`실패 ${failed}건 — 스크린샷: /tmp/smoke-s{1..6}.png`);
   process.exit(1);
 }
 process.exit(0);

@@ -13,7 +13,7 @@ import { STAR_CONTENT, aliasOf } from '../../lib/jamidusu-content';
 import { MUTAGEN_TABLE, LUCKY_MINOR, UNLUCKY_MINOR } from '../../lib/jamidusu-stars';
 import { BRIGHTNESS_NOTES, MUTAGEN_NOTES, MINOR_STAR_NOTES } from '../../lib/jamidusu-content-palace';
 import { computeDaehan, computeYunyeon, currentLunarYearNow, type MutagenHit } from '../../lib/jamidusu-horoscope';
-import { MUTAGEN_PALACE_NOTES, DAEHAN_PALACE_NOTES, YUNYEON_PALACE_NOTES, HOROSCOPE_LEAD, DAEHAN_BEFORE_FIRST } from '../../lib/jamidusu-content-horoscope';
+import { MUTAGEN_PALACE_NOTES, DAEHAN_PALACE_NOTES, YUNYEON_PALACE_NOTES, HOROSCOPE_LEAD, DAEHAN_BEFORE_FIRST, YUNYEON_SAME_AS_DAEHAN } from '../../lib/jamidusu-content-horoscope';
 import { preloadRewardedAdForResult, showRewardedAdForResult } from '../../lib/ads';
 import { JamiChartGrid } from './JamiChartGrid';
 import {
@@ -474,9 +474,16 @@ function ResultView({
             <p style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)' }}>
               {YUNYEON_PALACE_NOTES[horoscope.yunyeon.palaceName]}
             </p>
-            {horoscope.yunyeon.hits.map((h) => (
-              <MutagenHitRow key={h.mutagen} hit={h} lead="올해는" emphasize={h.mutagen === '기'} />
-            ))}
+            {/* 대한·유년 천간이 같으면 사화 4행이 문장까지 동일 — 반복 대신 이어짐 한 줄 (P5-A) */}
+            {horoscope.daehan && horoscope.daehan.stemIndex === horoscope.yunyeon.stemIndex ? (
+              <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.65, color: 'var(--v2-ink-dim)' }}>
+                {YUNYEON_SAME_AS_DAEHAN}
+              </p>
+            ) : (
+              horoscope.yunyeon.hits.map((h) => (
+                <MutagenHitRow key={h.mutagen} hit={h} lead="올해는" emphasize={h.mutagen === '기'} />
+              ))
+            )}
           </V2Glass>
         </>
       )}

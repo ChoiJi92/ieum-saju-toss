@@ -200,5 +200,49 @@ try {
   } catch (e) { bad(`C 확장 로드 실패: ${e}`); }
 } catch { console.log('C) 콘텐츠 스킵 (jamidusu-content.ts 미작성)'); }
 
+// ── D) 대한·유년 오버레이 검증 ──
+console.log('D) 대한·유년 오버레이');
+{
+  const { computeDaehan, computeYunyeon, currentLunarYearNow } = await import('../src/lib/jamidusu-horoscope');
+  const preFail = fail;
+
+  // D-1 손검증: 1984-3-15(음) 인시생 — 양간(甲子년). 남=순행, 여=역행
+  // 근거: iztro 프로브 1984-3-15 남성 → 43세(2026년) 사(5), 여성 → 해(11), 1985음남 → 해(11)
+  const c84 = erectChart({ lunarYear: 1984, lunarMonth: 3, lunarDay: 15, isLeapMonth: false, hourBranch: 2 });
+  // 2026년 허세: 2026-1984+1 = 43세
+  const dhM = computeDaehan(c84, 'male', 2026);
+  const dhF = computeDaehan(c84, 'female', 2026);
+  if (!dhM || !dhF) bad('D-1 1984 대한 null');
+  else {
+    if (dhM.ageStart > 43 || dhM.ageEnd < 43) bad(`D-1 남 나이구간 ${dhM.ageStart}-${dhM.ageEnd}에 43 미포함`);
+    if (dhM.palaceBranch !== 5) bad(`D-1 남 대한궁 ${dhM.palaceBranch}`);   // 사(5): (2+3)%12=5
+    if (dhF.palaceBranch !== 11) bad(`D-1 여 대한궁 ${dhF.palaceBranch}`);  // 해(11): (2-3+12)%12=11
+  }
+  // D-1 음남(乙丑 1985) — 양남과 반대 방향(역행) 확인. 2026년 허세 42세
+  const c85 = erectChart({ lunarYear: 1985, lunarMonth: 3, lunarDay: 15, isLeapMonth: false, hourBranch: 2 });
+  const dhM85 = computeDaehan(c85, 'male', 2026);
+  if (!dhM85) bad('D-1 1985 음남 대한 null');
+  else {
+    if (dhM85.ageStart > 42 || dhM85.ageEnd < 42) bad(`D-1 음남 나이구간 ${dhM85.ageStart}-${dhM85.ageEnd}에 42 미포함`);
+    if (dhM85.palaceBranch !== 11) bad(`D-1 음남 대한궁 ${dhM85.palaceBranch}`); // 해(11): (2-3+12)%12=11
+  }
+  // D-1 유년: 2026 = 병오년 → 태세궁 지지 6(午), 천간 2(丙) → 사화 [천동,천기,문창,염정]
+  const yy = computeYunyeon(c84, 2026);
+  if (yy.taesaeBranch !== 6) bad(`D-1 태세 ${yy.taesaeBranch}≠6`);
+  if (yy.yearLabel !== '병오년') bad(`D-1 라벨 ${yy.yearLabel}`);
+  if (yy.hits.map((h) => h.star).join(',') !== '천동,천기,문창,염정') bad(`D-1 유년사화 ${yy.hits.map((h) => h.star).join(',')}`);
+  // D-1 첫 대한 전: 2024년생(2026년 허세 3세) — 픽스처 국수를 명시 잠금 (실측 6국)
+  // 근거: erectChart({ lunarYear:2024, lunarMonth:3, lunarDay:15, isLeapMonth:false, hourBranch:2 }).bureau.number === 6
+  const cKid = erectChart({ lunarYear: 2024, lunarMonth: 3, lunarDay: 15, isLeapMonth: false, hourBranch: 2 });
+  if (cKid.bureau.number !== 6) bad(`D-1 kid 픽스처 국수 ${cKid.bureau.number} ≠ 6 (픽스처 변질)`);
+  if (computeDaehan(cKid, 'male', 2026) !== null) bad('D-1 첫 대한 전인데 null 아님');
+  // D-1 설 경계: 2026년 설(양력 2/17) 전날은 을사년(2025), 당일은 병오년(2026)
+  // 근거: manseryeok solarToLunar 실측 — 2026-02-16 → 음력 2025-12-29, 2026-02-17 → 음력 2026-01-01
+  if (currentLunarYearNow(new Date(2026, 1, 16)) !== 2025) bad('D-1 설 전날 경계');
+  if (currentLunarYearNow(new Date(2026, 1, 17)) !== 2026) bad('D-1 설 당일 경계');
+
+  console.log(fail === preFail ? '  ✅ D-1 손검증 일치' : '  ❌ D-1 손검증 불일치');
+}
+
 if (fail > 0) { console.error(`\n❌ 검증 실패 ${fail}건 — 엔진/콘텐츠를 고치세요. 기대값 수정 금지.`); process.exit(1); }
 console.log('\n✅ 자미두수 검증 전체 통과');

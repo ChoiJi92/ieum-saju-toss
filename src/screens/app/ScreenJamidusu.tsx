@@ -12,6 +12,8 @@ import {
 import { STAR_CONTENT, aliasOf } from '../../lib/jamidusu-content';
 import { MUTAGEN_TABLE, LUCKY_MINOR, UNLUCKY_MINOR } from '../../lib/jamidusu-stars';
 import { BRIGHTNESS_NOTES, MUTAGEN_NOTES, MINOR_STAR_NOTES } from '../../lib/jamidusu-content-palace';
+import { computeDaehan, computeYunyeon, currentLunarYearNow, type MutagenHit } from '../../lib/jamidusu-horoscope';
+import { MUTAGEN_PALACE_NOTES, DAEHAN_PALACE_NOTES, YUNYEON_PALACE_NOTES, HOROSCOPE_LEAD, DAEHAN_BEFORE_FIRST } from '../../lib/jamidusu-content-horoscope';
 import { preloadRewardedAdForResult, showRewardedAdForResult } from '../../lib/ads';
 import { JamiChartGrid } from './JamiChartGrid';
 import {
@@ -72,16 +74,44 @@ const MUTAGEN_LINE: Record<string, string> = {
 
 // 밝기 표시 등급
 const BRIGHT_GRADES = new Set(['묘', '왕', '득']);
+
+/** 사화 1줄: `화록 태양 — 관록궁` 뱃지 + 시제 중립 노트. 화기는 emphasize(peach 박스). */
+function MutagenHitRow({ hit, lead, emphasize }: { hit: MutagenHit; lead: string; emphasize?: boolean }) {
+  return (
+    <div
+      style={{
+        padding: emphasize ? '10px 12px' : '4px 0',
+        borderRadius: emphasize ? 10 : 0,
+        // 알파 변형은 rgba 리터럴 (CSS var에 알파 접미 불가)
+        background: emphasize ? 'rgba(255,158,130,.13)' : 'transparent',
+        border: emphasize ? '1px solid rgba(255,158,130,.27)' : 'none',
+        marginBottom: 8,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 800, color: MUTAGEN_COLOR[hit.mutagen] ?? 'var(--v2-ink)' }}>
+          화{hit.mutagen} {hit.star}
+        </span>
+        <span style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)' }}>— {hit.palaceName}</span>
+      </div>
+      <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.65, color: 'var(--v2-ink-mid)' }}>
+        {lead} {MUTAGEN_PALACE_NOTES[hit.mutagen][hit.palaceName]}
+      </p>
+    </div>
+  );
+}
 const DARK_GRADES = new Set(['불', '함']);
 
 function ResultView({
   chart,
   spirit,
   back,
+  gender,
 }: {
   chart: JamiChart;
   spirit: Spirit;
   back: () => void;
+  gender: 'male' | 'female';
 }) {
   const lifePalace = palaceOf(chart, '명궁');
   const { stars: lifeStars, borrowed: lifeBorrowed } = starsWithBorrow(chart, '명궁');
@@ -93,6 +123,17 @@ function ResultView({
 
   // 방어: 명궁 공궁 + 대궁도 공궁(이론상 불가능)
   const hasAnyStar = lifeStars.length > 0;
+
+  // 지금 나의 운 — 계산 실패 시 섹션만 숨김 (명반은 정상 렌더). 거짓 폴백 금지.
+  const horoscope = useMemo(() => {
+    try {
+      const year = currentLunarYearNow();
+      return { daehan: computeDaehan(chart, gender, year), yunyeon: computeYunyeon(chart, year) };
+    } catch (e) {
+      console.error('[jamidusu] 오버레이 계산 실패:', e instanceof Error ? e.message : e);
+      return null;
+    }
+  }, [chart, gender]);
 
   const alias = aliasOf(lifeStars);
   // catchline: 별이 있으면 첫 별 기준
@@ -393,22 +434,56 @@ function ResultView({
         </div>
       </V2Glass>
 
+      {/* 2.5 지금 나의 운 — 대한 + 올해 (Phase 4) */}
+      {horoscope && (
+        <>
+          <V2Label>지금 나의 운</V2Label>
+          <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 2px 10px', fontSize: 12.5 }}>{HOROSCOPE_LEAD}</p>
+
+          {/* 대한 카드 */}
+          <V2Glass style={{ padding: '18px 18px 14px', marginBottom: 12 }}>
+            {horoscope.daehan ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--v2-lavender)' }}>
+                    {horoscope.daehan.ageStart}-{horoscope.daehan.ageEnd}세
+                  </span>
+                  <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--v2-ink)' }}>{horoscope.daehan.palaceName} 대한</span>
+                  <span style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>10년의 흐름</span>
+                </div>
+                <p style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)' }}>
+                  {DAEHAN_PALACE_NOTES[horoscope.daehan.palaceName]}
+                </p>
+                {horoscope.daehan.hits.map((h) => (
+                  <MutagenHitRow key={h.mutagen} hit={h} lead="이 10년은" />
+                ))}
+              </>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--v2-ink-dim)' }}>{DAEHAN_BEFORE_FIRST}</p>
+            )}
+          </V2Glass>
+
+          {/* 올해 카드 */}
+          <V2Glass style={{ padding: '18px 18px 14px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--v2-butter)' }}>
+                {horoscope.yunyeon.lunarYear} {horoscope.yunyeon.yearLabel}
+              </span>
+              <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--v2-ink)' }}>올해는 {horoscope.yunyeon.palaceName} 위</span>
+            </div>
+            <p style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)' }}>
+              {YUNYEON_PALACE_NOTES[horoscope.yunyeon.palaceName]}
+            </p>
+            {horoscope.yunyeon.hits.map((h) => (
+              <MutagenHitRow key={h.mutagen} hit={h} lead="올해는" emphasize={h.mutagen === '기'} />
+            ))}
+          </V2Glass>
+        </>
+      )}
+
       {/* 3. 풀 12궁 명반 그리드 */}
       <V2Label>전체 명반</V2Label>
       <JamiChartGrid chart={chart} center={gridCenter} />
-
-      {/* 4. 하단 안내 */}
-      <div
-        style={{
-          marginTop: 32,
-          textAlign: 'center',
-          fontSize: 12,
-          color: 'var(--v2-ink-mute)',
-          lineHeight: 1.5,
-        }}
-      >
-        대한(10년 운)은 준비 중이에요
-      </div>
 
       <div style={{ height: 96 }} />
     </V2Screen>
@@ -519,7 +594,7 @@ export default function ScreenJamidusu({
 
   // ── 3) 결과 공개 ──
   if (revealed) {
-    return <ResultView chart={chart} spirit={spirit} back={back} />;
+    return <ResultView chart={chart} spirit={spirit} back={back} gender={base.gender} />;
   }
 
   // ── 4) 티저 (광고 게이트) ──

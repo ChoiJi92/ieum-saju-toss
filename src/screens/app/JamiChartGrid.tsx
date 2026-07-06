@@ -5,22 +5,12 @@ import { JIJI_HANJA, starsWithBorrow } from '../../lib/jamidusu';
 import { LUCKY_MINOR, UNLUCKY_MINOR } from '../../lib/jamidusu-stars';
 import { PALACE_READINGS, BRIGHTNESS_NOTES, MUTAGEN_NOTES, MINOR_STAR_NOTES } from '../../lib/jamidusu-content-palace';
 import { BottomSheet } from './_kit';
+import { MUTAGEN_COLOR, BRIGHT_GRADES, DARK_GRADES } from './jami-tokens';
 
 // 고전 명반 배열: 4×4, 바깥 12칸 = 지지, 가운데 2×2 = 요약
 // branch 0=子 1=丑 2=寅 3=卯 4=辰 5=巳 6=午 7=未 8=申 9=酉 10=戌 11=亥
 // 전통 명반 좌표: 상행 巳午未申 / 우열 酉戌 / 하행(좌→우) 寅丑子亥 / 좌열 辰卯
 const GRID_AREAS = `"b5 b6 b7 b8" "b4 c c b9" "b3 c c b10" "b2 b1 b0 b11"`;
-
-const MUTAGEN_COLOR: Record<string, string> = {
-  록: 'var(--v2-mint)',
-  권: 'var(--v2-peach)',
-  과: 'var(--v2-butter)',
-  기: 'var(--v2-lavender)',
-};
-
-// 밝기 중 모디파이어를 표시할 등급
-const BRIGHT_GRADES = new Set(['묘', '왕', '득']);
-const DARK_GRADES = new Set(['불', '함']);
 
 /** 셀 스타일: 명궁 하이라이트(lavender), 기본 */
 function cellStyle(isLife: boolean): React.CSSProperties {

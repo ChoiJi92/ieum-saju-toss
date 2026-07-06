@@ -16,6 +16,7 @@ import { computeDaehan, computeYunyeon, currentLunarYearNow, type MutagenHit } f
 import { MUTAGEN_PALACE_NOTES, DAEHAN_PALACE_NOTES, YUNYEON_PALACE_NOTES, HOROSCOPE_LEAD, DAEHAN_BEFORE_FIRST, YUNYEON_SAME_AS_DAEHAN } from '../../lib/jamidusu-content-horoscope';
 import { preloadRewardedAdForResult, showRewardedAdForResult } from '../../lib/ads';
 import { JamiChartGrid } from './JamiChartGrid';
+import { MUTAGEN_COLOR, BRIGHT_GRADES, DARK_GRADES } from './jami-tokens';
 import {
   V2Screen,
   V2TopBar,
@@ -53,13 +54,6 @@ function StarName({ star }: { star: MainStar }) {
 // 결과 화면
 // ─────────────────────────────────────────────
 
-// 사화 뱃지 색상 — 알파 변형은 rgba 리터럴 (CSS var에 알파 접미 불가)
-const MUTAGEN_COLOR: Record<string, string> = {
-  록: 'var(--v2-mint)',
-  권: 'var(--v2-peach)',
-  과: 'var(--v2-butter)',
-  기: 'var(--v2-lavender)',
-};
 const MUTAGEN_BG: Record<string, string> = {
   록: 'rgba(91,217,172,.13)',
   권: 'rgba(255,158,130,.13)',
@@ -72,9 +66,6 @@ const MUTAGEN_LINE: Record<string, string> = {
   과: 'rgba(255,210,122,.27)',
   기: 'rgba(183,156,255,.27)',
 };
-
-// 밝기 표시 등급
-const BRIGHT_GRADES = new Set(['묘', '왕', '득']);
 
 /** 사화 1줄: `화록 태양 — 관록궁` 뱃지 + 시제 중립 노트. 화기는 emphasize(peach 박스). */
 function MutagenHitRow({ hit, lead, emphasize }: { hit: MutagenHit; lead: string; emphasize?: boolean }) {
@@ -101,7 +92,6 @@ function MutagenHitRow({ hit, lead, emphasize }: { hit: MutagenHit; lead: string
     </div>
   );
 }
-const DARK_GRADES = new Set(['불', '함']);
 
 function ResultView({
   chart,

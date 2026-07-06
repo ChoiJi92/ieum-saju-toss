@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { V2Screen, V2TopBar, V2Label, V2Glass, DomainHeader, SectionCard, DomainEmpty, Chip, BulletList } from './_kit';
+import { V2Screen, V2TopBar, V2Label, V2Glass, DomainHeader, SectionCard, DomainEmpty, Chip, BulletList, withAlpha } from './_kit';
 import { useSaju } from '../../lib/saju-state';
 import { yearForecast, type MonthNote, type FieldDetail } from '../../lib/year';
 import { getDaewoon, getSeun, DAEWOON_TEXT, SEUN_TEXT } from '../../lib/daewoon';
@@ -16,12 +16,12 @@ const FIELD_META: Array<{ key: 'love' | 'money' | 'career' | 'health'; label: st
 /** 행운의 달 / 주의할 달 한 줄 행 */
 function MonthRow({ note, color, sign }: { note: MonthNote; color: string; sign: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 13px', borderRadius: 'var(--v2-r-md)', background: `${color}14`, border: `1px solid ${color}33` }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 13px', borderRadius: 'var(--v2-r-md)', background: withAlpha(color, .08), border: `1px solid ${withAlpha(color, .2)}` }}>
       <div style={{ flexShrink: 0, minWidth: 42, textAlign: 'center' }}>
         <div style={{ fontSize: 16, fontWeight: 900, color }}>{note.month}월</div>
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--v2-ink-mute)' }}>{note.score}점</div>
       </div>
-      <div style={{ width: 1, alignSelf: 'stretch', background: `${color}33` }} />
+      <div style={{ width: 1, alignSelf: 'stretch', background: withAlpha(color, .2) }} />
       <div style={{ flex: 1, fontSize: 12.5, lineHeight: 1.55, color: 'var(--v2-ink-mid)' }}>
         <span style={{ color, fontWeight: 800, marginRight: 5 }}>{sign}</span>{note.reason}
       </div>
@@ -32,14 +32,14 @@ function MonthRow({ note, color, sign }: { note: MonthNote; color: string; sign:
 /** 분야별 카드 — 점수 배지 + 본문 + 추천 행동 */
 function FieldCard({ meta, detail }: { meta: typeof FIELD_META[number]; detail: FieldDetail }) {
   return (
-    <V2Glass style={{ borderLeft: `2px solid ${meta.color}66` }}>
+    <V2Glass style={{ borderLeft: `2px solid ${withAlpha(meta.color, .4)}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <span style={{ fontSize: 16 }}>{meta.emoji}</span>
         <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--v2-ink)' }}>{meta.label}</span>
-        <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 900, color: meta.color, background: `${meta.color}1f`, padding: '3px 10px', borderRadius: 999 }}>{detail.score}점</span>
+        <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 900, color: meta.color, background: withAlpha(meta.color, .12), padding: '3px 10px', borderRadius: 999 }}>{detail.score}점</span>
       </div>
       <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)' }}>{detail.body}</div>
-      <div style={{ marginTop: 9, display: 'flex', gap: 7, alignItems: 'flex-start', padding: '9px 11px', borderRadius: 11, background: `${meta.color}12` }}>
+      <div style={{ marginTop: 9, display: 'flex', gap: 7, alignItems: 'flex-start', padding: '9px 11px', borderRadius: 11, background: withAlpha(meta.color, .07) }}>
         <span style={{ flexShrink: 0 }}>👉</span>
         <span style={{ fontSize: 12.5, lineHeight: 1.55, fontWeight: 700, color: 'var(--v2-ink)' }}>{detail.action}</span>
       </div>
@@ -155,7 +155,7 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
                       flexShrink: 0, cursor: 'pointer', fontFamily: 'var(--v2-font)',
                       padding: '8px 13px',
                       borderRadius: 'var(--v2-r-md)',
-                      background: isSel ? 'var(--v2-lavender)1f' : 'var(--v2-glass-line2)',
+                      background: isSel ? withAlpha('var(--v2-lavender)', .12) : 'var(--v2-glass-line2)',
                       border: isSel ? '1.5px solid var(--v2-lavender)' : '1px solid var(--v2-glass-line)',
                       textAlign: 'center',
                       minWidth: 62,
@@ -172,7 +172,7 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
             </div>
             {/* 선택한 대운 해석 카드 — 매칭 없으면(첫 대운 전) 안내 문구 */}
             {shownDaewoon ? (
-              <V2Glass style={{ borderLeft: '2px solid var(--v2-lavender)66' }}>
+              <V2Glass style={{ borderLeft: `2px solid ${withAlpha('var(--v2-lavender)', .4)}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--v2-ink)' }}>{shownDaewoon.label} 대운</span>
                   <span style={{ fontSize: 12.5, color: 'var(--v2-ink-mute)' }}>({shownDaewoon.age}세 ~ {shownDaewoon.age + 9}세)</span>
@@ -180,7 +180,7 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
                     <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--v2-butter)' }}>지금 여기</span>
                   )}
                   {shownDaewoon.sipsung && (
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', background: 'var(--v2-lavender)1f', padding: '3px 10px', borderRadius: 999 }}>{shownDaewoon.sipsung}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', background: withAlpha('var(--v2-lavender)', .12), padding: '3px 10px', borderRadius: 999 }}>{shownDaewoon.sipsung}</span>
                   )}
                 </div>
                 <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'var(--v2-ink-mid)' }}>
@@ -191,7 +191,7 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
                 </div>
               </V2Glass>
             ) : (
-              <V2Glass style={{ borderLeft: '2px solid var(--v2-lavender)66' }}>
+              <V2Glass style={{ borderLeft: `2px solid ${withAlpha('var(--v2-lavender)', .4)}` }}>
                 <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'var(--v2-ink-mid)' }}>
                   아직 첫 대운이 시작되기 전이에요. {daewoonList[0]?.age}살부터 {daewoonList[0]?.label} 대운의 흐름이 펼쳐질 거예요 ✦
                 </div>
@@ -215,7 +215,7 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
                       flexShrink: 0, cursor: 'pointer', fontFamily: 'var(--v2-font)',
                       padding: '8px 13px',
                       borderRadius: 'var(--v2-r-md)',
-                      background: isSel ? 'var(--v2-lavender)1f' : 'var(--v2-glass-line2)',
+                      background: isSel ? withAlpha('var(--v2-lavender)', .12) : 'var(--v2-glass-line2)',
                       border: isSel ? '1.5px solid var(--v2-lavender)' : '1px solid var(--v2-glass-line)',
                       textAlign: 'center',
                       minWidth: 62,
@@ -232,7 +232,7 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
             </div>
             {/* 선택한 해 해석 카드 */}
             {shownSeun && (
-              <V2Glass style={{ borderLeft: '2px solid var(--v2-lavender)66' }}>
+              <V2Glass style={{ borderLeft: `2px solid ${withAlpha('var(--v2-lavender)', .4)}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--v2-ink)' }}>{shownSeun.year}년 · {shownSeun.label}</span>
                   <span style={{ fontSize: 12.5, color: 'var(--v2-ink-mute)' }}>{shownSeun.age}살</span>
@@ -240,7 +240,7 @@ export default function ScreenYear({ back, spirit }: { go: (r: Route) => void; b
                     <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--v2-butter)' }}>올해</span>
                   )}
                   {shownSeun.sipsung && (
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', background: 'var(--v2-lavender)1f', padding: '3px 10px', borderRadius: 999 }}>{shownSeun.sipsung}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: 'var(--v2-lavender)', background: withAlpha('var(--v2-lavender)', .12), padding: '3px 10px', borderRadius: 999 }}>{shownSeun.sipsung}</span>
                   )}
                 </div>
                 <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'var(--v2-ink-mid)' }}>

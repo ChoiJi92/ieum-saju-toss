@@ -28,6 +28,7 @@ import {
   DomainEmpty,
   SijinSheet,
   SIJIN_HOUR,
+  withAlpha,
 } from './_kit';
 import type { Route, Tab } from './nav';
 import type { Spirit } from '../../lib/spirit';
@@ -262,7 +263,7 @@ function ResultView({
 
       {/* 2. 명궁 카드 */}
       <V2Label>명궁 — 내 삶의 중심별</V2Label>
-      <V2Glass style={{ borderLeft: '2px solid var(--v2-lavender)66' }}>
+      <V2Glass style={{ borderLeft: `2px solid ${withAlpha('var(--v2-lavender)', .4)}` }}>
         {lifeBorrowed && (
           <div
             style={{
@@ -272,8 +273,8 @@ function ResultView({
               marginBottom: 12,
               padding: '8px 12px',
               borderRadius: 'var(--v2-r-md)',
-              background: 'var(--v2-lavender)18',
-              border: '1px solid var(--v2-lavender)33',
+              background: withAlpha('var(--v2-lavender)', .09),
+              border: `1px solid ${withAlpha('var(--v2-lavender)', .2)}`,
             }}
           >
             명궁이 비어 맞은편 천이궁의 별을 빌려 봐요

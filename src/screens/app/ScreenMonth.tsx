@@ -1,4 +1,4 @@
-import { V2Screen, V2TopBar, V2Label, V2Glass, DomainHeader, Accordion, Chip, SectionCard, BulletList, DomainEmpty } from './_kit';
+import { V2Screen, V2TopBar, V2Label, V2Glass, DomainHeader, Accordion, Chip, SectionCard, BulletList, DomainEmpty, withAlpha } from './_kit';
 import { useSaju } from '../../lib/saju-state';
 import { monthForecast, type DayNote, type MonthField } from '../../lib/month';
 import type { Route, Tab } from './nav';
@@ -7,12 +7,12 @@ import type { Spirit } from '../../lib/spirit';
 /** 좋은 날 / 주의할 날 한 줄 행 */
 function DayRow({ note, color, sign }: { note: DayNote; color: string; sign: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 13px', borderRadius: 'var(--v2-r-md)', background: `${color}14`, border: `1px solid ${color}33` }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 13px', borderRadius: 'var(--v2-r-md)', background: withAlpha(color, .08), border: `1px solid ${withAlpha(color, .2)}` }}>
       <div style={{ flexShrink: 0, minWidth: 42, textAlign: 'center' }}>
         <div style={{ fontSize: 16, fontWeight: 900, color }}>{note.day}일</div>
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--v2-ink-mute)' }}>{note.score}점</div>
       </div>
-      <div style={{ width: 1, alignSelf: 'stretch', background: `${color}33` }} />
+      <div style={{ width: 1, alignSelf: 'stretch', background: withAlpha(color, .2) }} />
       <div style={{ flex: 1, fontSize: 12.5, lineHeight: 1.55, color: 'var(--v2-ink-mid)' }}>
         <span style={{ color, fontWeight: 800, marginRight: 5 }}>{sign}</span>{note.reason}
       </div>

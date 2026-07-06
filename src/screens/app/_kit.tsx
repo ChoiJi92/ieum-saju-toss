@@ -2,6 +2,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Spirit, type Stage } from '../../lib/spirit';
 import { useSpiritState } from '../../lib/spirit-state';
 
+// ── 색상 알파 유틸 ──
+// CSS `var(--x)` 뒤에 알파 hex 접미를 붙이면(`var(--x)22`) invalid color → 선언 전체가 조용히 무시된다.
+// v2 팔레트 var는 hex로 풀어 rgba 리터럴로 변환한다. (index.css :root 값과 동기 유지)
+// 알파 환산 기준(기존 hex 접미 → 소수): 0x12≈.07 0x14≈.08 0x18≈.09 0x1f≈.12 0x22≈.13 0x33=.2 0x44≈.27 0x55≈.33 0x66=.4
+const V2_VAR_HEX: Record<string, string> = {
+  'var(--v2-lavender)': '#B79CFF',
+  'var(--v2-peach)': '#FF9E82',
+  'var(--v2-mint)': '#5BD9AC',
+  'var(--v2-rose)': '#FF9ED2',
+  'var(--v2-butter)': '#FFD27A',
+  'var(--v2-ink)': '#F4EFFF',
+  'var(--v2-ink-mid)': '#CFC4E8',
+  'var(--v2-ink-dim)': '#9C8FC0',
+};
+export function withAlpha(color: string, alpha: number): string {
+  const hex = V2_VAR_HEX[color] ?? color;
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return color; // 미지 var/형태 → 알파 버리고 원색 반환 (invalid CSS보다 나음; 새 var 추가 시 위 맵에도 동기)
+  return `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${alpha})`;
+}
+
 /** 출생연도 선택 옵션 — 현재 연도부터 1930년까지 내림차순 */
 export const BIRTH_YEARS: number[] = (() => {
   const now = new Date().getFullYear();
@@ -234,7 +254,7 @@ export function ScoreRing({ score, color }: { score: number; color: string }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: `0 0 22px ${color}55, 0 0 8px ${color}33`,
+        boxShadow: `0 0 22px ${withAlpha(color, .33)}, 0 0 8px ${withAlpha(color, .2)}`,
         padding: 3,
       }}
     >
@@ -549,12 +569,12 @@ export function Chip({ children, color = 'var(--v2-lavender)' }: { children: Rea
       style={{
         padding: '6px 13px',
         borderRadius: 999,
-        background: `${color}22`,
+        background: withAlpha(color, .13),
         color,
         fontSize: 12,
         fontWeight: 800,
         whiteSpace: 'nowrap',
-        border: `1px solid ${color}44`,
+        border: `1px solid ${withAlpha(color, .27)}`,
         lineHeight: 1.4,
       }}
     >
@@ -566,7 +586,7 @@ export function Chip({ children, color = 'var(--v2-lavender)' }: { children: Rea
 /** 본문 단락 카드 */
 export function SectionCard({ title, body, color = 'var(--v2-lavender)' }: { title: string; body: string; color?: string }) {
   return (
-    <V2Glass style={{ borderLeft: `2px solid ${color}66` }}>
+    <V2Glass style={{ borderLeft: `2px solid ${withAlpha(color, .4)}` }}>
       <div style={{ fontSize: 11.5, fontWeight: 800, color, marginBottom: 8, letterSpacing: '0.8px', textTransform: 'uppercase' }}>{title}</div>
       <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--v2-ink-mid)', whiteSpace: 'pre-line' }}>{body}</div>
     </V2Glass>
@@ -593,6 +613,54 @@ export function DomainEmpty({ title, back }: { title: string; back: () => void }
         <div style={{ marginTop: 12, fontSize: 14 }}>사주 정보를 먼저 입력해 주세요</div>
       </div>
     </V2Screen>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 시진 데이터 (자·축·인·묘·진·사·오·미·신·유·술·해) — ScreenAddProfile / ScreenJamidusu 공유
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 시진(時辰) 목록 — 자·축·인·묘·진·사·오·미·신·유·술·해 */
+export const SIJIN_LIST: [string, string][] = [
+  ['子', '자시 (23:30~01:30)'], ['丑', '축시 (01:30~03:30)'], ['寅', '인시 (03:30~05:30)'],
+  ['卯', '묘시 (05:30~07:30)'], ['辰', '진시 (07:30~09:30)'], ['巳', '사시 (09:30~11:30)'],
+  ['午', '오시 (11:30~13:30)'], ['未', '미시 (13:30~15:30)'], ['申', '신시 (15:30~17:30)'],
+  ['酉', '유시 (17:30~19:30)'], ['戌', '술시 (19:30~21:30)'], ['亥', '해시 (21:30~23:30)'],
+];
+
+/** 시진 → 대표 시각(hour) 매핑 */
+export const SIJIN_HOUR: Record<string, number> = { 子: 0, 丑: 2, 寅: 4, 卯: 6, 辰: 8, 巳: 10, 午: 12, 未: 14, 申: 16, 酉: 18, 戌: 20, 亥: 22 };
+
+/** 시진 선택 안내 문구 — SijinSheet / ScreenAddProfile SijinField 공유 */
+export const SIJIN_NOTE = '한국 진태양시 기준(−30분 보정)이라 시간대가 30분씩 밀려 있어요';
+
+/**
+ * 시진 바텀시트 (모름 없음) — ScreenJamidusu 잠금 화면용.
+ * 현재 선택값(selected)과 onPick 콜백을 받는다.
+ */
+export function SijinSheet({ selected, onClose, onPick }: {
+  selected: string;
+  onClose: () => void;
+  onPick: (k: string) => void;
+}) {
+  return (
+    <BottomSheet onClose={onClose} maxHeight="76dvh">
+      <div style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', marginTop: 4, lineHeight: 1.4 }}>
+        {SIJIN_NOTE}
+      </div>
+      {SIJIN_LIST.map(([k, lbl]) => {
+        const sel = selected === k;
+        return (
+          <div
+            key={k}
+            onClick={() => { onPick(k); onClose(); }}
+            style={{ padding: '13px 22px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', background: sel ? 'rgba(183,156,255,.12)' : 'transparent', color: sel ? 'var(--v2-ink)' : 'var(--v2-ink-mid)', fontSize: 15, fontWeight: 700 }}
+          >
+            <span style={{ width: 16, color: 'var(--v2-lavender)' }}>{sel ? '✓' : ''}</span>{lbl}
+          </div>
+        );
+      })}
+    </BottomSheet>
   );
 }
 

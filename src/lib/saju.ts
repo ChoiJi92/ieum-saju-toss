@@ -174,7 +174,7 @@ function countOhaeng(pillars: Pillar[]): Record<OhaengKey, number> {
  *
  * 자시 경계(23:30~00:30) 케이스에서 날짜·일주 변경이 정확히 sxtwl 와 동일하게 처리됨.
  */
-function adjustKoreanSolarTime(
+export function adjustKoreanSolarTime(
   year: number,
   month: number,
   day: number,

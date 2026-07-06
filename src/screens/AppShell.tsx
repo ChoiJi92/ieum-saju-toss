@@ -26,6 +26,8 @@ import {
 } from './app/_kit';
 import { type Tab, type Route, type FlowScreen, FORTUNE_MENU, REWARDED_ROUTES, INTERSTITIAL_ROUTES, ROUTE_TITLE } from './app/nav';
 import { personalityCard } from '../lib/personality';
+import { chartFromSajuInput, starsWithBorrow } from '../lib/jamidusu';
+import { aliasOf } from '../lib/jamidusu-content';
 import RewardedGate from './app/RewardedGate';
 import InterstitialView from './app/InterstitialView';
 import ScreenMonth from './app/ScreenMonth';
@@ -35,6 +37,7 @@ import ScreenMoney from './app/ScreenMoney';
 import ScreenCareer from './app/ScreenCareer';
 import ScreenHealth from './app/ScreenHealth';
 import ScreenGunghap from './app/ScreenGunghap';
+import ScreenJamidusu from './app/ScreenJamidusu';
 import ScreenPersonality from './app/ScreenPersonality';
 import ScreenSinsal from './app/ScreenSinsal';
 import ScreenCalendar from './app/ScreenCalendar';
@@ -207,6 +210,7 @@ export default function AppShell() {
     case 'career': screenEl = <ScreenCareer {...sp} />; break;
     case 'health': screenEl = <ScreenHealth {...sp} />; break;
     case 'gunghap': screenEl = <ScreenGunghap {...sp} />; break;
+    case 'jamidusu': screenEl = <ScreenJamidusu {...sp} />; break;
     case 'sinsal': screenEl = <ScreenSinsal {...sp} />; break;
     case 'personality': screenEl = <ScreenPersonality {...sp} />; break;
     case 'fortunes': screenEl = <ScreenFortunes {...sp} />; break;
@@ -1196,6 +1200,16 @@ function HomeOrEgg(props: { go: (r: Route) => void; back: () => void; switchTab:
 function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profile, myeongsik, profiles } = useSaju();
   const name = profile?.name ?? '나';
+  const jamiAlias = useMemo(() => {
+    if (!profile) return null;
+    try {
+      const chart = chartFromSajuInput(profile);
+      if (!chart) return null;
+      const { stars } = starsWithBorrow(chart, '명궁');
+      const alias = aliasOf(stars);
+      return alias || null;
+    } catch { return null; }
+  }, [profile]);
   const { progressOf, percent, thresholdOf, care: careAct, claimBonus, adBoost, grantBond, evolve, remaining, streak, tickStreak } = useSpiritState();
   const prog = progressOf(spirit.key);
   const stage = prog.stage;
@@ -1566,6 +1580,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
 
         </div>
         <div className="v2-display" style={{ fontSize: 20, fontWeight: 800, color: 'var(--v2-ink)', marginTop: 8 }}>{spirit.name}</div>
+        {jamiAlias && <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--v2-ink-dim)', marginTop: 3 }}>{jamiAlias}을 품은 정령</div>}
       </div></Rise>
 
       {/* 진화의 결은 메인에서 제외 (내정보에서 확인) — 한 화면 우선 */}

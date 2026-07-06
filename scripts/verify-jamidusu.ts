@@ -308,6 +308,9 @@ console.log('D) 대한·유년 오버레이');
   // 시제 중립: MUTAGEN_PALACE_NOTES 에 "올해"/"10년" 금지 (대한·유년 공용이므로)
   for (const [mu, row] of Object.entries(MUTAGEN_PALACE_NOTES)) for (const [pal, txt] of Object.entries(row))
     if ((txt as string).includes('올해') || (txt as string).includes('10년')) bad(`D-3 사화${mu}×${pal} 시제 중립 위반`);
+  // 유년 노트는 카드 헤더("올해는 X궁 위")와 이중 스탬프 방지 — 본문 선두 '올해는' 금지 (P5-B)
+  for (const [pal, txt] of Object.entries(YUNYEON_PALACE_NOTES))
+    if ((txt as string).startsWith('올해는')) bad(`D-3 유년×${pal} 선두 '올해는' (헤더와 이중 스탬프)`);
   console.log(fail === preFail ? '  ✅ D-3 콘텐츠 무결 (75유닛)' : '  ❌ D-3 콘텐츠 무결 실패 (75유닛)');
 }
 

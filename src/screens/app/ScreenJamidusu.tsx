@@ -480,6 +480,8 @@ function ResultView({
                 {YUNYEON_SAME_AS_DAEHAN}
               </p>
             ) : (
+              // 화기 강조는 올해 카드만: 올해는 지금 행동을 조절할 수 있는 신호라 강조가 유용하지만,
+              // 10년 대한에 같은 강조를 두면 긴 기간 내내 불안만 키워 의도적으로 뺐다 (P5-C 의사결정)
               horoscope.yunyeon.hits.map((h) => (
                 <MutagenHitRow key={h.mutagen} hit={h} lead="올해는" emphasize={h.mutagen === '기'} />
               ))

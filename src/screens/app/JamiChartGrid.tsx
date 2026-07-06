@@ -140,7 +140,7 @@ export function JamiChartGrid({
                     style={{
                       display: 'flex',
                       alignItems: 'baseline',
-                      gap: 1,
+                      gap: 2,
                       lineHeight: 1.3,
                     }}
                   >
@@ -154,15 +154,17 @@ export function JamiChartGrid({
                     >
                       {s}
                     </span>
+                    {/* 밝기는 <sub> 금지 — 첨자 내림으로 사화 글자와 높이가 어긋난다. baseline 정렬 span */}
                     {p.brightness[s] && (
-                      <sub
+                      <span
+                        data-brightness
                         style={{
                           fontSize: 9,
                           color: 'var(--v2-ink-dim)',
                         }}
                       >
                         {p.brightness[s]}
-                      </sub>
+                      </span>
                     )}
                     {p.mutagens[s] && (
                       <span
@@ -282,7 +284,7 @@ export function JamiChartGrid({
                     {s}
                   </span>
                   {br && (
-                    <sub style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>{br}</sub>
+                    <span data-brightness style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>{br}</span>
                   )}
                   {mu && (
                     <span

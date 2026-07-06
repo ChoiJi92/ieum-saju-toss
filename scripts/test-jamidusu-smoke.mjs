@@ -115,11 +115,11 @@ function record(name, ok, detail) {
     }
     record('S1-5 그리드 12궁 셀', gridCellCount === 12, `${gridCellCount}/12`);
 
-    // 명궁 카드 밝기 첨자: JamiChartGrid에서 <sub> 태그로만 렌더됨
+    // 명궁 카드 밝기 첨자: [data-brightness] span으로 렌더됨 (<sub>는 베이스라인 이탈 버그로 금지)
     // body.innerText()로 잡으면 '리'·'평' 등이 일반 문장에서도 매칭돼 항상 통과하므로
-    // <sub> 요소의 innerText만 한정해 검사
+    // data-brightness 요소의 innerText만 한정해 검사
     const BRIGHTNESS_GRADES = ['묘', '왕', '득', '리', '평', '불', '함'];
-    const subTexts = await page.locator('sub').allInnerTexts();
+    const subTexts = await page.locator('[data-brightness]').allInnerTexts();
     const hasBrightness = subTexts.some((t) => BRIGHTNESS_GRADES.includes(t.trim()));
     record('S1-6 명궁 카드 밝기 첨자', hasBrightness, hasBrightness ? undefined : '밝기 등급 텍스트 없음');
 

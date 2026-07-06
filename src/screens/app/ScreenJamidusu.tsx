@@ -291,7 +291,7 @@ function ResultView({
                     )}
                     <StarName star={star} />
                     {br && (
-                      <sub style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>{br}</sub>
+                      <span data-brightness style={{ fontSize: 11, color: 'var(--v2-ink-dim)' }}>{br}</span>
                     )}
                     {mu && (
                       <span

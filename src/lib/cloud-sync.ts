@@ -82,21 +82,52 @@ function progressScore(blob: Blob): number {
   return score;
 }
 
-async function remoteGet(c: Creds): Promise<{ found: boolean; data?: Blob; updatedAt?: string } | null> {
+// ── 401 자가복구 — 서버 서명키(STATE_SYNC_SECRET) 로테이션에도 연동이 끊기지 않게 ──
+// syncToken은 서버 비밀키로 서명되므로 키 교체 시 기존 토큰이 전부 401이 된다.
+// 이미 연동한 유저는 appLogin()이 무UI로 통과하므로, 401 한정 조용히 1회 재교환 후 재시도.
+// 단일 비행(single-flight): 동시 401이 여러 건이어도 재교환은 한 번만.
+let refreshing: Promise<Creds | null> | null = null;
+function refreshCreds(): Promise<Creds | null> {
+  if (!refreshing) {
+    refreshing = (async () => {
+      try {
+        const info = await signInWithToss();
+        if (!info.sync) return null;
+        const prev = readJson<Creds>(CREDS_KEY);
+        // linkedAt은 최초 연동 시점 유지 — 재교환은 연동 갱신이 아니라 토큰 갱신
+        const next: Creds = { ...info.sync, linkedAt: prev?.linkedAt ?? new Date().toISOString() };
+        writeJson(CREDS_KEY, next);
+        return next;
+      } catch { return null; }
+      finally { refreshing = null; }
+    })();
+  }
+  return refreshing;
+}
+
+async function remoteGet(c: Creds, retried = false): Promise<{ found: boolean; data?: Blob; updatedAt?: string } | null> {
   try {
     const r = await fetch(`${STATE_URL}?userKey=${c.userKey}&token=${c.syncToken}`);
+    if (r.status === 401 && !retried) {
+      const nc = await refreshCreds();
+      return nc ? remoteGet(nc, true) : null;
+    }
     if (!r.ok) return null;
     return (await r.json()) as { found: boolean; data?: Blob; updatedAt?: string };
   } catch { return null; }
 }
 
-async function remotePut(c: Creds, blob: Blob): Promise<string | null> {
+async function remotePut(c: Creds, blob: Blob, retried = false): Promise<string | null> {
   try {
     const r = await fetch(STATE_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userKey: c.userKey, token: c.syncToken, data: blob }),
     });
+    if (r.status === 401 && !retried) {
+      const nc = await refreshCreds();
+      return nc ? remotePut(nc, blob, true) : null;
+    }
     if (!r.ok) return null;
     const j = (await r.json()) as { ok: boolean; updatedAt: string };
     return j.ok ? j.updatedAt : null;
@@ -108,11 +139,22 @@ export async function deleteRemoteAndUnlink(): Promise<void> {
   const c = getCreds();
   if (c) {
     try {
-      await fetch(STATE_URL, {
+      const r = await fetch(STATE_URL, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userKey: c.userKey, token: c.syncToken }),
       });
+      // 토큰 만료로 삭제 실패 시 1회 재교환 후 재시도 — 탈퇴 시 서버 데이터가 남으면 안 됨
+      if (r.status === 401) {
+        const nc = await refreshCreds();
+        if (nc) {
+          await fetch(STATE_URL, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userKey: nc.userKey, token: nc.syncToken }),
+          });
+        }
+      }
     } catch { /* best effort */ }
   }
   try { localStorage.removeItem(CREDS_KEY); localStorage.removeItem(META_KEY); } catch { /* ignore */ }

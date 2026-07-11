@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
 import { showRewardedAdForResult, preloadRewardedAdForResult } from '../lib/ads';
-import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchProgress, MISSION_REWARD, DEX_MILESTONES, DEX_REWARD } from '../lib/spirit-economy';
+import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchProgress, MISSION_REWARD, DEX_MILESTONES, DEX_REWARD, nextCareAction } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
@@ -1172,6 +1172,9 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
         </Rise>
       )}
       <Rise delay={360}><V2Label>오늘의 럭키</V2Label><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{fortune.hashtags.map((h, i) => <StatPill key={i} label={`#${i + 1}`} value={h.replace(/^#/, '')} color={['var(--v2-lavender)', 'var(--v2-peach)', 'var(--v2-mint)'][i]} />)}</div></Rise>
+      <Rise delay={400}>
+        <div style={{ marginTop: 20 }}><V2Button onClick={() => go('home')}>정령에게 오늘 기운 전하기</V2Button></div>
+      </Rise>
       {/* 무료→프리미엄 퍼널 — 이달의 운세 티저 CTA */}
       <Rise delay={420}>
         <V2Glass onClick={() => go('month')} style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 13, background: 'linear-gradient(120deg, rgba(255,158,130,.10), rgba(183,156,255,.08))' }} glow="0 0 20px rgba(255,158,130,.12)">
@@ -1277,6 +1280,17 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
   const tgtProg = progressOf(targetKey);
   const tgtRem = remaining(targetKey);
   const tgtPct = percent(targetKey);
+  const careActions = [
+    { kind: 'feed', ic: '🍃', t: '먹이주기', amt: ACTION_GAIN.feed, c: '#5BD9AC' },
+    { kind: 'pet', ic: '💗', t: '쓰다듬기', amt: ACTION_GAIN.pet, c: '#FF9E82' },
+    { kind: 'meditate', ic: '🌙', t: '명상하기', amt: ACTION_GAIN.meditate, c: '#B79CFF' },
+  ] as const;
+  const nextCare = nextCareAction(tgtProg.actions);
+  const showFortuneCareNudge = progressOf(spirit.key).bonuses.fortune
+    && nextCare !== null
+    && tgtRem.capLeft > 0
+    && !(stage >= 4 && !mentee);
+  const nextCareLabel = nextCare ? careActions.find((action) => action.kind === nextCare)?.t : null;
   // 일일 미션 3종 — 기존 상태에서 파생 (새 추적 없음). 교감은 교감 버튼과 동일 대상(targetKey),
   // 운세 확인 보너스는 항상 내 정령(spirit.key)에 적립되므로 그쪽에서 파생 (멘토 모드에서도 완료 가능)
   const catchSt = todayCatchState();
@@ -1585,7 +1599,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
 
       {/* 진화의 결은 메인에서 제외 (내정보에서 확인) — 한 화면 우선 */}
       {/* 첫 교감 코치마크 — 최초 1회, 교감하면 해제 */}
-      {careGuide && stage < 4 && !rem.actions.feed && (
+      {careGuide && stage < 4 && !rem.actions.feed && !showFortuneCareNudge && (
         <div style={{ textAlign: 'center', marginTop: 8, animation: 'v2-float 2.2s ease-in-out infinite' }}>
           <span style={{ display: 'inline-block', padding: '8px 16px', borderRadius: 999, background: 'rgba(91,217,172,.14)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12, fontWeight: 800 }}>👇 아래 버튼으로 첫 교감을 해보세요 — 매일 교감하면 자라요</span>
         </div>
@@ -1620,17 +1634,20 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               <button onClick={() => go('profiles')} className="v2-press" style={{ marginTop: 9, width: '100%', padding: '9px', borderRadius: 11, border: 'none', cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'linear-gradient(100deg, rgba(255,210,122,.2), rgba(91,217,172,.2))', color: 'var(--v2-butter)', fontSize: 12, fontWeight: 800 }}>✨ {mentee.sp.name} 진화 준비 완료 — 사주 전환해서 진화시키기 ›</button>
             )}
             <div style={{ height: 1, background: 'var(--v2-glass-line2)', margin: '10px -16px' }} />
+            {showFortuneCareNudge && nextCareLabel && (
+              <div style={{ margin: '0 0 9px', textAlign: 'center', fontSize: 12, fontWeight: 800, color: 'var(--v2-mint)' }}>
+                운세를 들었으니 {spirit.name}에게 {nextCareLabel} 해주세요
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 6 }}>
-              {([
-                { kind: 'feed', ic: '🍃', t: '먹이주기', amt: ACTION_GAIN.feed, c: '#5BD9AC' },
-                { kind: 'pet', ic: '💗', t: '쓰다듬기', amt: ACTION_GAIN.pet, c: '#FF9E82' },
-                { kind: 'meditate', ic: '🌙', t: '명상하기', amt: ACTION_GAIN.meditate, c: '#B79CFF' },
-              ] as const).map((a) => {
+              {careActions.map((a) => {
                 const used = tgtRem.actions[a.kind];
                 const noTarget = stage >= 4 && !mentee;
                 const off = used || tgtRem.capLeft === 0 || noTarget;
                 // 시간대 보너스 — 아침 먹이/낮 쓰다듬기/밤 명상이면 +6
                 const inWin = inActionWindow(a.kind);
+                const isHandoffAction = showFortuneCareNudge && a.kind === nextCare;
+                const isEmphasized = isHandoffAction || (!showFortuneCareNudge && inWin);
                 // disabled 대신 탭 피드백 — 무반응(버그 체감) 제거
                 const onTap = () => {
                   if (noTarget) { showNotice('가장 영험한 모습이에요 — 새 정령을 만나 기운을 나눠보세요 ✦'); return; }
@@ -1640,8 +1657,8 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
                 };
                 return (
                   <button key={a.kind} onClick={onTap} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '2px 2px', minHeight: 44, borderRadius: 14, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'transparent', border: 'none', opacity: off ? 0.4 : 1, position: 'relative' }}>
-                    {inWin && !off && <span style={{ position: 'absolute', top: -8, right: '50%', transform: 'translateX(38px)', fontSize: 9, fontWeight: 900, color: '#1b1230', background: 'var(--v2-butter)', padding: '2px 7px', borderRadius: 8, whiteSpace: 'nowrap', boxShadow: '0 0 10px rgba(255,210,122,.6)' }}>+{TIME_BONUS} 보너스</span>}
-                    <span style={{ width: 44, height: 44, borderRadius: 15, background: `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, boxShadow: off ? 'none' : inWin ? `0 0 18px ${a.c}55, 0 0 8px rgba(255,210,122,.35)` : `0 0 16px ${a.c}26`, border: inWin && !off ? '1.5px solid rgba(255,210,122,.55)' : '1.5px solid transparent' }}>{a.ic}</span>
+                    {isEmphasized && !off && <span style={{ position: 'absolute', top: -8, right: '50%', transform: 'translateX(38px)', fontSize: 9, fontWeight: 900, color: '#1b1230', background: isHandoffAction ? 'var(--v2-mint)' : 'var(--v2-butter)', padding: '2px 7px', borderRadius: 8, whiteSpace: 'nowrap', boxShadow: isHandoffAction ? '0 0 10px rgba(91,217,172,.6)' : '0 0 10px rgba(255,210,122,.6)' }}>{isHandoffAction ? '지금 교감' : `+${TIME_BONUS} 보너스`}</span>}
+                    <span style={{ width: 44, height: 44, borderRadius: 15, background: isHandoffAction ? `${a.c}35` : `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, boxShadow: off ? 'none' : isHandoffAction ? `0 0 22px ${a.c}88, 0 0 10px rgba(91,217,172,.5)` : isEmphasized ? `0 0 18px ${a.c}55, 0 0 8px rgba(255,210,122,.35)` : `0 0 16px ${a.c}26`, border: isEmphasized && !off ? `1.5px solid ${isHandoffAction ? 'rgba(91,217,172,.8)' : 'rgba(255,210,122,.55)'}` : '1.5px solid transparent' }}>{a.ic}</span>
                     <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
                     <span style={{ fontSize: 11.5, fontWeight: 800, color: used ? 'var(--v2-ink-mute)' : inWin ? 'var(--v2-butter)' : a.c }}>{used ? '완료' : `+${a.amt + (inWin ? TIME_BONUS : 0)}${inWin ? ' ✨' : ''}`}</span>
                   </button>
@@ -1649,7 +1666,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               })}
             </div>
             {/* 시간대 안내 — 제철 교감에 보너스 */}
-            {(stage < 4 || mentee) && (() => {
+            {!showFortuneCareNudge && (stage < 4 || mentee) && (() => {
               const nowKind = (['feed', 'pet', 'meditate'] as const).find((k) => inActionWindow(k));
               if (!nowKind || tgtRem.actions[nowKind]) return null;
               const w = ACTION_WINDOW[nowKind];

@@ -151,6 +151,15 @@ export const STREAK_MILESTONES: readonly number[] = [3, 7, 14, 30];
 /** 마일스톤 1회 보상 bond — 특별 보상이라 하루 상한 미적용 (평생 최대 4회, 페이싱 영향 미미) */
 export const STREAK_REWARD = 20;
 
+export function nextStreakMilestone(streak: number): { day: number; daysLeft: number; reward: number } | null {
+  const day = STREAK_MILESTONES.find((milestone) => milestone > streak);
+  return day ? { day, daysLeft: day - streak, reward: STREAK_REWARD } : null;
+}
+
+export function nextCareAction(actions: DayActions): ActionKind | null {
+  return (Object.keys(ACTION_GAIN) as ActionKind[]).find((kind) => !actions[kind]) ?? null;
+}
+
 export type StreakState = { streak: number; lastDate: string; maxStreak: number; claimed: number[] };
 
 export function makeStreakDefault(): StreakState {

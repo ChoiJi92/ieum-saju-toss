@@ -46,6 +46,17 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number,
   return lines;
 }
 
+function drawCenteredLines(ctx: CanvasRenderingContext2D, lines: string[], centerX: number, startY: number, lineHeight: number) {
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.direction = 'ltr';
+  lines.forEach((line, index) => {
+    const x = centerX - ctx.measureText(line).width / 2;
+    ctx.fillText(line, x, startY + index * lineHeight);
+  });
+  ctx.restore();
+}
+
 type CardContext = 'spirit' | 'fortune';
 
 function drawFortuneContent(ctx: CanvasRenderingContext2D, spirit: Spirit, oneLine?: string) {
@@ -71,7 +82,7 @@ function drawFortuneContent(ctx: CanvasRenderingContext2D, spirit: Spirit, oneLi
   roundRect(ctx, 70, boxY, W - 140, boxH, 22);
   ctx.stroke();
   ctx.fillStyle = '#F4EFFF';
-  lines.forEach((line, index) => ctx.fillText(line, W / 2, boxY + 48 + index * lineHeight));
+  drawCenteredLines(ctx, lines, W / 2, boxY + 48, lineHeight);
 }
 
 function drawSpiritContent(ctx: CanvasRenderingContext2D, spirit: Spirit, stage: Stage, oneLine?: string) {
@@ -102,7 +113,7 @@ function drawSpiritContent(ctx: CanvasRenderingContext2D, spirit: Spirit, stage:
   roundRect(ctx, 70, boxY, W - 140, boxH, 22);
   ctx.stroke();
   ctx.fillStyle = '#CFC4E8';
-  lines.forEach((line, index) => ctx.fillText(line, W / 2, boxY + 44 + index * lineHeight));
+  drawCenteredLines(ctx, lines, W / 2, boxY + 44, lineHeight);
 }
 
 async function drawCard(spirit: Spirit, stage: Stage, oneLine?: string, context: CardContext = 'spirit'): Promise<HTMLCanvasElement> {

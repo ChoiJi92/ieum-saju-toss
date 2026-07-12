@@ -16,5 +16,9 @@ assert.equal(
   nextCareAction({ feed: true, pet: true, meditate: true }),
   null,
 );
+assert.equal(
+  nextCareAction({ feed: false, pet: false, meditate: false }),
+  'feed',
+);
 
 console.log('retention selectors: ok');

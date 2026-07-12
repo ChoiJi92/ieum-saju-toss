@@ -507,8 +507,6 @@ function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () =
   const done = hatchProgress(prog);
   const [phase, setPhase] = useState<'egg' | 'hatching' | 'reveal'>('egg');
   const [wiggle, setWiggle] = useState(0);
-  const [navMsg, setNavMsg] = useState(false);
-  const nudgeHatch = () => { setNavMsg(true); window.setTimeout(() => setNavMsg(false), 2000); };
   const hatchStarted = useRef(false);
 
   // 부화 전환은 스토어 상태(prog.hatched)로 판정 — eggCare 반환값은 setState 특성상 신뢰 불가
@@ -534,26 +532,13 @@ function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () =
 
   return (
     <V2Screen seed={15}>
-      {navMsg && <div style={{ position: 'fixed', top: 70, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(183,156,255,.16)', border: '1px solid var(--v2-lavender)', color: 'var(--v2-lavender)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🥚 먼저 알을 깨워주세요</div>}
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 48px)', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
-        {/* 상단 인사 + 기능 아이콘 (부화 전이라 정체 비밀 — 네비는 부화 유도) */}
+        {/* 부화 전에는 잠긴 메뉴 대신 지금 해야 할 한 가지 행동만 안내한다. */}
         <Rise style={{ paddingTop: 38 }}>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: 'var(--v2-ink-dim)' }}>오늘도 함께해요 ✦</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--v2-ink)' }}>{name}님의 정령</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {[
-              { r: 'today' as Route, ic: '☀️', label: '오늘 운세' },
-              { r: 'fortunes' as Route, ic: '🔮', label: '운세 더보기' },
-              { r: 'collection' as Route, ic: '📖', label: '도감' },
-              { r: 'profile' as Route, ic: '👤', label: '내정보' },
-            ].map((n) => (
-              <button key={n.r} onClick={nudgeHatch} className="v2-press" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '9px 4px', borderRadius: 16, cursor: 'pointer', fontFamily: 'var(--v2-font)', background: 'var(--v2-glass)', border: '1px solid var(--v2-glass-line2)', opacity: 0.5 }}>
-                <span style={{ fontSize: 20, lineHeight: 1 }}>{n.ic}</span>
-                <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--v2-ink-mid)', whiteSpace: 'nowrap' }}>{n.label}</span>
-              </button>
-            ))}
+          <div style={{ textAlign: 'center' }}>
+            <div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>정령 탄생 · {Math.min(done + 1, 3)}/3</div>
+            <div style={{ marginTop: 7, fontSize: 18, fontWeight: 800, color: 'var(--v2-ink)' }}>{name}님의 정령을 깨워주세요</div>
+            <div style={{ marginTop: 5, fontSize: 12.5, color: 'var(--v2-ink-dim)', lineHeight: 1.5 }}>세 가지 교감을 마치면 정령이 태어나<br />오늘의 운세를 직접 들려줘요</div>
           </div>
         </Rise>
 
@@ -566,7 +551,7 @@ function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () =
         {/* 하단 카드 — 부화 교감 */}
         <Rise delay={180} style={{ marginTop: 12 }}>
           <V2Glass style={{ padding: '14px 16px' }}>
-            <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: 'var(--v2-ink)' }}>교감 3번이면 알이 부화해요</div>
+            <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: 'var(--v2-ink)' }}>{done === 0 ? '알이 기다리고 있어요' : done < 3 ? `좋아요, ${3 - done}번만 더 교감해요` : '곧 정령이 태어나요'}</div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '10px 0 13px' }}>
               {[0, 1, 2].map((i) => <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < done ? 'var(--v2-butter)' : 'rgba(255,255,255,.15)', boxShadow: i < done ? '0 0 10px var(--v2-butter)' : 'none', transition: 'all .3s ease' }} />)}
             </div>
@@ -609,7 +594,7 @@ function EggHatchView({ spirit, onComplete }: { spirit: Spirit; onComplete: () =
             <div className="v2-cap" style={{ color: spirit.elem.raw, marginBottom: 12 }}>{spirit.formula}</div>
             <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: 0, maxWidth: 340 }}>{spirit.persona}</p>
           </div>
-          <div style={{ width: '100%', maxWidth: 340, marginTop: 22, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={onComplete}>{spirit.name}와 함께하기 →</V2Button></div>
+          <div style={{ width: '100%', maxWidth: 340, marginTop: 22, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={onComplete}>{spirit.name}에게 첫 운세 듣기 →</V2Button></div>
         </div>
       )}
     </V2Screen>
@@ -706,12 +691,12 @@ function ScreenReveal({ enterApp }: { goFlow: (s: FlowScreen) => void; back: () 
           {phase === 3 && (
             <div style={{ animation: 'v2-rise-tf .6s ease .25s both' }}>
               <h1 className="v2-display" style={{ margin: '0 0 10px' }}>정령의 알이 맺혔어요</h1>
-              <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: 0 }}>교감으로 부화시키면<br />어떤 정령인지 만날 수 있어요 ✦</p>
+              <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: 0 }}>세 가지 교감으로 알을 깨우면<br />정령이 오늘의 운세를 들려줘요 ✦</p>
             </div>
           )}
         </div>
 
-        {phase === 3 && <div style={{ width: '100%', maxWidth: 340, marginTop: 20, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={() => enterApp()}>알 만나러 가기 →</V2Button></div>}
+        {phase === 3 && <div style={{ width: '100%', maxWidth: 340, marginTop: 20, animation: 'v2-rise-tf .6s ease .5s both' }}><V2Button onClick={() => enterApp()}>세 번 교감하고 정령 깨우기 →</V2Button></div>}
       </div>
     </V2Screen>
   );
@@ -1196,13 +1181,14 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
 function HomeOrEgg(props: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { progressOf } = useSpiritState();
   const [done, setDone] = useState(() => progressOf(props.spirit.key).hatched);
-  if (!done) return <EggHatchView spirit={props.spirit} onComplete={() => setDone(true)} />;
+  if (!done) return <EggHatchView spirit={props.spirit} onComplete={() => { setDone(true); props.go('today'); }} />;
   return <ScreenPetHome {...props} />;
 }
 
 function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profile, myeongsik, profiles } = useSaju();
   const name = profile?.name ?? '나';
+  const homeFortune = useMemo(() => myeongsik ? todayFortune(myeongsik) : null, [myeongsik]);
   const jamiAlias = useMemo(() => {
     if (!profile) return null;
     try {
@@ -1396,6 +1382,24 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
           ))}
         </div>
       </Rise>
+      {homeFortune && (
+        <Rise delay={90} style={{ marginTop: 12 }}>
+          <button
+            onClick={() => go('today')}
+            className="v2-press"
+            style={{ width: '100%', padding: 0, border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--v2-font)' }}
+          >
+            <V2Glass style={{ padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 12, background: 'linear-gradient(120deg, rgba(183,156,255,.14), rgba(91,217,172,.08))' }} glow="0 0 20px rgba(183,156,255,.12)">
+              <div style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(183,156,255,.16)', color: 'var(--v2-lavender)', fontSize: 20 }}>☀️</div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--v2-lavender)', marginBottom: 4 }}>{spirit.name}의 오늘 한마디</div>
+                <div style={{ fontSize: 13.5, lineHeight: 1.45, fontWeight: 750, color: 'var(--v2-ink)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{homeFortune.oneLine}</div>
+              </div>
+              <span aria-hidden="true" style={{ color: 'var(--v2-lavender)', fontSize: 18, fontWeight: 800 }}>›</span>
+            </V2Glass>
+          </button>
+        </Rise>
+      )}
       {/* 백업 넛지 — 첫 진화 후 미연결 유저에게 1회 */}
       {nudge && !isLinked() && stage >= 2 && (
         <Rise style={{ marginTop: 12 }}>
@@ -1636,7 +1640,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
             <div style={{ height: 1, background: 'var(--v2-glass-line2)', margin: '10px -16px' }} />
             {showFortuneCareNudge && nextCareLabel && (
               <div style={{ margin: '0 0 9px', textAlign: 'center', fontSize: 12, fontWeight: 800, color: 'var(--v2-mint)' }}>
-                운세를 들었으니 {spirit.name}에게 {nextCareLabel} 해주세요
+                운세를 들었으니 {mentee?.sp.name ?? spirit.name}에게 {nextCareLabel} 해주세요
               </div>
             )}
             <div style={{ display: 'flex', gap: 6 }}>
@@ -1648,6 +1652,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
                 const inWin = inActionWindow(a.kind);
                 const isHandoffAction = showFortuneCareNudge && a.kind === nextCare;
                 const isEmphasized = isHandoffAction || (!showFortuneCareNudge && inWin);
+                const showTimeBonus = inWin && (!showFortuneCareNudge || isHandoffAction);
                 // disabled 대신 탭 피드백 — 무반응(버그 체감) 제거
                 const onTap = () => {
                   if (noTarget) { showNotice('가장 영험한 모습이에요 — 새 정령을 만나 기운을 나눠보세요 ✦'); return; }
@@ -1660,7 +1665,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
                     {isEmphasized && !off && <span style={{ position: 'absolute', top: -8, right: '50%', transform: 'translateX(38px)', fontSize: 9, fontWeight: 900, color: '#1b1230', background: isHandoffAction ? 'var(--v2-mint)' : 'var(--v2-butter)', padding: '2px 7px', borderRadius: 8, whiteSpace: 'nowrap', boxShadow: isHandoffAction ? '0 0 10px rgba(91,217,172,.6)' : '0 0 10px rgba(255,210,122,.6)' }}>{isHandoffAction ? '지금 교감' : `+${TIME_BONUS} 보너스`}</span>}
                     <span style={{ width: 44, height: 44, borderRadius: 15, background: isHandoffAction ? `${a.c}35` : `${a.c}1f`, color: a.c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, boxShadow: off ? 'none' : isHandoffAction ? `0 0 22px ${a.c}88, 0 0 10px rgba(91,217,172,.5)` : isEmphasized ? `0 0 18px ${a.c}55, 0 0 8px rgba(255,210,122,.35)` : `0 0 16px ${a.c}26`, border: isEmphasized && !off ? `1.5px solid ${isHandoffAction ? 'rgba(91,217,172,.8)' : 'rgba(255,210,122,.55)'}` : '1.5px solid transparent' }}>{a.ic}</span>
                     <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--v2-ink)' }}>{a.t}</span>
-                    <span style={{ fontSize: 11.5, fontWeight: 800, color: used ? 'var(--v2-ink-mute)' : inWin ? 'var(--v2-butter)' : a.c }}>{used ? '완료' : `+${a.amt + (inWin ? TIME_BONUS : 0)}${inWin ? ' ✨' : ''}`}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: used ? 'var(--v2-ink-mute)' : showTimeBonus ? 'var(--v2-butter)' : a.c }}>{used ? '완료' : `+${a.amt + (showTimeBonus ? TIME_BONUS : 0)}${showTimeBonus ? ' ✨' : ''}`}</span>
                   </button>
                 );
               })}
@@ -1875,5 +1880,3 @@ function ScreenCollection({ go, switchTab, back, spirit }: { go: (r: Route) => v
     </V2Screen>
   );
 }
-
-

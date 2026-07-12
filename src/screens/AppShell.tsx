@@ -980,6 +980,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
   const { claimBonus, progressOf } = useSpiritState();
   const stage = progressOf(spirit.key).stage;
   const [bonusMsg, setBonusMsg] = useState<string | null>(null);
+  const [shareMsg, setShareMsg] = useState<string | null>(null);
   const fortune = myeongsik ? todayFortune(myeongsik) : null;
   // 정령의 풀이 — 정령이 자랄수록 깊어지는 해석 (do/avoid → 행운시간·미션 → 금기·내일예고)
   const guide = useMemo(() => {
@@ -1024,6 +1025,13 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
         ['건강', fortune.sections.health.body],
       ] as const)
     : [];
+  const shareFortuneCard = async () => {
+    if (!fortune) return;
+    const result = await shareSpiritCard(spirit, stage, fortune.oneLine, 'fortune');
+    if (result === 'downloaded') setShareMsg('오늘 운세 카드를 저장했어요 🖼️');
+    else if (result === 'failed') setShareMsg('카드를 만들지 못했어요 — 다시 시도해주세요');
+    if (result === 'downloaded' || result === 'failed') window.setTimeout(() => setShareMsg(null), 2200);
+  };
 
   // 앱활동 보너스 — 오늘의 운세 확인 1회(멱등)
   useEffect(() => {
@@ -1064,6 +1072,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
     <V2Screen seed={13} style={{ paddingBottom: 0 }}>
       <V2TopBar onBack={back} title="오늘의 운세" />
       {bonusMsg && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(91,217,172,.16)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🎁 {bonusMsg}</div>}
+      {shareMsg && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(183,156,255,.16)', border: '1px solid var(--v2-lavender)', color: 'var(--v2-ink)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>{shareMsg}</div>}
       <Rise><div style={{ textAlign: 'center' }}><div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>{dateLabel} · {myeongsik?.ilgan.c}{myeongsik ? `(${TG_KR[myeongsik.ilgan.c]})` : ''}일</div><SelfSpiritSlot spirit={spirit} size={172} tag={false} /><h1 className="v2-hero" style={{ margin: '2px 0 0' }}>{fortune.mood}</h1></div></Rise>
       <Rise delay={120}><div style={speechStyle}><div style={{ fontSize: 11, color: 'var(--v2-lavender)', fontWeight: 800, marginBottom: 6 }}>{spirit.name}의 한 마디</div><div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.55 }}>{fortune.oneLine}</div></div></Rise>
 
@@ -1158,7 +1167,10 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
       )}
       <Rise delay={360}><V2Label>오늘의 럭키</V2Label><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{fortune.hashtags.map((h, i) => <StatPill key={i} label={`#${i + 1}`} value={h.replace(/^#/, '')} color={['var(--v2-lavender)', 'var(--v2-peach)', 'var(--v2-mint)'][i]} />)}</div></Rise>
       <Rise delay={400}>
-        <div style={{ marginTop: 20 }}><V2Button onClick={() => go('home')}>정령에게 오늘 기운 전하기</V2Button></div>
+        <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <V2Button onClick={shareFortuneCard} kind="glass">오늘 운세 카드 공유</V2Button>
+          <V2Button onClick={() => go('home')}>정령에게 오늘 기운 전하기</V2Button>
+        </div>
       </Rise>
       {/* 무료→프리미엄 퍼널 — 이달의 운세 티저 CTA */}
       <Rise delay={420}>

@@ -46,7 +46,9 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number,
   return lines;
 }
 
-async function drawCard(spirit: Spirit, stage: Stage, oneLine?: string): Promise<HTMLCanvasElement> {
+type CardContext = 'spirit' | 'fortune';
+
+async function drawCard(spirit: Spirit, stage: Stage, oneLine?: string, context: CardContext = 'spirit'): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -95,6 +97,12 @@ async function drawCard(spirit: Spirit, stage: Stage, oneLine?: string): Promise
 
   ctx.textAlign = 'center';
 
+  if (context === 'fortune') {
+    ctx.font = '800 24px -apple-system, sans-serif';
+    ctx.fillStyle = '#FFD27A';
+    ctx.fillText('오늘의 운세', W / 2, 92);
+  }
+
   // 등급 별 + 라벨
   const stars = '★'.repeat(spirit.rarity.stars) + '☆'.repeat(4 - spirit.rarity.stars);
   ctx.font = '700 30px -apple-system, sans-serif';
@@ -113,10 +121,12 @@ async function drawCard(spirit: Spirit, stage: Stage, oneLine?: string): Promise
 
   // 오늘 한 줄 (말풍선 카드) — 푸터와 겹치지 않게 위쪽 배치 (최대 2줄 = y896에서 끝)
   if (oneLine) {
-    ctx.font = '600 25px -apple-system, sans-serif';
-    const lines = wrapText(ctx, oneLine, W - 200, 2);
+    const isFortune = context === 'fortune';
+    ctx.font = isFortune ? '700 30px -apple-system, sans-serif' : '600 25px -apple-system, sans-serif';
+    const lines = wrapText(ctx, oneLine, isFortune ? W - 170 : W - 200, 2);
     const boxY = 786;
-    const boxH = 38 + lines.length * 36;
+    const lineHeight = isFortune ? 40 : 36;
+    const boxH = (isFortune ? 46 : 38) + lines.length * lineHeight;
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
     roundRect(ctx, 70, boxY, W - 140, boxH, 22);
     ctx.fill();
@@ -124,8 +134,8 @@ async function drawCard(spirit: Spirit, stage: Stage, oneLine?: string): Promise
     ctx.lineWidth = 1.5;
     roundRect(ctx, 70, boxY, W - 140, boxH, 22);
     ctx.stroke();
-    ctx.fillStyle = '#CFC4E8';
-    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, boxY + 44 + i * 36));
+    ctx.fillStyle = isFortune ? '#F4EFFF' : '#CFC4E8';
+    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, boxY + (isFortune ? 48 : 44) + i * lineHeight));
   }
 
   // 푸터 — 한 줄 박스 최대 하단(896)과 충분한 간격
@@ -136,22 +146,28 @@ async function drawCard(spirit: Spirit, stage: Stage, oneLine?: string): Promise
   return canvas;
 }
 
-export type ShareResult = 'shared' | 'downloaded' | 'failed';
+export type ShareResult = 'shared' | 'cancelled' | 'downloaded' | 'failed';
 
 /** 정령 카드 생성 → 공유(지원 시) 또는 PNG 다운로드 폴백 */
-export async function shareSpiritCard(spirit: Spirit, stage: Stage, oneLine?: string): Promise<ShareResult> {
+export async function shareSpiritCard(spirit: Spirit, stage: Stage, oneLine?: string, context: CardContext = 'spirit'): Promise<ShareResult> {
   try {
-    const canvas = await drawCard(spirit, stage, oneLine);
+    const canvas = await drawCard(spirit, stage, oneLine, context);
     const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/png'));
     if (!blob) return 'failed';
     const file = new File([blob], `${spirit.name}-정령카드.png`, { type: 'image/png' });
     const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
     if (nav.share && nav.canShare?.({ files: [file] })) {
       try {
-        await nav.share({ files: [file], title: '내 사주 정령', text: `${spirit.name} — ${spirit.rarity.ko} 정령 ✦ 이음사주` });
+        const isFortune = context === 'fortune';
+        await nav.share({
+          files: [file],
+          title: isFortune ? '오늘의 운세' : '내 사주 정령',
+          text: isFortune ? '오늘의 운세 ✦ 이음사주' : `${spirit.name} — ${spirit.rarity.ko} 정령 ✦ 이음사주`,
+        });
         return 'shared';
-      } catch {
-        // 사용자가 공유 시트를 닫은 경우 등 → 다운로드 폴백 없이 조용히 종료
+      } catch (error) {
+        // 사용자가 공유 시트를 닫은 경우 → 다운로드 폴백 없이 조용히 종료
+        if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled';
         return 'failed';
       }
     }

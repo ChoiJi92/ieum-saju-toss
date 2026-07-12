@@ -981,7 +981,10 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
   const stage = progressOf(spirit.key).stage;
   const [bonusMsg, setBonusMsg] = useState<string | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
-  const preparedFortuneCard = useRef<PreparedSpiritCard | null>(null);
+  const preparedFortuneCardRef = useRef<PreparedSpiritCard | null>(null);
+  const [preparedFortuneCard, setPreparedFortuneCard] = useState<PreparedSpiritCard | null>(null);
+  const [fortuneCardPreparationFailed, setFortuneCardPreparationFailed] = useState(false);
+  const [fortuneCardRetry, setFortuneCardRetry] = useState(0);
   const fortune = myeongsik ? todayFortune(myeongsik) : null;
   const fortuneOneLine = fortune?.oneLine;
   // 정령의 풀이 — 정령이 자랄수록 깊어지는 해석 (do/avoid → 행운시간·미션 → 금기·내일예고)
@@ -1028,8 +1031,8 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
       ] as const)
     : [];
   const shareFortuneCard = async () => {
-    if (!fortune) return;
-    const result = await shareSpiritCard(spirit, stage, fortune.oneLine, 'fortune', preparedFortuneCard.current);
+    if (!fortune || !preparedFortuneCard) return;
+    const result = await shareSpiritCard(spirit, stage, fortune.oneLine, 'fortune', preparedFortuneCard);
     if (result === 'downloaded') setShareMsg('오늘 운세 카드를 저장했어요 🖼️');
     else if (result === 'failed') setShareMsg('카드를 만들지 못했어요 — 다시 시도해주세요');
     if (result === 'downloaded' || result === 'failed') window.setTimeout(() => setShareMsg(null), 2200);
@@ -1037,22 +1040,27 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
 
   useEffect(() => {
     let active = true;
-    preparedFortuneCard.current = null;
+    preparedFortuneCardRef.current = null;
+    setPreparedFortuneCard(null);
+    setFortuneCardPreparationFailed(false);
     if (fortuneOneLine) {
       void prepareSpiritCard(spirit, stage, fortuneOneLine, 'fortune').then(
         (card) => {
-          if (active) preparedFortuneCard.current = card;
+          if (active) {
+            preparedFortuneCardRef.current = card;
+            setPreparedFortuneCard(card);
+          }
         },
         () => {
-          if (active) preparedFortuneCard.current = null;
+          if (active) setFortuneCardPreparationFailed(true);
         },
       );
     }
     return () => {
       active = false;
-      preparedFortuneCard.current = null;
+      preparedFortuneCardRef.current = null;
     };
-  }, [fortuneOneLine, spirit, stage]);
+  }, [fortuneOneLine, spirit, stage, fortuneCardRetry]);
 
   // 앱활동 보너스 — 오늘의 운세 확인 1회(멱등)
   useEffect(() => {
@@ -1189,7 +1197,19 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
       <Rise delay={360}><V2Label>오늘의 럭키</V2Label><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{fortune.hashtags.map((h, i) => <StatPill key={i} label={`#${i + 1}`} value={h.replace(/^#/, '')} color={['var(--v2-lavender)', 'var(--v2-peach)', 'var(--v2-mint)'][i]} />)}</div></Rise>
       <Rise delay={400}>
         <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <V2Button onClick={shareFortuneCard} kind="glass">오늘 운세 카드 공유</V2Button>
+          <button
+            type="button"
+            onClick={shareFortuneCard}
+            disabled={preparedFortuneCard === null}
+            className="v2-press"
+            style={{ width: '100%', height: 56, border: '1px solid var(--v2-glass-line)', borderRadius: 999, cursor: preparedFortuneCard ? 'pointer' : 'not-allowed', fontFamily: 'var(--v2-font)', fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--v2-glass-hi)', color: preparedFortuneCard ? 'var(--v2-ink)' : 'var(--v2-ink-dim)', opacity: preparedFortuneCard ? 1 : 0.65, backdropFilter: 'blur(10px)' }}
+          >{preparedFortuneCard ? '오늘 운세 카드 공유' : '카드 준비 중…'}</button>
+          {fortuneCardPreparationFailed && (
+            <>
+              <div role="status" style={{ textAlign: 'center', fontSize: 12, color: 'var(--v2-ink-dim)' }}>카드를 준비하지 못했어요.</div>
+              <V2Button onClick={() => setFortuneCardRetry((retry) => retry + 1)} kind="ghost">카드 다시 준비</V2Button>
+            </>
+          )}
           <V2Button onClick={() => go('home')}>정령에게 오늘 기운 전하기</V2Button>
         </div>
       </Rise>

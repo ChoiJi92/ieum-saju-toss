@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaju } from '../lib/saju-state';
 import { useSpiritState } from '../lib/spirit-state';
 import { showRewardedAdForResult, preloadRewardedAdForResult } from '../lib/ads';
-import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchProgress, MISSION_REWARD, DEX_MILESTONES, DEX_REWARD, nextCareAction } from '../lib/spirit-economy';
+import { ACTION_GAIN, AD_GAIN, TIME_BONUS, ACTION_WINDOW, inActionWindow, hatchProgress, MISSION_REWARD, DEX_MILESTONES, DEX_REWARD, nextCareAction, nextStreakMilestone } from '../lib/spirit-economy';
 import { computeMyeongsik, TG_KR, DZ_KR } from '../lib/saju';
 import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
@@ -1277,13 +1277,15 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
     && tgtRem.capLeft > 0
     && !(stage >= 4 && !mentee);
   const nextCareLabel = nextCare ? careActions.find((action) => action.kind === nextCare)?.t : null;
+  const nextMilestone = nextStreakMilestone(streak.streak);
+  const scrollToCare = () => { anchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   // 일일 미션 3종 — 기존 상태에서 파생 (새 추적 없음). 교감은 교감 버튼과 동일 대상(targetKey),
   // 운세 확인 보너스는 항상 내 정령(spirit.key)에 적립되므로 그쪽에서 파생 (멘토 모드에서도 완료 가능)
   const catchSt = todayCatchState();
   const missions = [
-    { label: '교감 3종 완료', done: tgtProg.actions.feed && tgtProg.actions.pet && tgtProg.actions.meditate },
-    { label: '오늘의 운세 확인', done: progressOf(spirit.key).bonuses.fortune === true },
-    { label: '오늘의 정령 잡기 시도', done: catchSt.attempts > 0 || catchSt.caught },
+    { label: '교감 3종 완료', done: tgtProg.actions.feed && tgtProg.actions.pet && tgtProg.actions.meditate, action: scrollToCare },
+    { label: '오늘의 운세 확인', done: progressOf(spirit.key).bonuses.fortune === true, action: () => go('today') },
+    { label: '오늘의 정령 잡기 시도', done: catchSt.attempts > 0 || catchSt.caught, action: () => go('today') },
   ] as const;
   const missionDone = missions.filter((m) => m.done).length;
   const missionAllDone = missionDone === missions.length;
@@ -1354,7 +1356,10 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
             <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--v2-ink)' }}>{name}님의 정령</div>
           </div>
           <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-            {streak.streak >= 2 && <span style={{ padding: '7px 11px', borderRadius: 999, background: 'rgba(255,158,130,.14)', border: '1px solid rgba(255,158,130,.3)', fontSize: 12, fontWeight: 800, color: 'var(--v2-peach)', whiteSpace: 'nowrap' }}>🔥 {streak.streak}일</span>}
+            <div style={{ padding: '6px 9px', borderRadius: 8, background: 'rgba(255,158,130,.14)', border: '1px solid rgba(255,158,130,.3)', color: 'var(--v2-peach)', lineHeight: 1.15, whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 800 }}>🔥 {streak.streak}일</div>
+              <div style={{ marginTop: 2, fontSize: 10, fontWeight: 800, color: nextMilestone ? 'var(--v2-butter)' : 'var(--v2-mint)' }}>{nextMilestone ? `${nextMilestone.daysLeft}일 뒤 +${nextMilestone.reward}` : '최고 기록 진행 중'}</div>
+            </div>
             <HeaderPill>{spirit.rarity.ko}</HeaderPill>
             <button
               onClick={async () => {
@@ -1706,7 +1711,8 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
               {missions.map((m) => (
                 <div key={m.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 700, color: m.done ? 'var(--v2-mint)' : 'var(--v2-ink-mute)' }}>
                   <span style={{ fontSize: 13, width: 15, textAlign: 'center' }}>{m.done ? '✓' : '○'}</span>
-                  <span>{m.label}</span>
+                  <span style={{ flex: 1 }}>{m.label}</span>
+                  {!m.done && <button onClick={m.action} className="v2-press" aria-label={`${m.label}로 이동`} style={{ width: 24, height: 24, padding: 0, borderRadius: 8, border: '1px solid var(--v2-glass-line2)', background: 'var(--v2-glass)', color: 'var(--v2-lavender)', cursor: 'pointer', fontSize: 17, fontWeight: 800, lineHeight: 1 }}>›</button>}
                 </div>
               ))}
             </div>

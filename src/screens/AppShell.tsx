@@ -8,7 +8,7 @@ import { todayFortune, todayDayStem } from '../lib/today';
 import { buildTodayActionGuide } from '../lib/fortune-guides';
 import { buildTodayLuck } from '../lib/luck-guide';
 import { pillarSeed } from '../lib/personalize';
-import { shareSpiritCard } from '../lib/spirit-card';
+import { prepareSpiritCard, shareSpiritCard, type PreparedSpiritCard } from '../lib/spirit-card';
 import { todaySpirit, gunghapScore, catchChance, caughtKeys, todayCatchState, attemptCatch } from '../lib/spirit-catch';
 import { initCloudSync, isLinked, linkWithToss, linkCredsFromToss, pushNow, deleteRemoteAndUnlink } from '../lib/cloud-sync';
 import { signInWithToss, tossInfoToSajuInput, getMockTossUser } from '../lib/toss-auth';
@@ -981,7 +981,9 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
   const stage = progressOf(spirit.key).stage;
   const [bonusMsg, setBonusMsg] = useState<string | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
+  const preparedFortuneCard = useRef<PreparedSpiritCard | null>(null);
   const fortune = myeongsik ? todayFortune(myeongsik) : null;
+  const fortuneOneLine = fortune?.oneLine;
   // 정령의 풀이 — 정령이 자랄수록 깊어지는 해석 (do/avoid → 행운시간·미션 → 금기·내일예고)
   const guide = useMemo(() => {
     if (!fortune || !myeongsik) return null;
@@ -1027,11 +1029,30 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
     : [];
   const shareFortuneCard = async () => {
     if (!fortune) return;
-    const result = await shareSpiritCard(spirit, stage, fortune.oneLine, 'fortune');
+    const result = await shareSpiritCard(spirit, stage, fortune.oneLine, 'fortune', preparedFortuneCard.current);
     if (result === 'downloaded') setShareMsg('오늘 운세 카드를 저장했어요 🖼️');
     else if (result === 'failed') setShareMsg('카드를 만들지 못했어요 — 다시 시도해주세요');
     if (result === 'downloaded' || result === 'failed') window.setTimeout(() => setShareMsg(null), 2200);
   };
+
+  useEffect(() => {
+    let active = true;
+    preparedFortuneCard.current = null;
+    if (fortuneOneLine) {
+      void prepareSpiritCard(spirit, stage, fortuneOneLine, 'fortune').then(
+        (card) => {
+          if (active) preparedFortuneCard.current = card;
+        },
+        () => {
+          if (active) preparedFortuneCard.current = null;
+        },
+      );
+    }
+    return () => {
+      active = false;
+      preparedFortuneCard.current = null;
+    };
+  }, [fortuneOneLine, spirit, stage]);
 
   // 앱활동 보너스 — 오늘의 운세 확인 1회(멱등)
   useEffect(() => {
@@ -1072,7 +1093,7 @@ function ScreenToday({ go, back, switchTab, spirit }: { go: (r: Route) => void; 
     <V2Screen seed={13} style={{ paddingBottom: 0 }}>
       <V2TopBar onBack={back} title="오늘의 운세" />
       {bonusMsg && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(91,217,172,.16)', border: '1px solid var(--v2-mint)', color: 'var(--v2-mint)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>🎁 {bonusMsg}</div>}
-      {shareMsg && <div style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(183,156,255,.16)', border: '1px solid var(--v2-lavender)', color: 'var(--v2-ink)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>{shareMsg}</div>}
+      {shareMsg && <div role="status" aria-live="polite" style={{ position: 'fixed', top: 88, left: '50%', transform: 'translateX(-50%)', zIndex: 80, background: 'rgba(183,156,255,.16)', border: '1px solid var(--v2-lavender)', color: 'var(--v2-ink)', fontSize: 12.5, fontWeight: 800, padding: '8px 16px', borderRadius: 999, animation: 'v2-rise-soft .4s ease', pointerEvents: 'none', whiteSpace: 'nowrap' }}>{shareMsg}</div>}
       <Rise><div style={{ textAlign: 'center' }}><div className="v2-cap" style={{ color: 'var(--v2-lavender)' }}>{dateLabel} · {myeongsik?.ilgan.c}{myeongsik ? `(${TG_KR[myeongsik.ilgan.c]})` : ''}일</div><SelfSpiritSlot spirit={spirit} size={172} tag={false} /><h1 className="v2-hero" style={{ margin: '2px 0 0' }}>{fortune.mood}</h1></div></Rise>
       <Rise delay={120}><div style={speechStyle}><div style={{ fontSize: 11, color: 'var(--v2-lavender)', fontWeight: 800, marginBottom: 6 }}>{spirit.name}의 한 마디</div><div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.55 }}>{fortune.oneLine}</div></div></Rise>
 
@@ -1669,7 +1690,7 @@ function ScreenPetHome({ go, spirit }: { go: (r: Route) => void; back: () => voi
                 const inWin = inActionWindow(a.kind);
                 const isHandoffAction = showFortuneCareNudge && a.kind === nextCare;
                 const isEmphasized = isHandoffAction || (!showFortuneCareNudge && inWin);
-                const showTimeBonus = inWin && (!showFortuneCareNudge || isHandoffAction);
+                const showTimeBonus = inWin;
                 // disabled 대신 탭 피드백 — 무반응(버그 체감) 제거
                 const onTap = () => {
                   if (noTarget) { showNotice('가장 영험한 모습이에요 — 새 정령을 만나 기운을 나눠보세요 ✦'); return; }

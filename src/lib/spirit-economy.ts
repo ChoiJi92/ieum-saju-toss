@@ -28,6 +28,8 @@ export function inActionWindow(kind: 'feed' | 'pet' | 'meditate', now: Date = ne
 }
 /** 앱활동 보너스 획득량 */
 export const BONUS_GAIN = { fortune: 8, attend: 4 } as const;
+/** '인사하기' 획득량 — 이미 보유한 오늘의 정령과 하루 1회 교감 (잡을 게 없는 날의 데일리 참여 보상) */
+export const GREET_GAIN = 3;
 /** 보상형 광고 1회 획득량 / 하루 최대 횟수 */
 export const AD_GAIN = 10;
 export const AD_MAX_PER_DAY = 2;

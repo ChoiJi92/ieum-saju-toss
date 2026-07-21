@@ -58,32 +58,46 @@ export function catchChance(rarityKey: string, gunghap: number): number {
 
 /* ── 영속 (localStorage) ── */
 const KEY = 'ieum-saju.catch.v1';
-type CatchDay = { date: string; attempts: number; caught: boolean };
+type CatchDay = { date: string; attempts: number; caught: boolean; greeted: boolean };
 type CatchStore = { caught: string[]; day: CatchDay };
 
+/** 오늘 하루의 빈 포획 상태 (자정 롤오버·마이그레이션 공통) */
+function freshDay(date = ''): CatchDay { return { date, attempts: 0, caught: false, greeted: false }; }
+
 function load(): CatchStore {
-  try { const r = localStorage.getItem(KEY); if (r) { const s = JSON.parse(r) as Partial<CatchStore>; return { caught: s.caught ?? [], day: s.day ?? { date: '', attempts: 0, caught: false } }; } } catch { /* ignore */ }
-  return { caught: [], day: { date: '', attempts: 0, caught: false } };
+  try {
+    const r = localStorage.getItem(KEY);
+    if (r) {
+      const s = JSON.parse(r) as Partial<CatchStore>;
+      const d = s.day as Partial<CatchDay> | undefined;
+      // greeted는 후기 추가 필드 — 구버전 저장분은 false로 정규화
+      const day: CatchDay = d
+        ? { date: d.date ?? '', attempts: d.attempts ?? 0, caught: Boolean(d.caught), greeted: Boolean(d.greeted) }
+        : freshDay();
+      return { caught: s.caught ?? [], day };
+    }
+  } catch { /* ignore */ }
+  return { caught: [], day: freshDay() };
 }
 function save(s: CatchStore) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ } }
 
 /** 포획으로 도감에 등록된 정령 키 집합 */
 export function caughtKeys(): Set<string> { return new Set(load().caught); }
 
-export type TodayCatch = { attempts: number; caught: boolean; attemptsLeft: number };
+export type TodayCatch = { attempts: number; caught: boolean; greeted: boolean; attemptsLeft: number };
 /** 오늘의 포획 진행 상태 (자정 리셋) */
 export function todayCatchState(date: Date = new Date()): TodayCatch {
   const s = load();
   const dk = todayDateKey(date);
-  const day = s.day.date === dk ? s.day : { date: dk, attempts: 0, caught: false };
-  return { attempts: day.attempts, caught: day.caught, attemptsLeft: Math.max(0, CATCH_MAX_ATTEMPTS - day.attempts) };
+  const day = s.day.date === dk ? s.day : freshDay(dk);
+  return { attempts: day.attempts, caught: day.caught, greeted: day.greeted, attemptsLeft: Math.max(0, CATCH_MAX_ATTEMPTS - day.attempts) };
 }
 
 /** 포획 시도 — 확률 굴림 + 저장. success/남은 도전 반환 */
 export function attemptCatch(spiritKey: string, chance: number, date: Date = new Date()): { success: boolean; attemptsLeft: number; done: boolean } {
   const s = load();
   const dk = todayDateKey(date);
-  if (s.day.date !== dk) s.day = { date: dk, attempts: 0, caught: false };
+  if (s.day.date !== dk) s.day = freshDay(dk);
   if (s.day.caught || s.day.attempts >= CATCH_MAX_ATTEMPTS) {
     return { success: s.day.caught, attemptsLeft: Math.max(0, CATCH_MAX_ATTEMPTS - s.day.attempts), done: true };
   }
@@ -96,4 +110,19 @@ export function attemptCatch(spiritKey: string, chance: number, date: Date = new
   save(s);
   const attemptsLeft = Math.max(0, CATCH_MAX_ATTEMPTS - s.day.attempts);
   return { success, attemptsLeft, done: success || attemptsLeft === 0 };
+}
+
+/**
+ * '인사하기' — 이미 도감에 있는 오늘의 정령과 하루 1회 교감.
+ * 잡을 게 없는 날에도 데일리 미션('잡기 시도')을 완료할 수 있게 해주는 참여 경로.
+ * 이미 인사했으면 already=true (중복 보상 방지).
+ */
+export function greetToday(date: Date = new Date()): { ok: boolean; already: boolean } {
+  const s = load();
+  const dk = todayDateKey(date);
+  if (s.day.date !== dk) s.day = freshDay(dk);
+  if (s.day.greeted) return { ok: false, already: true };
+  s.day.greeted = true;
+  save(s);
+  return { ok: true, already: false };
 }

@@ -28,6 +28,8 @@ export function inActionWindow(kind: 'feed' | 'pet' | 'meditate', now: Date = ne
 }
 /** 앱활동 보너스 획득량 */
 export const BONUS_GAIN = { fortune: 8, attend: 4 } as const;
+/** '인사하기' 획득량 — 이미 보유한 오늘의 정령과 하루 1회 교감 (잡을 게 없는 날의 데일리 참여 보상) */
+export const GREET_GAIN = 3;
 /** 보상형 광고 1회 획득량 / 하루 최대 횟수 */
 export const AD_GAIN = 10;
 export const AD_MAX_PER_DAY = 2;
@@ -150,6 +152,15 @@ export function doEvolve(p: SpiritProgress): SpiritProgress {
 export const STREAK_MILESTONES: readonly number[] = [3, 7, 14, 30];
 /** 마일스톤 1회 보상 bond — 특별 보상이라 하루 상한 미적용 (평생 최대 4회, 페이싱 영향 미미) */
 export const STREAK_REWARD = 20;
+
+export function nextStreakMilestone(streak: number): { day: number; daysLeft: number; reward: number } | null {
+  const day = STREAK_MILESTONES.find((milestone) => milestone > streak);
+  return day ? { day, daysLeft: day - streak, reward: STREAK_REWARD } : null;
+}
+
+export function nextCareAction(actions: DayActions): ActionKind | null {
+  return (Object.keys(ACTION_GAIN) as ActionKind[]).find((kind) => !actions[kind]) ?? null;
+}
 
 export type StreakState = { streak: number; lastDate: string; maxStreak: number; claimed: number[] };
 

@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import {
   type SpiritProgress, type ActionKind, type BonusKind, type DayActions, type DayBonuses, type StreakState,
   THRESHOLD, DAILY_CAP, ACTION_GAIN, BONUS_GAIN, AD_GAIN, AD_MAX_PER_DAY, STREAK_REWARD, TIME_BONUS,
@@ -54,21 +54,19 @@ function persistStreak(s: StreakState) {
 
 export function SpiritStateProvider({ children }: { children: ReactNode }) {
   const [store, setStore] = useState<Store>(() => load());
+  const storeRef = useRef(store);
 
   const progressOf = useCallback((k: string): SpiritProgress => normalize(store[k], new Date()), [store]);
 
   /** 공통 업데이트: 현재값 normalize → mutator → 저장 */
   const update = useCallback((k: string, fn: (p: SpiritProgress) => { p: SpiritProgress; res: CareResult }): CareResult => {
-    let out: CareResult = { ok: false, gained: 0 };
-    setStore((prev) => {
-      const cur = normalize(prev[k], new Date());
-      const { p, res } = fn(cur);
-      out = res;
-      const next = { ...prev, [k]: p };
-      persist(next);
-      return next;
-    });
-    return out;
+    const cur = normalize(storeRef.current[k], new Date());
+    const { p, res } = fn(cur);
+    const next = { ...storeRef.current, [k]: p };
+    storeRef.current = next;
+    persist(next);
+    setStore(next);
+    return res;
   }, []);
 
   const care = useCallback((k: string, kind: ActionKind): CareResult => update(k, (p) => {

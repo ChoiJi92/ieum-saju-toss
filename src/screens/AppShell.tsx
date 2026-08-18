@@ -110,6 +110,7 @@ import ScreenGunghap from "./app/ScreenGunghap";
 import ScreenJamidusu from "./app/ScreenJamidusu";
 import ScreenPersonality from "./app/ScreenPersonality";
 import ScreenSinsal from "./app/ScreenSinsal";
+import ScreenThai from "./app/ScreenThai";
 import ScreenCalendar from "./app/ScreenCalendar";
 import ScreenProfiles from "./app/ScreenProfiles";
 import ScreenAddProfile from "./app/ScreenAddProfile";
@@ -389,6 +390,9 @@ export default function AppShell() {
       break;
     case "sinsal":
       screenEl = <ScreenSinsal {...sp} />;
+      break;
+    case "thai":
+      screenEl = <ScreenThai {...sp} />;
       break;
     case "personality":
       screenEl = <ScreenPersonality {...sp} />;

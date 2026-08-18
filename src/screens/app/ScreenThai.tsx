@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { V2Screen, V2TopBar, V2Label, V2Glass, Chip, DomainEmpty, SectionCard } from './_kit';
+import { useEffect, useState } from 'react';
+import { V2Screen, V2TopBar, V2Label, V2Glass, Chip, DomainEmpty, SectionCard, V2Button } from './_kit';
+import { prepareThaiCard, shareThaiCard, type PreparedThaiCard } from '../../lib/thai-card';
 import { useSaju } from '../../lib/saju-state';
 import { thaiBirthDay, thaiLuckComment, THAI_DAYS, type ThaiDayKey } from '../../lib/thai-astrology';
 import { buildThaiToday, buildThaiMatchRows, THAI_DEEP, THAI_LUCKY, THAI_WORK, THAI_WORST } from '../../lib/thai-astrology-content';
 import type { Route, Tab } from './nav';
 import type { Spirit } from '../../lib/spirit';
+import type { SajuInput, Myeongsik } from '../../lib/saju';
 
 /**
  * 태국 점성술 — "세계의 운세" 1탄.
@@ -104,7 +106,11 @@ function DayDex({ mine }: { mine: ThaiDayKey }) {
 export default function ScreenThai({ back }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { profile, myeongsik } = useSaju();
   if (!profile || !myeongsik) return <DomainEmpty title="태국 점성술" back={back} />;
+  return <ThaiBody profile={profile} myeongsik={myeongsik} back={back} />;
+}
 
+/** 본문 — 훅 사용을 위해 profile 확보 후 분리 (조기 return 아래 훅 금지) */
+function ThaiBody({ profile, myeongsik, back }: { profile: SajuInput; myeongsik: Myeongsik; back: () => void }) {
   const day = thaiBirthDay(profile);
   const tone = day.accent ?? day.color.hex;
   const luck = thaiLuckComment(day, myeongsik.shinkang.yongshin.ohaeng);
@@ -116,6 +122,15 @@ export default function ScreenThai({ back }: { go: (r: Route) => void; back: () 
   const work = THAI_WORK[day.key];
   const worst = THAI_WORST[day.key];
   const worstDay = THAI_DAYS[worst.day];
+
+  // 공유 카드 — 화면 열릴 때 미리 생성 (클릭 활성 상태 보존, fortune 카드와 동일 패턴)
+  const [preparedCard, setPreparedCard] = useState<PreparedThaiCard | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void prepareThaiCard(day, profile.name).then((c) => { if (alive) setPreparedCard(c); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day.key, profile.name]);
 
   return (
     <V2Screen seed={41}>
@@ -155,6 +170,15 @@ export default function ScreenThai({ back }: { go: (r: Route) => void; back: () 
           </div>
         )}
       </V2Glass>
+
+      {/* 공유 — 내 요일 카드 */}
+      <V2Button
+        kind="glass"
+        onClick={() => { void shareThaiCard(day, profile.name, preparedCard); }}
+        style={{ marginTop: 10, opacity: preparedCard ? 1 : 0.55 }}
+      >
+        내 요일 카드 공유하기 ✦
+      </V2Button>
 
       {/* 오늘의 요일운 — 매일 바뀌는 섹션 */}
       <V2Label>오늘의 요일운</V2Label>

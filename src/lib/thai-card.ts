@@ -1,5 +1,6 @@
 import type { ThaiBirthDay } from './thai-astrology';
 import type { ShareResult } from './spirit-card';
+import type { Spirit, Stage } from './spirit';
 
 /**
  * 태국 요일 공유 카드 — "나는 밤의 별 라후의 사람".
@@ -9,6 +10,15 @@ import type { ShareResult } from './spirit-card';
 
 const W = 720;
 const H = 960;
+
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
@@ -20,7 +30,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function drawCard(day: ThaiBirthDay, userName: string): HTMLCanvasElement {
+async function drawCard(day: ThaiBirthDay, userName: string, spirit: Spirit, stage: Stage): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -59,14 +69,14 @@ function drawCard(day: ThaiBirthDay, userName: string): HTMLCanvasElement {
   ctx.fillRect(0, orbY - orbR * 2.2, W, orbR * 4.4);
 
   const orb = ctx.createRadialGradient(W / 2 - orbR * 0.35, orbY - orbR * 0.4, orbR * 0.1, W / 2, orbY, orbR);
-  orb.addColorStop(0, `${day.color.hex}f2`);
-  orb.addColorStop(0.65, `${day.color.hex}aa`);
-  orb.addColorStop(1, `${day.color.hex}55`);
+  orb.addColorStop(0, `${day.color.hex}66`);
+  orb.addColorStop(0.65, `${day.color.hex}40`);
+  orb.addColorStop(1, `${day.color.hex}22`);
   ctx.fillStyle = orb;
   ctx.beginPath();
   ctx.arc(W / 2, orbY, orbR, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(W / 2, orbY, orbR, 0, Math.PI * 2);
@@ -83,6 +93,18 @@ function drawCard(day: ThaiBirthDay, userName: string): HTMLCanvasElement {
     ctx.arc(W / 2, orbY, orbR + 3, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
+  }
+
+  // 내 정령 — 수호색 오브 앞의 주인공 (캐릭터가 카드의 얼굴)
+  const src = spirit.imageFor(stage);
+  const img = src ? await loadImage(src) : null;
+  if (img) {
+    const size = 380;
+    ctx.drawImage(img, (W - size) / 2, orbY - size / 2 + 20, size, size);
+  } else {
+    ctx.font = '190px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(spirit.zod.emoji, W / 2, orbY + 70);
   }
 
   ctx.textAlign = 'center';
@@ -157,19 +179,19 @@ function drawCard(day: ThaiBirthDay, userName: string): HTMLCanvasElement {
 
 export type PreparedThaiCard = { blob: Blob; file: File; key: string };
 
-function preparationKey(day: ThaiBirthDay, userName: string) {
-  return JSON.stringify([day.key, userName]);
+function preparationKey(day: ThaiBirthDay, userName: string, spirit: Spirit, stage: Stage) {
+  return JSON.stringify([day.key, userName, spirit.key, stage]);
 }
 
 /** 화면이 열린 동안 미리 생성 — 클릭 시 사용자 활성 상태 보존 (spirit-card 패턴) */
-export async function prepareThaiCard(day: ThaiBirthDay, userName: string): Promise<PreparedThaiCard | null> {
-  const canvas = drawCard(day, userName);
+export async function prepareThaiCard(day: ThaiBirthDay, userName: string, spirit: Spirit, stage: Stage): Promise<PreparedThaiCard | null> {
+  const canvas = await drawCard(day, userName, spirit, stage);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) return null;
   return {
     blob,
     file: new File([blob], `태국점성술-${day.weekdayKr}.png`, { type: 'image/png' }),
-    key: preparationKey(day, userName),
+    key: preparationKey(day, userName, spirit, stage),
   };
 }
 
@@ -177,12 +199,14 @@ export async function prepareThaiCard(day: ThaiBirthDay, userName: string): Prom
 export async function shareThaiCard(
   day: ThaiBirthDay,
   userName: string,
+  spirit: Spirit,
+  stage: Stage,
   prepared?: PreparedThaiCard | null,
 ): Promise<ShareResult> {
   try {
-    const card = prepared?.key === preparationKey(day, userName)
+    const card = prepared?.key === preparationKey(day, userName, spirit, stage)
       ? prepared
-      : await prepareThaiCard(day, userName);
+      : await prepareThaiCard(day, userName, spirit, stage);
     if (!card) return 'failed';
     const { blob, file } = card;
     const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };

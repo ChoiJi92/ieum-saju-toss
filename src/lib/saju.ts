@@ -311,7 +311,7 @@ function calcShinKang(myeongsik: Myeongsik): ShinKangResult {
 }
 
 /** 사주 계산 메인 — Input → Myeongsik */
-type SolarDate = { year: number; month: number; day: number };
+export type SolarDate = { year: number; month: number; day: number };
 
 /**
  * 음력 → 양력 변환 (견고화).
@@ -320,7 +320,7 @@ type SolarDate = { year: number; month: number; day: number };
  * 변환 테이블 구멍으로 예외를 던진다(1950~2010 표본의 ~9%). 반대 함수 solarToLunar 는
  * 신뢰 가능하므로, 1차 변환이 실패하면 solarToLunar 로 해당 연도 범위를 역탐색해 보정한다.
  */
-function lunarToSolarSafe(year: number, month: number, day: number, leap: boolean): SolarDate {
+export function lunarToSolarSafe(year: number, month: number, day: number, leap: boolean): SolarDate {
   // 1차: 라이브러리 변환 + 왕복 검증 (성공 시 항상 정확)
   try {
     const s = lunarToSolar(year, month, day, leap).solar;

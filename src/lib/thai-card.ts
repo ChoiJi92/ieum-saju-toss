@@ -95,9 +95,10 @@ async function drawCard(day: ThaiBirthDay, userName: string, spirit: Spirit, sta
     ctx.restore();
   }
 
-  // 내 정령 — 수호색 오브 앞의 주인공 (캐릭터가 카드의 얼굴)
-  const src = spirit.imageFor(stage);
-  const img = src ? await loadImage(src) : null;
+  // 카드의 얼굴 — 요일 전용 캐릭터(있으면) → 내 정령 → 이모지 순 폴백
+  // 요일 캐릭터 에셋: public/thai/{dayKey}.png (v2 자료/태국 요일 캐릭터 프롬프트.md)
+  const dayCharacter = await loadImage(`/thai/${day.key}.png?v=1`);
+  const img = dayCharacter ?? (spirit.imageFor(stage) ? await loadImage(spirit.imageFor(stage)!) : null);
   if (img) {
     const size = 380;
     ctx.drawImage(img, (W - size) / 2, orbY - size / 2 + 20, size, size);

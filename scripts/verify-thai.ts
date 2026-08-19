@@ -10,7 +10,8 @@
  *  4. 시간 모름 → 달력 요일 그대로 (라후 판정 없음)
  *  5. 음력 입력 → 양력 변환 후 요일 (1995 추석 = 1995-09-09 토요일)
  */
-import { thaiBirthDay, type ThaiBirthInput } from '../src/lib/thai-astrology';
+import { thaiBirthDay, THAI_DAYS, type ThaiBirthInput, type ThaiDayKey } from '../src/lib/thai-astrology';
+const thaiBirthDayContentAnimal = (k: ThaiDayKey) => THAI_DAYS[k].animal;
 import { buildThaiToday, buildThaiMatch, buildThaiMatchRows, THAI_DEEP, THAI_LUCKY, THAI_WORK, THAI_WORST } from '../src/lib/thai-astrology-content';
 
 type Case = { name: string; input: ThaiBirthInput; expect: string };
@@ -112,6 +113,7 @@ check('심화 성격 8일 × 4항목 전부 채워짐', allDays.every((d) => {
   return [x.look, x.inside, x.strength, x.care].every((s) => s.length > 20);
 }));
 check('행운 숫자·방위 8일 전부 존재', allDays.every((d) => THAI_LUCKY[d].number > 0 && THAI_LUCKY[d].direction.length > 0));
+check('수호 캐릭터 이름 8일 전부 존재·중복 없음', new Set(allDays.map((d) => thaiBirthDayContentAnimal(d))).size === 8);
 check('잘 맞는 일 8일 × 3개 전부 존재', allDays.every((d) => THAI_WORK[d].length === 3 && THAI_WORK[d].every((w) => w.length > 1)));
 check('조심 조합: 상대가 실제 긴장 관계에 속함', allDays.every((d) => buildThaiMatch(d).hard.length === 0 || buildThaiMatch(d).hard.some(() => true)) && allDays.every((d) => {
   const worstKey = THAI_WORST[d].day;

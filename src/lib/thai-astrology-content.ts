@@ -268,8 +268,8 @@ export const THAI_WORST: Record<ThaiDayKey, { day: ThaiDayKey; reason: string }>
 };
 
 /** 궁합 표시용 행 — 잘 맞는 요일들을 (요일명, 주는 것) 쌍으로 */
-export function buildThaiMatchRows(myKey: ThaiDayKey): { weekdayKr: string; gives: string; hex: string }[] {
+export function buildThaiMatchRows(myKey: ThaiDayKey): { key: ThaiDayKey; weekdayKr: string; animal: string; gives: string; hex: string }[] {
   return (Object.keys(REL[myKey]) as ThaiDayKey[])
     .filter((k) => k !== myKey && REL[myKey][k] === 'friend')
-    .map((k) => ({ weekdayKr: THAI_DAYS[k].weekdayKr, gives: THAI_GIVES[k], hex: THAI_DAYS[k].accent ?? THAI_DAYS[k].color.hex }));
+    .map((k) => ({ key: k, weekdayKr: THAI_DAYS[k].weekdayKr, animal: THAI_DAYS[k].animal, gives: THAI_GIVES[k], hex: THAI_DAYS[k].accent ?? THAI_DAYS[k].color.hex }));
 }

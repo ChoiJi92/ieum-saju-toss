@@ -3,7 +3,7 @@ import { V2Screen, V2TopBar, V2Label, V2Glass, Chip, DomainEmpty, SectionCard, V
 import { prepareThaiCard, shareThaiCard, type PreparedThaiCard } from '../../lib/thai-card';
 import { useSaju } from '../../lib/saju-state';
 import { useSpiritState } from '../../lib/spirit-state';
-import { thaiBirthDay, thaiLuckComment, THAI_DAYS, type ThaiDayKey } from '../../lib/thai-astrology';
+import { thaiBirthDay, thaiLuckComment, thaiCharacterImg, THAI_DAYS, type ThaiDayKey } from '../../lib/thai-astrology';
 import { buildThaiToday, buildThaiMatchRows, THAI_DEEP, THAI_LUCKY, THAI_WORK, THAI_WORST } from '../../lib/thai-astrology-content';
 import type { Route, Tab } from './nav';
 import type { Spirit } from '../../lib/spirit';
@@ -14,26 +14,31 @@ import type { SajuInput, Myeongsik } from '../../lib/saju';
  * 태어난 요일 → 수호신·수호색·성격. 수요일 밤 출생자는 라후(희소 등급).
  */
 
-/** 요일색 오브 — 헤더의 큰 색 원 (수호색을 빛으로 보여줘요) */
-function ColorOrb({ hex }: { hex: string }) {
+/** 수호 캐릭터 오브 — 캐릭터 이미지 + 수호색 후광 */
+function CharacterOrb({ dayKey, hex }: { dayKey: ThaiDayKey; hex: string }) {
   return (
     <div
       style={{
-        width: 64,
-        height: 64,
+        width: 92,
+        height: 92,
         borderRadius: '50%',
         flexShrink: 0,
-        background: `radial-gradient(circle at 32% 30%, ${hex}ee, ${hex}99 62%, ${hex}55)`,
-        boxShadow: `0 0 22px ${hex}77, inset 0 0 14px rgba(255,255,255,.25)`,
-        border: '1px solid rgba(255,255,255,.3)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: `radial-gradient(circle, ${hex}33 0%, ${hex}14 60%, transparent 80%)`,
+        boxShadow: `0 0 24px ${hex}44`,
       }}
-    />
+    >
+      <img src={thaiCharacterImg(dayKey)} alt="" style={{ width: 86, height: 86, objectFit: 'contain' }} />
+    </div>
   );
 }
 
-/** 8일 도감 — 내 요일 강조 + 나머지 훑어보기 */
+/** 8일 도감 — 캐릭터 썸네일 + 탭하면 미니 프로필 */
 function DayDex({ mine }: { mine: ThaiDayKey }) {
   const [open, setOpen] = useState(false);
+  const [openKey, setOpenKey] = useState<ThaiDayKey | null>(null);
   const entries = Object.entries(THAI_DAYS) as [ThaiDayKey, (typeof THAI_DAYS)[ThaiDayKey]][];
   return (
     <V2Glass>
@@ -51,7 +56,7 @@ function DayDex({ mine }: { mine: ThaiDayKey }) {
         }}
       >
         <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--v2-ink)', flex: 1, textAlign: 'left' }}>
-          🗓️ 여덟 요일 한눈에 보기
+          🗓️ 여덟 수호신 한눈에 보기
         </span>
         <span
           style={{
@@ -66,38 +71,67 @@ function DayDex({ mine }: { mine: ThaiDayKey }) {
       </button>
       {open && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
-          {entries.map(([key, d]) => (
-            <div
-              key={key}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '9px 12px',
-                borderRadius: 10,
-                background: key === mine ? `${(d.accent ?? d.color.hex)}1c` : 'rgba(255,255,255,.03)',
-                border: key === mine ? `1px solid ${(d.accent ?? d.color.hex)}66` : '1px solid transparent',
-              }}
-            >
-              <span
+          {entries.map(([key, d]) => {
+            const toneRow = d.accent ?? d.color.hex;
+            const expanded = openKey === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setOpenKey(expanded ? null : key)}
                 style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: '50%',
-                  flexShrink: 0,
-                  background: d.color.hex,
-                  boxShadow: `0 0 6px ${d.color.hex}88`,
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '9px 12px',
+                  borderRadius: 10,
+                  background: key === mine ? `${toneRow}1c` : 'rgba(255,255,255,.03)',
+                  border: key === mine ? `1px solid ${toneRow}66` : '1px solid transparent',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--v2-font)',
                 }}
-              />
-              <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--v2-ink)', minWidth: 68 }}>
-                {d.weekdayKr}
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--v2-ink-dim)', flex: 1 }}>
-                {d.deity.plain} · {d.keywords.join('·')}
-              </span>
-              {key === mine && <Chip color={d.accent ?? d.color.hex}>나 ✦</Chip>}
-            </div>
-          ))}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <img src={thaiCharacterImg(key)} alt="" style={{ width: 40, height: 40, objectFit: 'contain', flexShrink: 0 }} />
+                  <div style={{ minWidth: 92 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--v2-ink)' }}>{d.animal}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--v2-ink-mute)', marginTop: 1 }}>{d.weekdayKr}</div>
+                  </div>
+                  <span style={{ fontSize: 11.5, color: 'var(--v2-ink-dim)', flex: 1 }}>
+                    {d.deity.plain} · {d.keywords.join('·')}
+                  </span>
+                  {key === mine && <Chip color={toneRow}>나 ✦</Chip>}
+                  <span
+                    style={{
+                      color: 'var(--v2-ink-mute)',
+                      fontSize: 10,
+                      transform: expanded ? 'rotate(180deg)' : 'none',
+                      transition: 'transform .2s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    ▾
+                  </span>
+                </div>
+                {expanded && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      paddingTop: 10,
+                      borderTop: '1px solid var(--v2-glass-line2)',
+                      fontSize: 12.5,
+                      lineHeight: 1.6,
+                      color: 'var(--v2-ink-mid)',
+                    }}
+                  >
+                    {d.personality}
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                      <Chip color={toneRow}>행운색 {d.color.name}</Chip>
+                    </div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </V2Glass>
@@ -142,16 +176,16 @@ function ThaiBody({ profile, myeongsik, back, spirit }: { profile: SajuInput; my
       {/* 헤더 — 내 요일 + 수호신 */}
       <V2Glass style={{ marginTop: 6, border: `1px solid ${tone}55` }} glow={tone}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <ColorOrb hex={day.color.hex} />
+          <CharacterOrb dayKey={day.key} hex={day.color.hex} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: tone, letterSpacing: '1.2px', marginBottom: 5 }}>
               🇹🇭 세계의 운세 · 태국편
             </div>
             <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--v2-ink)', lineHeight: 1.35 }}>
-              {profile.name}님은 <span style={{ color: tone }}>{day.weekdayKr}</span>의 사람
+              {profile.name}님의 수호신은 <span style={{ color: tone }}>{day.animal}</span>
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--v2-ink-dim)', marginTop: 4, lineHeight: 1.5 }}>
-              {day.deity.plain} {day.deity.name} — {day.deity.desc}
+              {day.weekdayKr}에 태어난 사람 · {day.deity.plain} {day.deity.name} — {day.deity.desc}
             </div>
           </div>
         </div>
@@ -230,20 +264,22 @@ function ThaiBody({ profile, myeongsik, back, spirit }: { profile: SajuInput; my
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {matchRows.map((r) => (
             <div
-              key={r.weekdayKr}
+              key={r.key}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
-                padding: '11px 13px',
+                padding: '9px 13px',
                 borderRadius: 12,
                 background: 'rgba(255,255,255,.04)',
                 border: `1px solid ${r.hex}33`,
               }}
             >
-              <span style={{ fontSize: 13, fontWeight: 800, color: r.hex, minWidth: 74 }}>
-                {r.weekdayKr}의 사람
-              </span>
+              <img src={thaiCharacterImg(r.key)} alt="" style={{ width: 44, height: 44, objectFit: 'contain', flexShrink: 0 }} />
+              <div style={{ minWidth: 88 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: r.hex }}>{r.animal}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--v2-ink-mute)', marginTop: 1 }}>{r.weekdayKr}의 사람</div>
+              </div>
               <span style={{ fontSize: 12.5, color: 'var(--v2-ink-mid)', flex: 1 }}>{r.gives}</span>
             </div>
           ))}
@@ -258,7 +294,7 @@ function ThaiBody({ profile, myeongsik, back, spirit }: { profile: SajuInput; my
           }}
         >
           <div style={{ fontSize: 12.5, fontWeight: 800, color: '#E8A15D' }}>
-            ⚠️ 제일 조심할 조합 — {worstDay.weekdayKr}의 사람
+            ⚠️ 제일 조심할 조합 — {worstDay.animal} ({worstDay.weekdayKr}의 사람)
           </div>
           <div style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--v2-ink-mid)', marginTop: 5 }}>
             {worst.reason}

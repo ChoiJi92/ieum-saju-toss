@@ -115,19 +115,19 @@ async function drawCard(day: ThaiBirthDay, userName: string, spirit: Spirit, sta
   ctx.fillStyle = tone;
   ctx.fillText('세계의 운세 · 태국편', W / 2, 92);
 
-  // 이름 + 요일
+  // 이름 + 수호 캐릭터 (티저 카드와 동일한 문법)
   ctx.font = '700 30px -apple-system, sans-serif';
   ctx.fillStyle = 'rgba(244,239,255,0.75)';
-  ctx.fillText(`${userName}님은`, W / 2, 560);
+  ctx.fillText(`${userName}님의 수호신`, W / 2, 556);
 
-  ctx.font = '800 62px -apple-system, sans-serif';
+  ctx.font = '800 66px -apple-system, sans-serif';
   ctx.fillStyle = '#F4EFFF';
-  ctx.fillText(`${day.weekdayKr}의 사람`, W / 2, 634);
+  ctx.fillText(day.animal, W / 2, 632);
 
-  // 수호신 — 쉬운 별칭 + 이름
-  ctx.font = '800 32px -apple-system, sans-serif';
+  // 요일 + 수호신 — 쉬운 별칭 + 이름
+  ctx.font = '800 30px -apple-system, sans-serif';
   ctx.fillStyle = tone;
-  ctx.fillText(`${day.deity.plain} ${day.deity.name}`, W / 2, 690);
+  ctx.fillText(`${day.weekdayKr}에 태어난 · ${day.deity.plain} ${day.deity.name}의 사람`, W / 2, 688);
 
   // 키워드
   ctx.font = '700 26px -apple-system, sans-serif';
@@ -191,7 +191,7 @@ export async function prepareThaiCard(day: ThaiBirthDay, userName: string, spiri
   if (!blob) return null;
   return {
     blob,
-    file: new File([blob], `태국점성술-${day.weekdayKr}.png`, { type: 'image/png' }),
+    file: new File([blob], `태국점성술-${day.animal}.png`, { type: 'image/png' }),
     key: preparationKey(day, userName, spirit, stage),
   };
 }
@@ -216,7 +216,7 @@ export async function shareThaiCard(
         await nav.share({
           files: [file],
           title: '태국 점성술',
-          text: `나는 ${day.deity.plain} ${day.deity.name}의 사람 ✦ 이음사주`,
+          text: `나의 수호신은 ${day.animal} ✦ 이음사주`,
         });
         return 'shared';
       } catch (error) {

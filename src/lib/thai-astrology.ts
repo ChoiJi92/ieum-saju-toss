@@ -21,6 +21,8 @@ export type ThaiDayContent = {
   weekdayKr: string;
   /** 수호 행성신 — plain(쉬운 별칭)을 이름 앞에 붙여 표시 (예: '밤의 별 라후') */
   deity: { name: string; plain: string; desc: string };
+  /** 수호 캐릭터 이름 (예: '그믐 고양이') — 이미지: public/thai/{key}.png */
+  animal: string;
   /** 행운색 (표시명 + 카드용 hex) */
   color: { name: string; hex: string };
   /** 다크 배경 표시용 액센트 — 행운색이 어두워 대비가 안 나올 때만 별도 지정 */
@@ -39,6 +41,7 @@ export type ThaiDayContent = {
 
 export const THAI_DAYS: Record<ThaiDayKey, ThaiDayContent> = {
   sun: {
+    animal: '한낮 사자',
     weekdayKr: '일요일',
     deity: { name: '수리야', plain: '태양의 신', desc: '한낮의 해처럼 당당한 기운을 주는 신이에요' },
     color: { name: '빨강', hex: '#E85D4A' },
@@ -50,6 +53,7 @@ export const THAI_DAYS: Record<ThaiDayKey, ThaiDayContent> = {
     ohaeng: 'fire',
   },
   mon: {
+    animal: '보름 사슴',
     weekdayKr: '월요일',
     deity: { name: '찬드라', plain: '달의 신', desc: '보름달처럼 은은하게 마음을 어루만지는 신이에요' },
     color: { name: '노랑·크림', hex: '#F2C14E' },
@@ -61,6 +65,7 @@ export const THAI_DAYS: Record<ThaiDayKey, ThaiDayContent> = {
     ohaeng: 'earth',
   },
   tue: {
+    animal: '불꽃 여우',
     weekdayKr: '화요일',
     deity: { name: '망갈라', plain: '전사의 별', desc: '화성처럼 뜨거운 용기를 주는 신이에요' },
     color: { name: '분홍', hex: '#F08CA4' },
@@ -72,6 +77,7 @@ export const THAI_DAYS: Record<ThaiDayKey, ThaiDayContent> = {
     ohaeng: 'fire',
   },
   wedDay: {
+    animal: '바람 앵무',
     weekdayKr: '수요일 낮',
     deity: { name: '부다', plain: '지혜의 별', desc: '수성처럼 빠른 머리와 말솜씨를 주는 신이에요' },
     color: { name: '초록', hex: '#5CB271' },
@@ -83,6 +89,7 @@ export const THAI_DAYS: Record<ThaiDayKey, ThaiDayContent> = {
     ohaeng: 'wood',
   },
   wedNight: {
+    animal: '그믐 고양이',
     weekdayKr: '수요일 밤',
     deity: { name: '라후', plain: '밤의 별', desc: '해와 달을 삼킨다고 전해지는 신비한 별이에요. 남다른 운명을 상징하죠' },
     color: { name: '짙은 회색·검정', hex: '#4A4A58' },
@@ -95,6 +102,7 @@ export const THAI_DAYS: Record<ThaiDayKey, ThaiDayContent> = {
     ohaeng: 'water',
   },
   thu: {
+    animal: '고요 부엉이',
     weekdayKr: '목요일',
     deity: { name: '구루', plain: '스승의 별', desc: '목성처럼 넓고 깊은 지혜를 주는, 신들의 스승이에요' },
     color: { name: '주황', hex: '#EE9B4A' },
@@ -106,6 +114,7 @@ export const THAI_DAYS: Record<ThaiDayKey, ThaiDayContent> = {
     ohaeng: 'earth',
   },
   fri: {
+    animal: '새벽 공작',
     weekdayKr: '금요일',
     deity: { name: '슈크라', plain: '사랑의 별', desc: '금성처럼 사랑과 아름다움을 끌어당기는 신이에요' },
     color: { name: '하늘색', hex: '#6FB4D8' },
@@ -117,6 +126,7 @@ export const THAI_DAYS: Record<ThaiDayKey, ThaiDayContent> = {
     ohaeng: 'water',
   },
   sat: {
+    animal: '바위 거북',
     weekdayKr: '토요일',
     deity: { name: '샤니', plain: '인내의 별', desc: '토성처럼 묵직하게 버티는 힘을 주는 신이에요' },
     color: { name: '보라', hex: '#8B6FC0' },
@@ -182,6 +192,11 @@ export function thaiBirthDay(input: ThaiBirthInput): ThaiBirthDay {
   }
 
   return { key, usedDawnRule: !unknownTime, ...THAI_DAYS[key] };
+}
+
+/** 요일 캐릭터 이미지 경로 — 8종 모두 존재 (public/thai/) */
+export function thaiCharacterImg(key: ThaiDayKey): string {
+  return `/thai/${key}.png?v=1`;
 }
 
 /** 요일색 오행과 용신 오행 교차 → 행운색 코멘트 (공유 카드용 한 줄) */

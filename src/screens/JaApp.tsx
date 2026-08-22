@@ -66,6 +66,35 @@ function Stars() {
 }
 
 export default function JaApp() {
+  // 전역 CSS(index.css)는 토스 미니앱용이라 body 스크롤이 잠겨 있다. 웹판에서만 해제.
+  useEffect(() => {
+    // index.css: body{overflow:hidden;height:100dvh}, #root{position:fixed;inset:0}
+    // → 웹에서는 문서가 뷰포트에 갇혀 스크롤이 죽는다. 세 곳을 모두 풀어준다.
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById('root');
+    const saved = {
+      html: html.getAttribute('style'),
+      body: body.getAttribute('style'),
+      root: root?.getAttribute('style') ?? null,
+    };
+    Object.assign(html.style, { height: 'auto', width: '100%', overflow: 'visible' });
+    Object.assign(body.style, { height: 'auto', width: '100%', overflow: 'visible', overscrollBehavior: 'auto' });
+    if (root) {
+      Object.assign(root.style, { position: 'static', inset: 'auto', height: 'auto', width: '100%', display: 'block' });
+    }
+    return () => {
+      const restore = (el: HTMLElement | null, v: string | null) => {
+        if (!el) return;
+        if (v === null) el.removeAttribute('style');
+        else el.setAttribute('style', v);
+      };
+      restore(html, saved.html);
+      restore(body, saved.body);
+      restore(root, saved.root);
+    };
+  }, []);
+
   const [year, setYear] = useState(1995);
   const [month, setMonth] = useState(5);
   const [day, setDay] = useState(13);

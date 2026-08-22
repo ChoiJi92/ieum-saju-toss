@@ -7,11 +7,12 @@ const { publicVars } = loadEnv({ prefixes: ['VITE_', 'PUBLIC_'] });
 export default defineConfig({
   plugins: [pluginReact()],
   html: {
-    template: './index.html',
+    template: process.env.APP_TARGET === 'ja' ? './index.ja.html' : './index.html',
   },
   source: {
+    // APP_TARGET=ja → 일본어 웹판 단독 빌드 (Vercel 배포용). 기본은 토스 미니앱.
     entry: {
-      index: './src/index.tsx',
+      index: process.env.APP_TARGET === 'ja' ? './src/ja.tsx' : './src/index.tsx',
     },
     define: publicVars,
   },

@@ -1,7 +1,9 @@
 import { useMemo, useState, useEffect } from 'react';
 import { computeMyeongsik, type SajuInput } from '../lib/saju';
 import { spiritFromMyeongsik, type Spirit } from '../lib/spirit';
-import { UI_JA, RARITY_JA, ZODIAC_JA, spiritNameJa, titleJa, personaJa } from '../lib/i18n-ja';
+import { UI_JA, RARITY_JA, ZODIAC_JA, spiritNameJa, spiritImgJa, titleJa, personaJa } from '../lib/i18n-ja';
+import { Analytics } from '@vercel/analytics/react';
+import { track } from '@vercel/analytics';
 import { prepareJaCard, shareJaCard, type PreparedJaCard } from '../lib/ja-card';
 
 /**
@@ -109,7 +111,7 @@ export default function JaApp() {
   useEffect(() => {
     if (!result) { setCard(null); return; }
     let alive = true;
-    void prepareJaCard(result, 1).then((c) => { if (alive) setCard(c); });
+    void prepareJaCard(result).then((c) => { if (alive) setCard(c); });
     return () => { alive = false; };
   }, [result]);
 
@@ -124,7 +126,9 @@ export default function JaApp() {
       name: 'you',
     };
     try {
-      setResult(spiritFromMyeongsik(computeMyeongsik(input)));
+      const s = spiritFromMyeongsik(computeMyeongsik(input));
+      setResult(s);
+      track('spirit_revealed', { spirit: s.key, rarity: s.rarity.key, lunar });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch {
       setError('この日付は計算できませんでした。日付をご確認ください。');
@@ -145,6 +149,7 @@ export default function JaApp() {
     >
       {/* 모바일 우선 컬럼 — 데스크톱에선 가운데 정렬 */}
       <div style={{ position: 'relative', width: '100%', maxWidth: 480, padding: '0 20px 60px' }}>
+        <Analytics />
         <Stars />
         <div style={{ position: 'relative' }}>
           {!result ? (
@@ -294,7 +299,7 @@ export default function JaApp() {
 function ResultView({ spirit, card, onRetry }: { spirit: Spirit; card: PreparedJaCard | null; onRetry: () => void }) {
   const nameJa = spiritNameJa(spirit.elemKey, spirit.zodKey);
   const rarity = RARITY_JA[spirit.rarity.key];
-  const img = spirit.imageFor(1);
+  const img = spiritImgJa(spirit.key);
   const stars = '★'.repeat(spirit.rarity.stars) + '☆'.repeat(4 - spirit.rarity.stars);
 
   return (
@@ -366,7 +371,10 @@ function ResultView({ spirit, card, onRetry }: { spirit: Spirit; card: PreparedJ
       </div>
 
       <button
-        onClick={() => { void shareJaCard(spirit, 1, card); }}
+        onClick={() => {
+          track('share_click', { spirit: spirit.key, rarity: spirit.rarity.key });
+          void shareJaCard(spirit, card).then((r) => track('share_result', { result: r }));
+        }}
         style={{
           width: '100%',
           marginTop: 18,

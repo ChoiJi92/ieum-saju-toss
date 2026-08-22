@@ -75,6 +75,11 @@ export const UI_JA = {
   disclaimerEntertainment: '本サービスの診断結果は、四柱推命をもとにしたエンターテインメントコンテンツです。人生・健康・金銭・人間関係などの結果を保証するものではありません。',
 } as const;
 
+/** JA 웹판 정령 이미지 — public/ja-spirits/{정령키}.png (아기 단계 512px, git 추적) */
+export function spiritImgJa(spiritKey: string): string {
+  return `/ja-spirits/${encodeURIComponent(spiritKey)}.png`;
+}
+
 /** 정령 이름 조합 — 예: 黄金の牛 */
 export function spiritNameJa(elem: ElementKey, zod: ZodiacKey): string {
   return `${ELEMENTS_JA[elem].word}の${ZODIAC_JA[zod].word}`;

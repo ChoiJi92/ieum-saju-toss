@@ -1,6 +1,6 @@
-import type { Spirit, Stage } from './spirit';
+import type { Spirit } from './spirit';
 import type { ShareResult } from './spirit-card';
-import { spiritNameJa, titleJa, personaJa, RARITY_JA } from './i18n-ja';
+import { spiritNameJa, spiritImgJa, titleJa, personaJa, RARITY_JA } from './i18n-ja';
 
 /**
  * 일본어 공유 카드 — 720×960(3:4). spirit-card 와 동일한 canvas → Web Share/다운로드 폴백 구조.
@@ -44,7 +44,7 @@ function wrapJa(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, m
   return lines;
 }
 
-async function drawCard(spirit: Spirit, stage: Stage): Promise<HTMLCanvasElement> {
+async function drawCard(spirit: Spirit): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -77,8 +77,7 @@ async function drawCard(spirit: Spirit, stage: Stage): Promise<HTMLCanvasElement
   ctx.fillStyle = glow;
   ctx.fillRect(0, 60, W, 620);
 
-  const src = spirit.imageFor(stage);
-  const img = src ? await loadImage(src) : null;
+  const img = await loadImage(spiritImgJa(spirit.key));
   ctx.textAlign = 'center';
   if (img) {
     const size = 400;
@@ -137,21 +136,21 @@ async function drawCard(spirit: Spirit, stage: Stage): Promise<HTMLCanvasElement
 
 export type PreparedJaCard = { blob: Blob; file: File; key: string };
 
-export async function prepareJaCard(spirit: Spirit, stage: Stage): Promise<PreparedJaCard | null> {
-  const canvas = await drawCard(spirit, stage);
+export async function prepareJaCard(spirit: Spirit): Promise<PreparedJaCard | null> {
+  const canvas = await drawCard(spirit);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) return null;
   const nameJa = spiritNameJa(spirit.elemKey, spirit.zodKey);
   return {
     blob,
     file: new File([blob], `${nameJa}.png`, { type: 'image/png' }),
-    key: `${spirit.key}|${stage}`,
+    key: spirit.key,
   };
 }
 
-export async function shareJaCard(spirit: Spirit, stage: Stage, prepared?: PreparedJaCard | null): Promise<ShareResult> {
+export async function shareJaCard(spirit: Spirit, prepared?: PreparedJaCard | null): Promise<ShareResult> {
   try {
-    const card = prepared?.key === `${spirit.key}|${stage}` ? prepared : await prepareJaCard(spirit, stage);
+    const card = prepared?.key === spirit.key ? prepared : await prepareJaCard(spirit);
     if (!card) return 'failed';
     const { blob, file } = card;
     const nameJa = spiritNameJa(spirit.elemKey, spirit.zodKey);

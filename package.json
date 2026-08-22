@@ -21,6 +21,7 @@
     "@apps-in-toss/web-framework": "2.5.1",
     "@fullstackfamily/manseryeok": "^1.0.8",
     "@granite-js/plugin-router": "1.0.26",
+    "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "nanoid": "^5.0.9",

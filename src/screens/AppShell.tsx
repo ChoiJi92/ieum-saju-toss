@@ -109,6 +109,7 @@ import ScreenHealth from "./app/ScreenHealth";
 import ScreenGunghap from "./app/ScreenGunghap";
 import ScreenJamidusu from "./app/ScreenJamidusu";
 import ScreenPersonality from "./app/ScreenPersonality";
+import ScreenReport from "./app/ScreenReport";
 import ScreenSinsal from "./app/ScreenSinsal";
 import ScreenThai from "./app/ScreenThai";
 import ScreenCalendar from "./app/ScreenCalendar";
@@ -396,6 +397,9 @@ export default function AppShell() {
       break;
     case "personality":
       screenEl = <ScreenPersonality {...sp} />;
+      break;
+    case "report":
+      screenEl = <ScreenReport {...sp} />;
       break;
     case "fortunes":
       screenEl = <ScreenFortunes {...sp} />;
@@ -2646,7 +2650,10 @@ function ScreenFortunes({
             marginTop: 6,
           }}
         >
-          {FORTUNE_MENU.map((m) => (
+          {FORTUNE_MENU.map((m) => {
+            // 유료 항목은 금색으로 구분한다. 광고 잠금(🔒)과 헷갈리면 안 된다.
+            const paid = m.route === "report";
+            return (
             <button
               key={m.route}
               onClick={() => go(m.route)}
@@ -2659,13 +2666,32 @@ function ScreenFortunes({
                 gap: 6,
                 padding: "16px 6px",
                 borderRadius: "var(--v2-r-md)",
-                background: "var(--v2-glass)",
-                border: "1px solid var(--v2-glass-line2)",
+                background: paid
+                  ? "linear-gradient(150deg, rgba(255,210,122,.14), rgba(183,156,255,.08))"
+                  : "var(--v2-glass)",
+                border: paid
+                  ? "1px solid rgba(255,210,122,.42)"
+                  : "1px solid var(--v2-glass-line2)",
                 cursor: "pointer",
                 fontFamily: "var(--v2-font)",
               }}
             >
-              {REWARDED_ROUTES.includes(m.route) && (
+              {paid && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: 6,
+                    right: 7,
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: "#FFD27A",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  ✦
+                </span>
+              )}
+              {!paid && REWARDED_ROUTES.includes(m.route) && (
                 <span
                   style={{
                     position: "absolute",
@@ -2704,7 +2730,8 @@ function ScreenFortunes({
                 {m.sub}
               </span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </Rise>
       <div style={{ height: 44 }} />

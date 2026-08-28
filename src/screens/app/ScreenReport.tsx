@@ -7,7 +7,8 @@
  * 명식 여덟 글자를 띄워둔다. 이미 계산된 값이라 공짜로 보여줄 수 있고,
  * "지금 이걸 읽고 있다"는 화면이라 기다림이 작업으로 읽힌다.
  *
- * 결제는 아직 붙이지 않았다. IAP 상품 등록 후 payAndGrant() 안쪽만 바꾸면 된다.
+ * 결제는 IAP.createOneTimePurchaseOrder 로 붙어 있다. processProductGrant 안에서는
+ * 리포트를 만들지 않고 주문 기록만 남긴다 — 생성까지 기다리면 콜백이 타임아웃된다.
  */
 import { useEffect, useRef, useState } from 'react';
 import { V2Screen, V2TopBar, V2Glass, withAlpha, SelfSpiritSlot } from './_kit';
@@ -18,10 +19,12 @@ import { grantReport, generateChapter, fetchReport, isReportEnabled } from '../.
 import { TG_KR, DZ_KR, type Myeongsik } from '../../lib/saju';
 import { MyeongsikPanel, DaewoonPanel, YearTable, PullQuote } from './ReportVisuals';
 import type { Spirit } from '../../lib/spirit';
+import { IAP } from '@apps-in-toss/web-framework';
 
 const GOLD = '#FFD27A';
-const SKU = 'report_basic';
-/** 결제 붙기 전까지 쓰는 임시 주문 키. IAP 연동 시 orderId 로 대체된다. */
+/** 앱인토스 콘솔에 등록된 상품 ID. 공급가 900원 + 부가세 = 결제액 990원. */
+const SKU = 'ait.0000032205.c5c5ad40.783ba55c34.7928202033';
+/** 결제한 주문번호를 담아둔다. 앱을 다시 열었을 때 저장본을 불러오는 열쇠. */
 const ORDER_KEY = 'ieum-saju.report.orderId.v1';
 
 /**
@@ -108,37 +111,91 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
   const who = { year: profile.year, gender: profile.gender };
   const outline = buildReportOutline(myeongsik, who);
 
-  async function payAndGrant(): Promise<string> {
-    // TODO(IAP): createOneTimePurchaseOrder 로 교체.
-    //   processProductGrant(orderId) 안에서 grantReport 를 호출하고 true 를 반환하면 된다.
-    const orderId = `local-${Date.now()}`;
-    await grantReport({
-      orderId, sku: SKU,
-      name: profile!.name || '고객',
-      myeongsik: buildReportPayload(myeongsik!, profile!),
-    });
-    localStorage.setItem(ORDER_KEY, orderId);
-    return orderId;
-  }
-
-  async function start() {
-    if (started.current) return;
-    started.current = true;
-    setPhase('working');
+  /** 주문번호를 손에 쥔 뒤 1장을 만들고, 2장은 읽는 동안 뒤에서 받아둔다. */
+  async function runGeneration(orderId: string) {
     try {
-      // 개발 중에는 결제·생성을 건너뛰고 저장된 리포트를 그대로 읽는다
-      const orderId = MOCK_ORDER || localStorage.getItem(ORDER_KEY) || (await payAndGrant());
+      localStorage.setItem(ORDER_KEY, orderId);
       if (MOCK_ORDER && MOCK_DELAY) await new Promise((r) => setTimeout(r, MOCK_DELAY));
       const a = await generateChapter(orderId, 1);
       setCh1(a);
       setPhase('reading');
-      // 2장은 1장을 읽는 동안 뒤에서 받아둔다
       generateChapter(orderId, 2).then(setCh2).catch(() => { /* 아래에서 재시도 버튼 */ });
     } catch (e) {
       started.current = false;
       setErr(String(e));
       setPhase('error');
     }
+  }
+
+  /**
+   * 결제 → 지급 → 생성.
+   *
+   * processProductGrant 는 결제가 끝난 뒤 토스가 부르는 콜백이다. 여기서 true 를 돌려줘야
+   * 거래가 완료되고, false 면 지급 실패로 처리된다. 그래서 이 안에서는 리포트를 만들지 않고
+   * "주문을 받았다"는 기록만 남긴다. 생성까지 기다리면 1분이 걸려 콜백이 타임아웃된다.
+   * 지급의 단위는 리포트가 아니라 리포트를 받을 권한이다.
+   */
+  function startPurchase() {
+    const cleanup = IAP.createOneTimePurchaseOrder({
+      options: {
+        sku: SKU,
+        processProductGrant: async ({ orderId }) => {
+          try {
+            await grantReport({
+              orderId, sku: SKU,
+              name: profile!.name || '고객',
+              myeongsik: buildReportPayload(myeongsik!, profile!),
+            });
+            localStorage.setItem(ORDER_KEY, orderId);
+            return true;
+          } catch (e) {
+            console.error('grant 실패', e);
+            return false;   // 토스가 거래를 실패 처리한다 (돈만 빠지는 상황을 막는다)
+          }
+        },
+      },
+      onEvent: (event) => {
+        cleanup();
+        const orderId = (event as { data?: { orderId?: string } }).data?.orderId;
+        if (orderId) runGeneration(orderId);
+        else {
+          // 지급은 끝났으니 주문번호는 저장돼 있다. 그걸로 이어서 만든다.
+          const saved = localStorage.getItem(ORDER_KEY);
+          if (saved) runGeneration(saved);
+          else { started.current = false; setErr('주문 정보를 받지 못했어요'); setPhase('error'); }
+        }
+      },
+      onError: (e) => {
+        cleanup();
+        started.current = false;
+        const code = (e as { code?: string })?.code ?? '';
+        // 사용자가 그냥 닫은 건 실패가 아니다. 조용히 목차로 돌린다.
+        if (code === 'USER_CANCELED') { setPhase('intro'); return; }
+        setErr(code || String(e));
+        setPhase('error');
+      },
+    });
+  }
+
+  function start() {
+    if (started.current) return;
+    started.current = true;
+    setPhase('working');
+
+    // 개발용: 결제를 건너뛰고 저장된 리포트를 그대로 읽는다
+    if (MOCK_ORDER) { runGeneration(MOCK_ORDER); return; }
+
+    // 이미 산 주문이 있으면 다시 결제하지 않는다
+    const saved = localStorage.getItem(ORDER_KEY);
+    if (saved) { runGeneration(saved); return; }
+
+    if (!IAP.createOneTimePurchaseOrder.isSupported()) {
+      started.current = false;
+      setErr('앱 버전이 낮아 결제를 지원하지 않아요. 토스를 업데이트해 주세요.');
+      setPhase('error');
+      return;
+    }
+    startPurchase();
   }
 
   return (

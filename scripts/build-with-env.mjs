@@ -24,11 +24,24 @@ for (const line of raw.split(/\r?\n/)) {
   parsed[key] = val;
 }
 
-const child = spawn('ait', ['build'], {
-  stdio: 'inherit',
-  env: { ...process.env, ...parsed },
-});
+// SDK 3.x 부터 `ait build` 는 dist/ 를 패키징만 한다.
+// 2.x 에서는 granite.config 의 web.commands.build 를 읽어 rsbuild 를 대신 돌려줬지만
+// 그 설정이 없어졌으므로, 여기서 rsbuild build 를 먼저 실행해야 한다.
+// 특히 VITE_* 값은 rsbuild 가 번들에 넣으므로 env 는 이쪽에 반드시 전달돼야 한다.
+const env = { ...process.env, ...parsed };
 
-child.on('exit', (code) => {
-  process.exit(code ?? 1);
-});
+function run(cmd, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: 'inherit', env, shell: process.platform === 'win32' });
+    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} exited ${code}`))));
+    child.on('error', reject);
+  });
+}
+
+try {
+  await run('npx', ['rsbuild', 'build']);
+  await run('npx', ['ait', 'build']);
+} catch (e) {
+  console.error(`[build-with-env] ${e.message}`);
+  process.exit(1);
+}

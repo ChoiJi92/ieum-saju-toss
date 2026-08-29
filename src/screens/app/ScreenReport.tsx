@@ -252,25 +252,25 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
      * 우리에게는 아무것도 안 남는다. 실제로 QR 테스트에서 돈만 나가고
      * "환불하세요"가 뜬 적이 있다. 그 주문을 여기서 주워 담는다.
      */
-    const sweepPending = async () => {
+    const sweepPending = async (): Promise<boolean> => {
       const { myeongsik: ms, profile: pf } = dataRef.current;
-      if (!ms || !pf) return;
+      if (!ms || !pf) return false;
       let ours: { orderId: string; sku: string }[] = [];
       try {
-        if (!IAP.getPendingOrders.isSupported()) return;
+        if (!IAP.getPendingOrders.isSupported()) return false;
         const { orders } = await IAP.getPendingOrders();
         // 다른 프로필이 자기 것으로 적어둔 주문은 건드리지 않는다.
         const others = claimedByOthers(pid);
         ours = orders.filter((o) => o.sku === SKU && !others.has(o.orderId));
-      } catch { return; }        // 지원하지 않는 버전이거나 조회 실패 — 다음에 다시 본다
-      if (!ours.length || !alive) return;
+      } catch { return false; }  // 지원하지 않는 버전이거나 조회 실패 — 다음에 다시 본다
+      if (!ours.length || !alive) return false;
 
       // 이미 이 프로필의 리포트를 손에 쥐고 있으면, 남은 주문은 지급만 확정한다.
       // 확정하지 않으면 토스에 미지급으로 남고, 실제로 그 상태에서 다음 결제창이
       // 로딩에 멈춘 채 돈만 한 번 더 나갔다.
       if (boot.order) {
         for (const o of ours) await confirmGrant(o.orderId);
-        return;
+        return false;
       }
 
       const first = ours[0];
@@ -283,11 +283,67 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
       if (alive) await runGeneration(first.orderId);
       // 같은 사람 것을 두 번 산 경우. 리포트는 하나면 되니 나머지는 확정만 하고 닫는다.
       for (const o of ours.slice(1)) await confirmGrant(o.orderId);
+      return true;
+    };
+
+    /**
+     * 이 기기에 결제 기록이 없을 때, 토스에 물어 되찾는다.
+     *
+     * 리포트 본문은 서버에 있지만 우리는 order_id 로만 찾는다. 그 번호를
+     * localStorage 에만 들고 있어서, 기기를 바꾸거나 저장소가 비면 보관함은 멀쩡한데
+     * 열쇠가 없는 꼴이 된다. 로그인을 안 쓰니 다른 이름표도 없다.
+     *
+     * 열쇠는 토스가 쥐고 있다. 결제는 토스 계정에 묶이므로, 같은 계정이면 기기가
+     * 바뀌어도 완료된 주문 목록에서 그 번호를 돌려받을 수 있다.
+     *
+     * 여러 건이면 어느 것이 지금 보고 있는 사람 것인지 서버에 물어 고른다.
+     * 결제할 때 이름을 함께 적어뒀다.
+     */
+    const restoreFromCompleted = async () => {
+      const { profile: pf } = dataRef.current;
+      if (!pf) return;
+
+      let candidates: { orderId: string }[] = [];
+      try {
+        if (!IAP.getCompletedOrRefundedOrders.isSupported()) return;
+        const { orders } = await IAP.getCompletedOrRefundedOrders();
+        const others = claimedByOthers(pid);
+        // 환불된 주문은 뺀다. 돈을 돌려받았으면 리포트도 돌려받을 게 아니다.
+        candidates = orders.filter(
+          (o) => o.sku === SKU && o.status === 'COMPLETED' && !others.has(o.orderId),
+        );
+      } catch { return; }
+      if (!candidates.length || !alive) return;
+
+      // 여기서부터는 서버를 오가므로 목차 대신 기다리는 화면을 보여준다.
+      // 산 적 없는 사람은 위에서 이미 빠져나가 이 화면을 보지 않는다.
+      setPhase('restoring');
+
+      const name = pf.name || '고객';
+      for (const o of candidates) {
+        let r: Awaited<ReturnType<typeof fetchReport>> = null;
+        try { r = await fetchReport(o.orderId); } catch { continue; }
+        if (!alive) return;
+        if (!r?.content_1 || r.profile_name !== name) continue;
+
+        localStorage.setItem(ORDER_KEY(pid), o.orderId);
+        setPaid(true);
+        setCh1(r.content_1);
+        setCh2(r.content_2);
+        writeCache(pid, o.orderId, r.content_1, r.content_2);
+        setPhase('reading');
+        return;
+      }
+      // 산 적은 있는데 이 사람 것은 아니었다(가족 것만 샀거나). 목차로 돌린다.
+      if (alive) setPhase('intro');
     };
 
     // 미지급 주문 회수는 항상 돈다. 저장본이 있다고 건너뛰면, 그 사이 새로 한 결제가
     // 영영 확정되지 않아 토스에 미지급으로 쌓인다.
-    sweepPending();
+    // 회수할 게 없고 이 기기에 기록도 없으면, 예전에 산 것이 있는지 마지막으로 물어본다.
+    sweepPending().then((claimed) => {
+      if (!claimed && !boot.order && !boot.cache && alive) restoreFromCompleted();
+    });
 
     // 두 장이 다 손에 있으면 끝난 리포트다. 내용이 바뀔 일이 없으니 서버에 묻지 않는다.
     if (boot.cache?.ch2) return;

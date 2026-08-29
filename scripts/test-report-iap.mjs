@@ -77,7 +77,7 @@ async function stubServer(page, { report, grantStatus = 200, generateStatus = 20
   return calls;
 }
 
-function seed({ activeId, orders = {}, bodies = {}, pending = [] }) {
+function seed({ activeId, orders = {}, bodies = {}, pending = [], completed = [] }) {
   // localStorage 시드는 한 번만. 알을 깨운 뒤 새로고침해도 지워지지 않아야 한다.
   // pendingOrders 는 메모리라 매 로드마다 다시 심는다.
   return `
@@ -100,13 +100,14 @@ function seed({ activeId, orders = {}, bodies = {}, pending = [] }) {
   }
     (function(){
       var want = ${JSON.stringify(pending)};
-      if (!want.length) return;
+      var done = ${JSON.stringify(completed)};
+      if (!want.length && !done.length) return;
       // DevTools 목이 준비된 뒤에 심어야 한다. 상태 싱글턴이 생길 때까지 짧게 기다린다.
       var tries = 0;
       var t = setInterval(function(){
         var st = window.__ait;
         if (st && st.patch) {
-          st.patch('iap', { pendingOrders: want });
+          st.patch('iap', { pendingOrders: want, completedOrders: done });
           clearInterval(t);
         } else if (++tries > 100) clearInterval(t);
       }, 20);
@@ -168,7 +169,7 @@ console.log('\n━━ 소스 검사 — processProductGrant 는 동기여야 한
 
 const browser = await chromium.launch();
 
-async function scenario(title, { activeId, orders, bodies, pending, report, grantStatus, generateStatus, settleMs }, assert) {
+async function scenario(title, { activeId, orders, bodies, pending, completed, report, grantStatus, generateStatus, settleMs }, assert) {
   console.log(`\n━━ ${title} ━━`);
   const ctx = await browser.newContext({ viewport: { width: 430, height: 932 } });
   const page = await ctx.newPage();
@@ -184,7 +185,7 @@ async function scenario(title, { activeId, orders, bodies, pending, report, gran
     });
   `);
   const calls = await stubServer(page, { report, grantStatus, generateStatus });
-  await page.addInitScript(seed({ activeId, orders, bodies, pending }));
+  await page.addInitScript(seed({ activeId, orders, bodies, pending, completed }));
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2200);
   await openReport(page, settleMs);
@@ -373,6 +374,52 @@ await scenario('결제 흐름 — 떠도는 거부 없이 끝난다', {
   check('grant 가 불렸다', calls.grant.length >= 1, `grant=${calls.grant.length}회`);
   check('타이머가 지난 뒤에도 떠도는 거부가 없다', pageErrors.length === 0,
     pageErrors.slice(0, 3).join(' | '));
+});
+
+
+// ── 13. 기기를 바꿔 저장 기록이 사라진 경우 ─────────────────────────
+const completedOrder = (orderId) => ({ orderId, sku: SKU, status: 'COMPLETED', date: '2026-08-29T00:00:00Z' });
+
+await scenario('기록이 없어도 예전에 산 것을 되찾는다', {
+  activeId: PROFILE_A,
+  completed: [completedOrder('bought-long-ago')],
+  report: (orderId) => orderId === 'bought-long-ago' ? {
+    status: 'done', content: null, content_1: CH1, content_2: CH2,
+    profile_name: '가나다', completed_at: '2026-08-29T00:00:00Z', generating_since: null,
+  } : null,
+  settleMs: 5000,
+}, ({ state }) => {
+  check('본문을 되찾았다', state.body.includes('테스트 본문'), state.body.slice(0, 110));
+  check('다시 팔지 않는다', !state.body.includes('990원'));
+});
+
+// ── 14. 환불한 주문은 되살리지 않는다 ───────────────────────────────
+await scenario('환불한 주문은 되살리지 않는다', {
+  activeId: PROFILE_A,
+  completed: [{ orderId: 'refunded-1', sku: SKU, status: 'REFUNDED', date: '2026-08-29T00:00:00Z' }],
+  report: () => ({
+    status: 'done', content: null, content_1: CH1, content_2: CH2,
+    profile_name: '가나다', completed_at: '2026-08-29T00:00:00Z', generating_since: null,
+  }),
+  settleMs: 5000,
+}, ({ state }) => {
+  check('본문을 보여주지 않는다', !state.body.includes('테스트 본문'));
+  check('목차로 남는다', state.body.includes('990원'), state.body.slice(0, 110));
+});
+
+// ── 15. 가족 것만 샀을 때 남의 리포트를 붙이지 않는다 ───────────────
+await scenario('다른 사람 이름의 리포트는 붙이지 않는다', {
+  activeId: PROFILE_A,
+  completed: [completedOrder('for-someone-else')],
+  report: () => ({
+    status: 'done', content: null, content_1: CH1, content_2: CH2,
+    profile_name: '라마바',                        // B 의 리포트
+    completed_at: '2026-08-29T00:00:00Z', generating_since: null,
+  }),
+  settleMs: 5000,
+}, ({ state }) => {
+  check('본문을 붙이지 않는다', !state.body.includes('테스트 본문'));
+  check('목차로 돌아온다', state.body.includes('990원'), state.body.slice(0, 110));
 });
 
 await browser.close();

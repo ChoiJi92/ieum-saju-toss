@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, renameSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 
 const envFile = process.argv[2];
 if (!envFile) {
@@ -66,9 +66,30 @@ if (hasLocal) {
   }
   renameSync(LOCAL, PARKED);
 }
+/**
+ * 빌드하는 동안 .env 가 사라지므로, 그때 dev 서버가 다시 빌드하면 빈 값을 물어버린다.
+ * 그러면 화면이 "준비 중이에요"로 바뀌고 서버 호출이 통째로 멈추는데, 원인이
+ * 전혀 안 보인다. 실제로 이걸로 두 번 헤맸다. 켜져 있으면 미리 알려준다.
+ */
+function warnIfDevServerRunning() {
+  for (const port of [3000, 3001, 5173]) {
+    try {
+      execSync(`lsof -ti:${port}`, { stdio: 'pipe' });
+      console.warn(
+        `\n[build-with-env] ⚠  ${port} 포트에 dev 서버가 떠 있어요.\n` +
+        `   빌드하는 동안 .env 를 잠시 치우기 때문에, dev 번들이 빈 값을 물 수 있습니다.\n` +
+        `   빌드가 끝나면 dev 서버를 다시 띄우세요.\n`,
+      );
+      return;
+    } catch { /* 그 포트에 아무것도 없다 */ }
+  }
+}
+
 const restore = () => { if (hasLocal && existsSync(PARKED)) renameSync(PARKED, LOCAL); };
 process.on('SIGINT', () => { restore(); process.exit(130); });
 process.on('SIGTERM', () => { restore(); process.exit(143); });
+
+warnIfDevServerRunning();
 
 try {
   await run('npx', ['rsbuild', 'build']);

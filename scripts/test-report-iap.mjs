@@ -17,6 +17,7 @@
  * - 서버는 전부 가로챈다. AI 호출도 결제도 일어나지 않는다.
  */
 import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
 
 // 전역 URL 생성자를 가리지 않도록 이름을 따로 쓴다.
 const BASE_URL = process.env.TEST_URL || 'http://localhost:3001';
@@ -145,6 +146,24 @@ const results = [];
 function check(name, pass, detail = '') {
   results.push({ name, pass, detail });
   console.log(`  ${pass ? '✓' : '✗'} ${name}${detail ? `\n      ${detail}` : ''}`);
+}
+
+
+// ── 소스 검사: processProductGrant 안에서 기다리면 안 된다 ──────────
+//
+// 목 결제는 async 콜백도 잘 받아줘서 이 버그를 재현하지 못한다. 하지만 실제 토스에서는
+// 오버레이가 닫혀야 실행이 재개되므로 교착이 나고, 화면이 로딩에서 멈춘다.
+// 문서가 못박은 규칙이라 소스에서 형태만이라도 확인한다.
+console.log('\n━━ 소스 검사 — processProductGrant 는 동기여야 한다 ━━');
+{
+  const src = readFileSync('src/screens/app/ScreenReport.tsx', 'utf8');
+  const m = src.match(/processProductGrant:\s*(async\s*)?\(([^)]*)\)\s*=>\s*\{([\s\S]*?)\n {8}\},/);
+  check('콜백을 찾았다', Boolean(m));
+  if (m) {
+    check('async 가 아니다', !m[1], m[1] ? 'processProductGrant: async — 문서가 금지한 형태' : '');
+    check('안에서 await 하지 않는다', !/\bawait\b/.test(m[3]),
+      /\bawait\b/.test(m[3]) ? '콜백 본문에 await 가 있다 — 결제 시트가 멈춘다' : '');
+  }
 }
 
 const browser = await chromium.launch();

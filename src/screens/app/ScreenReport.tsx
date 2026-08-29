@@ -385,47 +385,32 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
   /**
    * 결제 → 지급 → 생성.
    *
-   * processProductGrant 는 결제가 끝난 뒤 토스가 부르는 콜백이다. 여기서 true 를 돌려줘야
-   * 거래가 완료되고, false 면 지급 실패로 처리된다. 그래서 이 안에서는 리포트를 만들지 않고
-   * "주문을 받았다"는 기록만 남긴다. 생성까지 기다리면 1분이 걸려 콜백이 타임아웃된다.
-   * 지급의 단위는 리포트가 아니라 리포트를 받을 권한이다.
+   * **processProductGrant 안에서는 절대 await 하지 않는다.**
+   *
+   * 문서가 못박아둔 규칙이다. 이 콜백은 결제 오버레이가 닫히기 전에 동기로 답을 받아야
+   * 하는데, 안에서 비동기를 기다리면 "오버레이가 닫혀야 실행이 재개되는데 실행이 끝나야
+   * 오버레이가 닫히는" 교착이 된다. 화면은 로딩에서 멈췄다가 잠시 뒤 오류로 넘어간다.
+   *
+   * 실제로 그렇게 만들었다가 결제창이 두 번 멈췄다. 안에서 서버에 주문을 기록하고
+   * 응답을 기다렸는데, 짧은 타임아웃을 걸어둔 것과 무관하게 await 자체가 문제였다.
+   * 결제는 통과해 기록되는데 시트만 안 닫혀서, 돈은 나가고 화면은 "환불하세요"가 떴다.
+   *
+   * 그래서 여기서는 주문번호만 적고 즉시 true 를 돌려준다. 서버 기록도 지급 확정도
+   * 리포트 생성도 전부 onEvent 에서 한다 — 문서가 말하는 "먼저 승인하고 나중에 검증한다".
    */
   function startPurchase() {
     const cleanup = IAP.createOneTimePurchaseOrder({
       options: {
         sku: SKU,
-        processProductGrant: async ({ orderId }) => {
-          // 주문번호부터 남긴다. 이게 있으면 서버 기록이 늦어져도 나중에 복구할 수 있다.
-          localStorage.setItem(ORDER_KEY(pid), orderId);
-
-          // 서버 기록을 끝까지 기다리면 안 된다.
-          // Edge Function 은 한동안 호출이 없으면 잠들어 있다가 깨어나는데(콜드 스타트),
-          // 그 몇 초 사이에 토스가 지급 실패로 판단해 결제를 통째로 되돌린다.
-          // 실제로 서버에는 주문이 정상 기록됐는데 화면에는 "환불하세요"가 뜬 적이 있다.
-          // 그래서 짧게만 기다리고, 늦으면 지급은 성공으로 처리한다.
-          // 기록이 빠졌더라도 생성 단계에서 이 주문번호로 다시 채운다.
-          // 타이머는 거부하지 않고 시간만 알리고, grant 의 실패는 자기 자리에서 삼킨다.
-          //
-          // 전에는 타이머가 reject 하는 Promise 였다. Promise.race 가 넘겨받은 모든
-          // 프로미스에 핸들러를 달아주기 때문에 늦게 온 거부가 떠돌지는 않지만,
-          // 이긴 뒤에도 타이머가 2.5초를 살아 있고 읽는 사람은 "저 거부는 어디로 가나"를
-          // 매번 확인해야 한다. 승패와 무관하게 아무도 거부하지 않는 편이 낫다.
-          let timer: ReturnType<typeof setTimeout> | undefined;
-          const isTest = Environment.environment === 'sandbox';
-          const granted = grantReport({
-            orderId, sku: SKU, isTest,
-            name: profile!.name || '고객',
-            myeongsik: buildReportPayload(myeongsik!, profile!),
-          }).catch((e) => { console.warn('grant 지연 — 생성 단계에서 다시 시도한다', e); });
-
-          await Promise.race([
-            granted,
-            new Promise<void>((resolve) => { timer = setTimeout(resolve, 2500); }),
-          ]);
-          if (timer) clearTimeout(timer);
+        processProductGrant: ({ orderId }) => {
+          // 주문번호를 남겨두면 이후 단계가 실패해도 이 번호로 되살릴 수 있다.
+          // 저장이 실패해도 결제를 막을 이유는 없으므로 삼킨다.
+          try { localStorage.setItem(ORDER_KEY(pid), orderId); } catch { /* 저장 공간 문제 */ }
           return true;
         },
       },
+      // 실제 일은 전부 여기서 한다. 결제 오버레이가 이미 닫힌 뒤라 얼마든지 기다려도 된다.
+      // runGeneration 이 서버 기록(ensureGranted) → 지급 확정(confirmGrant) → 생성을 잇는다.
       onEvent: (event) => {
         cleanup();
         const orderId = (event as { data?: { orderId?: string } }).data?.orderId;

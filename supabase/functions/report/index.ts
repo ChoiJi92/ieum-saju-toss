@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
  * 지급의 단위는 리포트가 아니라 "리포트를 받을 권한"이다.
  */
 async function handleGrant(req: Request, origin: string | null): Promise<Response> {
-  const { orderId, sku, userKey, name, myeongsik } = await req.json();
+  const { orderId, sku, userKey, name, myeongsik, isTest } = await req.json();
 
   if (!orderId || typeof orderId !== 'string') return json({ error: 'orderId 필요' }, 400, origin);
   if (!sku || typeof sku !== 'string') return json({ error: 'sku 필요' }, 400, origin);
@@ -120,6 +120,7 @@ async function handleGrant(req: Request, origin: string | null): Promise<Respons
     user_key: userKey ?? null,
     profile_name: (typeof name === 'string' && name.trim()) || '고객',
     myeongsik,
+    is_test: isTest === true,
     status: 'pending',
   });
 

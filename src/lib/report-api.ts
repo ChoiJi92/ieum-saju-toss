@@ -23,6 +23,8 @@ function headers() {
 export async function grantReport(params: {
   orderId: string;
   sku: string;
+  /** 토스가 판단한 실행 환경. sandbox(QR 테스트)면 true — 실제 결제가 아니다. */
+  isTest?: boolean;
   userKey?: string | null;
   name: string;
   myeongsik: unknown;

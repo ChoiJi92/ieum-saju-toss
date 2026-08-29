@@ -19,7 +19,7 @@ import { grantReport, generateChapter, fetchReport, isReportEnabled } from '../.
 import { TG_KR, DZ_KR, type Myeongsik } from '../../lib/saju';
 import { MyeongsikPanel, DaewoonPanel, YearTable, PullQuote } from './ReportVisuals';
 import type { Spirit } from '../../lib/spirit';
-import { IAP } from '@apps-in-toss/web-framework';
+import { IAP, Environment } from '@apps-in-toss/web-framework';
 
 const GOLD = '#FFD27A';
 /** 앱인토스 콘솔에 등록된 상품 ID. 공급가 900원 + 부가세 = 결제액 990원. */
@@ -141,8 +141,12 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
         sku: SKU,
         processProductGrant: async ({ orderId }) => {
           try {
+            // 실행 환경은 토스가 정한다. QR 로 띄운 테스트 번들이면 sandbox 라
+            // 결제도 TEST 로 잡히고 실제 돈이 나가지 않는다.
+            // 서버는 이 값으로 "테스트 결제로 진짜 리포트를 받아가는 것"을 막는다.
+            const isTest = Environment.environment === 'sandbox';
             await grantReport({
-              orderId, sku: SKU,
+              orderId, sku: SKU, isTest,
               name: profile!.name || '고객',
               myeongsik: buildReportPayload(myeongsik!, profile!),
             });

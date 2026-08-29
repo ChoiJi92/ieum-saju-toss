@@ -79,14 +79,24 @@ const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
 /* ─── 검사 ────────────────────────────────────────────────── */
 
-/** 한 문장씩. 마침표 기준이라 완벽하진 않지만 위반 위치를 짚기엔 충분하다. */
+/**
+ * 한 문장씩. 마침표 기준이라 완벽하진 않지만 위반 위치를 짚기엔 충분하다.
+ *
+ * 소제목도 본다. 전에는 ## 로 시작하는 줄을 통째로 걸렀는데, 실제 리포트에서
+ * 본문은 전부 "쇠"로 쓰면서 소제목만 "다시 들어온 금", "겹겹이 오는 금의 창"처럼
+ * 한자어가 남았다. 읽는 사람에게는 소제목이 더 크게 보인다.
+ */
 function sentences(text) {
-  return text
-    .split('\n')
-    .filter((l) => !l.startsWith('##'))          // 제목은 규칙 대상이 아니다
-    .flatMap((l) => l.split(/(?<=[.!?])\s+/))
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const out = [];
+  for (const raw of text.split('\n')) {
+    const heading = /^#{1,3}\s/.test(raw);
+    const line = raw.replace(/^#{1,3}\s*/, '').replace(/^>\s*/, '');
+    for (const part of line.split(/(?<=[.!?])\s+/)) {
+      const t = part.trim();
+      if (t) out.push({ text: t, heading });
+    }
+  }
+  return out;
 }
 
 /**
@@ -136,9 +146,11 @@ function usesTerm(s, term) {
  * 한 문장에 둘 이상 몰릴 때만 위반으로 올리고, 하나뿐이면 경고로 남긴다.
  * "을목(乙木)"처럼 한자를 병기한 낱글자 이름은 규칙이 허용하므로 뺀다.
  */
-function ohaengHanja(sentence) {
+function ohaengHanja(sentence, heading = false) {
   // 사주 얘기를 하는 문장에서만 본다. "볼 수가 없다", "화가 난다"를 잡지 않기 위해서다.
-  if (!SAJU_CONTEXT.test(sentence)) return [];
+  // 소제목은 예외다. 짧아서 문맥 단서가 안 걸리는데("그다음 겹겹이 오는 금의 창"),
+  // 리포트 소제목이 사주 얘기가 아닐 리는 없다.
+  if (!heading && !SAJU_CONTEXT.test(sentence)) return [];
   const found = new Set();
   for (const { word, ko } of OHAENG_HANJA) {
     let i = 0;
@@ -148,8 +160,9 @@ function ohaengHanja(sentence) {
       if (start > 0 && /[가-힣]/.test(sentence[start - 1])) continue;   // 다른 말의 일부
       const rest = sentence.slice(i);
       if (/^[(（一-鿿]/.test(rest)) continue;                            // 을목(乙木)
-      const josa = OHAENG_JOSA.find((j) => rest.startsWith(j));
-      if (!josa) continue;
+      // 소제목은 "다시 들어온 금"처럼 조사 없이 끝나기도 한다.
+      const ends = rest === '' || /^[\s,·]/.test(rest);
+      if (!OHAENG_JOSA.some((j) => rest.startsWith(j)) && !(heading && ends)) continue;
       found.add(`${word}→${ko}`);
     }
   }
@@ -177,7 +190,10 @@ function checkText(text, label, opts = {}) {
     if (q.replace(/\s/g, '').length > 90) add('warn', '인용줄', `너무 깁니다: ${q.slice(0, 50)}…`);
   }
 
-  for (const s of sentences(body)) {
+  // 장 제목은 프롬프트가 지정한 고정 문구라 검사 대상이 아니다.
+  const FIXED_TITLES = ['조각이 맞물리는 자리', '그 구조가 시기와 만나면'];
+  for (const { text: s, heading } of sentences(body)) {
+    if (FIXED_TITLES.some((t) => s.includes(t))) continue;
     const bare = bareHanja(s);
     if (bare.length) add('error', '한자 단독', `${bare.join(', ')} — 「한글(한자)」로 병기해야 합니다\n    ${s}`);
 
@@ -204,9 +220,13 @@ function checkText(text, label, opts = {}) {
 
     if (EMOJI.test(s)) add('error', '이모지', s);
 
-    const oh = ohaengHanja(s);
-    if (oh.length >= 2) add('error', '오행 한자어', `${oh.join(', ')} — 우리말로 써야 화면 막대와 같은 말이 됩니다\n    ${s}`);
-    else if (oh.length === 1) add('warn', '오행 한자어', `${oh[0]} — 일반 낱말과 겹칠 수 있으니 확인\n    ${s}`);
+    // 소제목은 오탐 여지가 적고 눈에 크게 띄므로 하나만 나와도 위반으로 본다.
+    const oh = ohaengHanja(s, heading);
+    if (oh.length >= 2 || (heading && oh.length === 1)) {
+      add('error', '오행 한자어', `${oh.join(', ')} — 우리말로 써야 화면 막대와 같은 말이 됩니다\n    ${s}`);
+    } else if (oh.length === 1) {
+      add('warn', '오행 한자어', `${oh[0]} — 일반 낱말과 겹칠 수 있으니 확인\n    ${s}`);
+    }
   }
 
   // 이름 표기 흔들림

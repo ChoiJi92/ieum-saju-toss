@@ -34,7 +34,8 @@ const env = { ...process.env, ...parsed };
 // 그래서 로컬 .env 에만 있는 개발용 스위치가 운영 번들에 그대로 박히는 사고가 난다.
 // 실제로 VITE_REPORT_MOCK_ORDER 가 들어가면 결제 없이 리포트가 나간다.
 // 지정한 env 파일에 없는 개발 전용 키는 여기서 빈 값으로 눌러둔다.
-const DEV_ONLY = ['VITE_REPORT_MOCK_ORDER', 'VITE_REPORT_MOCK_DELAY'];
+// VITE_REPORT_DEV_SECRET 은 결제 검증을 건너뛰는 열쇠다. 번들에 실리면 그대로 무료 통로가 된다.
+const DEV_ONLY = ['VITE_REPORT_MOCK_ORDER', 'VITE_REPORT_MOCK_DELAY', 'VITE_REPORT_DEV_SECRET'];
 for (const key of DEV_ONLY) {
   if (!(key in parsed)) {
     env[key] = '';

@@ -5,6 +5,7 @@
  *   npx tsx scripts/make-reply-card.ts 1994-03-15
  *   npx tsx scripts/make-reply-card.ts 1994-03-15 --time 14 --lunar --name 지훈
  *   npx tsx scripts/make-reply-card.ts 1994-03-15 1988-11-02 2001-07-30   # 배치
+ *   npx tsx scripts/make-reply-card.ts --open                              # 여는 글용 카드
  *
  * 출력: reply-cards/YYYY-MM-DD-정령이름.png (1080×1350, 4:5)
  *
@@ -76,6 +77,69 @@ function rarityLine(s: Spirit): { badge: string; hook: string } {
     case 'rare':   return { badge: `희귀 ${'✦'.repeat(2)}`, hook: `${s.rarity.pct}만 타고나는 기운 강한 일주` };
     default:       return { badge: '일반 ✦', hook: '진화시키면 이야기가 달라지는 정령' };
   }
+}
+
+
+/**
+ * 여는 글용 카드 — 특정인이 아니라 "당신은 어느 쪽인가"를 묻는다.
+ *
+ * 답글 카드와 같은 세계관을 쓰되, 개인 정보가 없으니 다섯 계열을 나란히 세운다.
+ * 링크도 등급 설명도 넣지 않는다. 댓글을 달게 만드는 것이 이 카드의 유일한 일이다.
+ */
+const OPEN_ELEMENTS = [
+  { prefix: '새싹', ko: '새싹', vibe: '시작과 생명력', color: '#7EE0A0' },
+  { prefix: '노을', ko: '노을', vibe: '열정과 표현', color: '#FF9E82' },
+  { prefix: '언덕', ko: '언덕', vibe: '안정과 신뢰', color: '#FFD27A' },
+  { prefix: '달빛', ko: '달빛', vibe: '결단과 세련', color: '#D6D9E0' },
+  { prefix: '이슬', ko: '이슬', vibe: '지혜와 유연함', color: '#7BA8FF' },
+];
+const OPEN_PICKS = ['용', '호랑이', '소', '뱀', '토끼'];
+
+function openCardHtml(): string {
+  const cells = OPEN_ELEMENTS.map((e, i) => `
+    <div class="ocell">
+      <img src="file://${resolve(ROOT, 'public', 'spirits')}/${e.prefix}${OPEN_PICKS[i]}/${e.prefix}${OPEN_PICKS[i]}-01-아기.png" alt="">
+      <div class="oname" style="color:${e.color}">${e.ko}</div>
+      <div class="ovibe">${e.vibe}</div>
+    </div>`).join('');
+
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Apple SD Gothic Neo', Pretendard, sans-serif; }
+  #card {
+    width:1080px; height:1350px; position:relative; overflow:hidden; color:#F3EEFF;
+    background: linear-gradient(180deg, #2A2046 0%, #1E1635 55%, #14101F 100%);
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:96px 60px 48px;
+  }
+  .stars { position:absolute; inset:0; pointer-events:none; }
+  .stars i { position:absolute; border-radius:50%; background:#fff; }
+  .brand { font-size:29px; font-weight:800; letter-spacing:7px; color:#B79CFF; }
+  .head { margin-top:30px; font-size:66px; font-weight:900; line-height:1.32; }
+  .head em { font-style:normal; color:#FFD27A; }
+  .sub { margin-top:26px; font-size:31px; line-height:1.72; color:#C9BEE8; font-weight:500; }
+  .orow { margin-top:76px; display:flex; justify-content:center; gap:12px; }
+  .ocell { width:186px; }
+  .ocell img { width:172px; height:172px; object-fit:contain;
+               filter:drop-shadow(0 14px 28px rgba(0,0,0,.5)); }
+  .oname { margin-top:18px; font-size:35px; font-weight:900; }
+  .ovibe { margin-top:9px; font-size:22px; color:#8F82B8; }
+  .ask { margin-top:84px; font-size:42px; font-weight:800; line-height:1.6; }
+  .wm { margin-top:auto; font-size:24px; font-weight:700; letter-spacing:5px; color:#6E5FA0; }
+  </style></head><body>
+  <div id="card">
+    <div class="stars">${Array.from({ length: 34 }, (_, i) => {
+      const x = (i * 37) % 100, y = (i * 53) % 100, s = 2 + (i % 3), o = 0.25 + (i % 4) * 0.12;
+      return `<i style="left:${x}%;top:${y}%;width:${s}px;height:${s}px;opacity:${o}"></i>`;
+    }).join('')}</div>
+    <div class="brand">이음사주</div>
+    <div class="head">태어난 날이 정하는<br/><em>다섯 갈래의 기운</em></div>
+    <div class="sub">새싹·노을·언덕·달빛·이슬.<br/>어느 기운을 갖고 태어났는지에 따라<br/>곁에 오는 정령이 달라져요.</div>
+    <div class="orow">${cells}</div>
+    <div class="ask">나는 어느 쪽일까</div>
+    <div class="wm">이음사주 ✦</div>
+  </div>
+  </body></html>`;
 }
 
 function cardHtml(job: Job, spirit: Spirit, iljuHanja: string): string {
@@ -158,12 +222,27 @@ function cardHtml(job: Job, spirit: Spirit, iljuHanja: string): string {
 }
 
 // ── 메인 ─────────────────────────────────────────────────
-const jobs = parseArgs(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const openMode = argv.includes('--open');
+const jobs = openMode ? [] : parseArgs(argv);
 mkdirSync(OUT_DIR, { recursive: true });
 
 // 시스템 Chrome 사용 — playwright 크로미움 다운로드 불필요 (디스크 절약)
 const browser = await chromium.launch({ channel: 'chrome' });
 const page = await browser.newPage({ viewport: { width: 1080, height: 1350 }, deviceScaleFactor: 2 });
+
+if (openMode) {
+  const tmp = resolve(OUT_DIR, '_open.html');
+  writeFileSync(tmp, openCardHtml());
+  await page.goto(`file://${tmp}`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(400);
+  const out = resolve(OUT_DIR, '여는글-다섯기운.png');
+  await page.screenshot({ path: out });
+  rmSync(tmp, { force: true });
+  await browser.close();
+  console.log(out);
+  process.exit(0);
+}
 
 for (const job of jobs) {
   // --ilju 케이스: 해당 일주가 나오는 양력 날짜를 역탐색 (60갑자 주기 → 60일 내 반드시 존재)

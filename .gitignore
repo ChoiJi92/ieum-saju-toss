@@ -116,3 +116,7 @@ Thumbs.db
 
 # Playwright 브라우저 캐시
 .pw-browsers/
+
+# SNS 카드 산출물 (매번 새로 뽑는다)
+ja-cards/
+reply-cards/

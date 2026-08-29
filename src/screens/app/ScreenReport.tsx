@@ -15,7 +15,7 @@ import { V2Screen, V2TopBar, V2Glass, withAlpha, SelfSpiritSlot } from './_kit';
 import { useSaju } from '../../lib/saju-state';
 import { buildReportOutline } from '../../lib/report-outline';
 import { buildReportPayload } from '../../lib/report-payload';
-import { grantReport, generateChapter, fetchReport, isReportEnabled } from '../../lib/report-api';
+import { grantReport, generateChapter, fetchReport, isReportEnabled, isStaleGenerating } from '../../lib/report-api';
 import { TG_KR, DZ_KR, type Myeongsik } from '../../lib/saju';
 import { MyeongsikPanel, DaewoonPanel, YearTable, PullQuote } from './ReportVisuals';
 import type { Spirit } from '../../lib/spirit';
@@ -26,6 +26,31 @@ const GOLD = '#FFD27A';
 const SKU = 'ait.0000032205.c5c5ad40.783ba55c34.7928202033';
 /** 결제한 주문번호를 담아둔다. 앱을 다시 열었을 때 저장본을 불러오는 열쇠. */
 const ORDER_KEY = 'ieum-saju.report.orderId.v1';
+/**
+ * 본문까지 로컬에 둔다.
+ *
+ * 주문번호만 저장하면 다시 들어올 때마다 서버에 물어봐야 하고, 그 왕복이 끝나기 전까지
+ * 화면은 목차 상태다. 이미 산 사람에게 "990원으로 전부 읽기"가 잠깐 보였다가 사라진다.
+ * 한 번 만들어진 리포트는 내용이 변하지 않으므로 통째로 들고 있다가 즉시 그린다.
+ */
+const BODY_KEY = 'ieum-saju.report.body.v1';
+
+type Cached = { orderId: string; ch1: string; ch2: string | null };
+
+function readCache(orderId: string | null): Cached | null {
+  if (!orderId) return null;
+  try {
+    const raw = localStorage.getItem(BODY_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw) as Cached;
+    return c?.orderId === orderId && c.ch1 ? c : null;
+  } catch { return null; }
+}
+
+function writeCache(orderId: string, ch1: string, ch2: string | null) {
+  try { localStorage.setItem(BODY_KEY, JSON.stringify({ orderId, ch1, ch2 })); }
+  catch { /* 저장 공간이 없어도 서버에 원본이 있다 */ }
+}
 
 /**
  * 개발용 — 이미 만들어둔 주문 번호를 넣어두면 결제·생성을 건너뛰고 그 리포트를 그대로 읽는다.
@@ -36,7 +61,7 @@ const MOCK_ORDER = (import.meta.env.VITE_REPORT_MOCK_ORDER as string | undefined
 /** 개발용 — 저장본은 즉시 오므로 대기 화면을 볼 수 없다. 이 값만큼 일부러 늦춘다(ms). */
 const MOCK_DELAY = Number(import.meta.env.VITE_REPORT_MOCK_DELAY ?? 0) || 0;
 
-type Phase = 'intro' | 'working' | 'reading' | 'error';
+type Phase = 'intro' | 'restoring' | 'working' | 'reading' | 'error';
 
 const WAIT_LINES = [
   '여덟 글자를 읽고 있어요',
@@ -47,12 +72,35 @@ const WAIT_LINES = [
 
 export default function ScreenReport({ back, spirit }: { back: () => void; spirit: Spirit }) {
   const { myeongsik, profile } = useSaju();
-  const [phase, setPhase] = useState<Phase>('intro');
-  const [ch1, setCh1] = useState<string | null>(null);
-  const [ch2, setCh2] = useState<string | null>(null);
+
+  // 첫 렌더에 이미 답을 알고 있어야 결제 버튼이 스쳐 보이지 않는다.
+  // 그래서 localStorage 는 effect 가 아니라 여기서 읽는다.
+  const [boot] = useState(() => {
+    const order = MOCK_ORDER ? null : localStorage.getItem(ORDER_KEY);
+    return { order, cache: readCache(order) };
+  });
+
+  const [phase, setPhase] = useState<Phase>(
+    boot.cache ? 'reading' : boot.order ? 'restoring' : 'intro',
+  );
+  const [ch1, setCh1] = useState<string | null>(boot.cache?.ch1 ?? null);
+  const [ch2, setCh2] = useState<string | null>(boot.cache?.ch2 ?? null);
+  /** 결제한 흔적이 있으면 목차로 돌아가도 다시 팔지 않는다. */
+  const [paid, setPaid] = useState(Boolean(boot.order));
   const [err, setErr] = useState<string>('');
   const [tick, setTick] = useState(0);
   const started = useRef(false);
+  /**
+   * 우리가 건 생성 요청이 아직 떠 있는가.
+   *
+   * 그 요청이 본문을 들고 돌아올 예정이라, 옆에서 상태를 또 물어볼 이유가 없다.
+   * 이걸 안 보면 2분 동안 5초마다 한 번씩, 사전 확인까지 합쳐 쉰 번 가까이 두드린다.
+   */
+  const mine = useRef(false);
+
+  // effect 안에서 항상 최신 값을 보기 위한 통로. deps 를 비워두려면 이게 필요하다.
+  const dataRef = useRef({ myeongsik, profile });
+  dataRef.current = { myeongsik, profile };
 
   // 대기 문구 순환
   useEffect(() => {
@@ -70,40 +118,115 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
    * generating 이면 기다리는 화면으로 붙여둔 뒤 완성될 때까지 지켜본다.
    */
   useEffect(() => {
-    // 복원은 실제 주문번호로만 한다. 개발용 MOCK_ORDER 까지 여기서 보면
-    // 화면에 들어서자마자 본문이 떠서 목차·대기 화면을 확인할 수 없다.
-    const saved = localStorage.getItem(ORDER_KEY);
-    if (!saved || !isReportEnabled()) return;
+    if (!isReportEnabled() || MOCK_ORDER) return;
 
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
 
-    const check = async () => {
+    /**
+     * 지켜보는 간격. 갈수록 늘린다.
+     *
+     * 한 장에 60초쯤 걸리는데 5초 고정이면 열두 번을 헛되이 묻는다.
+     * 처음엔 촘촘히 보다가 길어지면 뜸하게 본다.
+     */
+    const nextWait = (ms: number) => Math.min(Math.round(ms * 1.6), 20000);
+    const FIRST_WAIT = 4000;
+
+    const check = async (orderId: string, wait = FIRST_WAIT) => {
       try {
-        const r = await fetchReport(saved);
-        if (!alive || !r) return;
+        const r = await fetchReport(orderId);
+        if (!alive) return;
+        if (!r) {
+          // 결제한 주문인데 서버에 기록이 없다. 자동으로 만들면 실수로 돈이 나가므로
+          // 목차로 돌리되, 이미 낸 사람이라 버튼은 "다시 불러오기"가 된다.
+          if (!boot.cache) setPhase('intro');
+          return;
+        }
 
         if (r.content_1) {
           setCh1(r.content_1);
           setCh2(r.content_2);
+          writeCache(orderId, r.content_1, r.content_2);
           setPhase('reading');
-          if (!r.content_2) {
+          if (!r.content_2 && !mine.current) {
             // 1장만 있는 상태. 서버가 2장을 만들고 있으면 기다리고,
             // 아무도 안 만들고 있으면(1장 직후에 나간 경우) 여기서 이어서 건다.
-            if (r.status === 'generating') timer = setTimeout(check, 5000);
-            else generateChapter(saved, 2).then((t) => { if (alive) setCh2(t); }).catch(() => {});
+            if (r.status === 'generating') timer = setTimeout(() => check(orderId, nextWait(wait)), wait);
+            else generateChapter(orderId, 2).then((t) => {
+              if (!alive) return;
+              setCh2(t);
+              writeCache(orderId, r.content_1!, t);
+            }).catch(() => {});
           }
           return;
         }
         if (r.status === 'generating') {
-          started.current = true;          // 중복 생성 요청을 막는다
           setPhase('working');
-          timer = setTimeout(check, 5000);
+          // 앱을 껐다 켜면 서버 쪽 생성이 같이 끊겼을 수 있다. 그때는 아무도 만들고 있지
+          // 않은데 상태만 "만드는 중"으로 남아, 지켜보기만 하면 영영 안 끝난다.
+          // 너무 오래된 작업이면 여기서 이어받는다. 서버도 같은 기준으로 재생성을 허용한다.
+          if (isStaleGenerating(r)) { started.current = false; await runGeneration(orderId); return; }
+          // 우리가 건 생성이면 그 응답이 본문을 들고 온다. 따로 물어볼 필요가 없다.
+          if (mine.current) return;
+          started.current = true;          // 중복 생성 요청을 막는다
+          timer = setTimeout(() => check(orderId, nextWait(wait)), wait);
+          return;
         }
-      } catch { /* 조용히 무시 — 목차 화면으로 남는다 */ }
+        // 결제만 기록되고 아직 아무도 만들지 않은 상태. 여기서 이어 만든다.
+        if (r.status === 'pending') {
+          setPhase('working');
+          started.current = false;
+          await runGeneration(orderId);
+          return;
+        }
+        // 한 번 실패한 건 자동으로 다시 걸지 않는다. 원인이 그대로면 들어올 때마다
+        // 실패하면서 토큰만 태운다. 버튼을 눌러 사람이 정하게 둔다.
+        if (r.status === 'failed') { setErr('지난번 생성이 끝나지 못했어요'); setPhase('error'); return; }
+        if (!boot.cache) setPhase('intro');
+      } catch {
+        // 조회 실패. 캐시가 있으면 그걸 계속 읽히고, 없으면 목차로 남긴다.
+        if (alive && !boot.cache) setPhase('intro');
+      }
     };
 
-    check();
+    /**
+     * 결제는 끝났는데 지급이 마무리되지 않은 주문을 회수한다.
+     *
+     * processProductGrant 중에 앱이 죽거나 통신이 끊기면 토스에는 결제가 남고
+     * 우리에게는 아무것도 안 남는다. 실제로 QR 테스트에서 돈만 나가고
+     * "환불하세요"가 뜬 적이 있다. 그 주문을 여기서 주워 담는다.
+     */
+    const sweepPending = async () => {
+      const { myeongsik: ms, profile: pf } = dataRef.current;
+      if (!ms || !pf) return;
+      let mine;
+      try {
+        if (!IAP.getPendingOrders.isSupported()) return;
+        const { orders } = await IAP.getPendingOrders();
+        mine = orders.find((o) => o.sku === SKU);
+      } catch { return; }        // 지원하지 않는 버전이거나 조회 실패 — 다음에 다시 본다
+      if (!mine || !alive) return;
+
+      localStorage.setItem(ORDER_KEY, mine.orderId);
+      setPaid(true);
+      started.current = true;
+      setPhase('working');
+      try {
+        // 지급의 단위는 리포트가 아니라 리포트를 받을 권한이다.
+        // 서버에 주문이 남는 순간 지급은 끝난 것이므로, 본문을 다 만들기 전에 알린다.
+        await ensureGranted(mine.orderId);
+        await IAP.completeProductGrant({ params: { orderId: mine.orderId } });
+      } catch (e) {
+        console.warn('미지급 주문 회수 실패', e);
+      }
+      if (alive) await runGeneration(mine.orderId);
+    };
+
+    // 두 장이 다 손에 있으면 끝난 리포트다. 내용이 바뀔 일이 없으니 서버에 묻지 않는다.
+    if (boot.cache?.ch2) return;
+    if (boot.order) check(boot.order);
+    else sweepPending();
+
     return () => { alive = false; clearTimeout(timer); };
   }, []);
 
@@ -130,13 +253,24 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
   async function runGeneration(orderId: string) {
     try {
       localStorage.setItem(ORDER_KEY, orderId);
+      setPaid(true);
+      // 이게 켜져 있는 동안은 지켜보는 쪽이 서버를 따로 두드리지 않는다.
+      // 이 요청이 본문을 들고 돌아오기 때문이다.
+      mine.current = true;
       await ensureGranted(orderId);
       if (MOCK_ORDER && MOCK_DELAY) await new Promise((r) => setTimeout(r, MOCK_DELAY));
       const a = await generateChapter(orderId, 1);
       setCh1(a);
+      writeCache(orderId, a, null);
       setPhase('reading');
-      generateChapter(orderId, 2).then(setCh2).catch(() => { /* 아래에서 재시도 버튼 */ });
+      // 2장이 끝나야 우리 손을 뗀다. 그전에 놓으면 지켜보는 쪽이 2장을 또 물어본다.
+      generateChapter(orderId, 2).then((b) => {
+        setCh2(b);
+        writeCache(orderId, a, b);
+      }).catch(() => { /* 아래에서 재시도 버튼 */ })
+        .finally(() => { mine.current = false; });
     } catch (e) {
+      mine.current = false;
       started.current = false;
       setErr(String(e));
       setPhase('error');
@@ -229,7 +363,8 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
     <V2Screen seed={71}>
       <V2TopBar onBack={back} title="정밀 리포트" />
 
-      {phase === 'intro' && <Intro outline={outline} onStart={start} enabled={isReportEnabled()} />}
+      {phase === 'intro' && <Intro outline={outline} onStart={start} enabled={isReportEnabled()} paid={paid} />}
+      {phase === 'restoring' && <Restoring />}
       {phase === 'working' && <Waiting ms={myeongsik} spirit={spirit} line={WAIT_LINES[tick % WAIT_LINES.length]} />}
       {phase === 'error' && <Failed message={err} onRetry={() => { setPhase('intro'); }} />}
 
@@ -250,8 +385,8 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
 }
 
 /* ─── 목차 ────────────────────────────────────────────────── */
-function Intro({ outline, onStart, enabled }: {
-  outline: ReturnType<typeof buildReportOutline>; onStart: () => void; enabled: boolean;
+function Intro({ outline, onStart, enabled, paid }: {
+  outline: ReturnType<typeof buildReportOutline>; onStart: () => void; enabled: boolean; paid: boolean;
 }) {
   return (
     <>
@@ -291,13 +426,37 @@ function Intro({ outline, onStart, enabled }: {
         }}
       >
         <div style={{ fontSize: 16, fontWeight: 800, color: enabled ? 'var(--v2-ink)' : 'var(--v2-ink-dim)' }}>
-          {enabled ? '990원으로 전부 읽기' : '준비 중이에요'}
+          {!enabled ? '준비 중이에요' : paid ? '내 리포트 불러오기' : '990원으로 전부 읽기'}
         </div>
         <div style={{ fontSize: 12, color: 'var(--v2-ink-dim)', marginTop: 5 }}>
-          {enabled ? '한 번 결제하면 언제든 다시 볼 수 있어요' : '곧 만나보실 수 있어요'}
+          {!enabled ? '곧 만나보실 수 있어요'
+            : paid ? '이미 결제하셨어요. 추가 비용은 없습니다'
+            : '한 번 결제하면 언제든 다시 볼 수 있어요'}
         </div>
       </div>
     </>
+  );
+}
+
+/* ─── 저장본 불러오는 중 ──────────────────────────────────── */
+/**
+ * 결제 기록은 있는데 본문이 아직 손에 없을 때 잠깐 지나가는 화면.
+ *
+ * 여기서 목차를 그리면 이미 산 사람에게 "990원으로 전부 읽기"가 스쳐 보인다.
+ * 대부분 캐시로 바로 넘어가므로 이 화면은 기기를 바꿨을 때나 보인다.
+ */
+function Restoring() {
+  return (
+    <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 11 }}>
+      {['62%', '94%', '88%', '96%', '71%'].map((w, i) => (
+        <div key={i} style={{
+          height: i === 0 ? 22 : 14, borderRadius: 8, width: w,
+          background: 'rgba(255,255,255,.06)',
+          animation: `ie-pulse 1.6s ${i * 0.18}s ease-in-out infinite`,
+        }} />
+      ))}
+      <style>{`@keyframes ie-pulse{0%,100%{opacity:.35}50%{opacity:.75}}`}</style>
+    </div>
   );
 }
 
@@ -327,7 +486,7 @@ function Waiting({ ms, spirit, line }: {
 
         <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--v2-ink)', marginTop: 10 }}>{line}</div>
         <div style={{ fontSize: 12.5, color: 'var(--v2-ink-dim)', marginTop: 7 }}>
-          1분쯤 걸려요. 화면을 닫지 말아주세요.
+          1분쯤 걸려요. 나갔다 들어와도 이어서 만들어 드려요.
         </div>
 
         {/* 대기 중 볼거리 — 이미 계산된 값이라 공짜다 */}

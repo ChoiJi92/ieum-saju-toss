@@ -10,6 +10,14 @@
  */
 const API = (import.meta.env.VITE_REPORT_API as string | undefined) ?? '';
 const KEY = (import.meta.env.VITE_REPORT_KEY as string | undefined) ?? '';
+/**
+ * 개발용 — 결제 검증을 건너뛰는 열쇠.
+ *
+ * 로컬 DevTools 가 만드는 mock 주문번호는 토스가 모르는 값이라 검증을 통과할 수 없다.
+ * 서버에 DEV_ORDER_SECRET 이 있고 이 값이 그것과 같을 때만 우회된다.
+ * 운영 빌드에서는 scripts/build-with-env.mjs 가 빈 값으로 눌러 없앤다.
+ */
+const DEV_SECRET = (import.meta.env.VITE_REPORT_DEV_SECRET as string | undefined) || '';
 
 export function isReportEnabled(): boolean {
   return Boolean(API && KEY);
@@ -30,7 +38,9 @@ export async function grantReport(params: {
   myeongsik: unknown;
 }): Promise<void> {
   const res = await fetch(`${API}/grant`, {
-    method: 'POST', headers: headers(), body: JSON.stringify(params),
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(DEV_SECRET ? { ...params, devSecret: DEV_SECRET } : params),
   });
   if (!res.ok) throw new Error(`grant ${res.status}: ${await res.text().catch(() => '')}`);
 }
@@ -52,7 +62,18 @@ export type SavedReport = {
   content_2: string | null;
   profile_name: string;
   completed_at: string | null;
+  /** 생성을 시작한 시각. 너무 오래됐으면 죽은 작업이라 화면이 이어받는다. */
+  generating_since: string | null;
 };
+
+/** 서버가 죽은 작업으로 보고 재생성을 허용하는 기준. index.ts 의 값과 맞춰둔다. */
+export const STALE_GENERATING_MS = 3 * 60 * 1000;
+
+/** 서버가 "만드는 중"이라고 하지만 실제로는 죽은 상태인지. */
+export function isStaleGenerating(r: SavedReport): boolean {
+  if (r.status !== 'generating' || !r.generating_since) return false;
+  return Date.now() - new Date(r.generating_since).getTime() > STALE_GENERATING_MS;
+}
 
 /** 이미 만들어둔 리포트 조회 (다시 읽기용). 없으면 null. */
 export async function fetchReport(orderId: string): Promise<SavedReport | null> {

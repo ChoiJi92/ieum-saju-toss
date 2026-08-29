@@ -85,8 +85,10 @@ export function MyeongsikPanel({ ms }: { ms: Myeongsik }) {
               }}>
                 {n === 0 ? '없음' : n}
               </span>
-              <span style={{ width: 30, fontSize: 9.5, color: isYong ? GOLD : 'transparent', fontWeight: 800 }}>
-                필요
+              {/* 자리는 늘 비워두되 글자는 용신에만 넣는다. 투명하게 숨기면 화면에선
+                  안 보여도 복사·스크린리더에는 모든 줄이 "필요"로 읽힌다. */}
+              <span style={{ width: 30, fontSize: 9.5, color: GOLD, fontWeight: 800 }}>
+                {isYong ? '필요' : ''}
               </span>
             </div>
           );

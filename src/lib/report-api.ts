@@ -42,7 +42,12 @@ export async function grantReport(params: {
     headers: headers(),
     body: JSON.stringify(DEV_SECRET ? { ...params, devSecret: DEV_SECRET } : params),
   });
-  if (!res.ok) throw new Error(`grant ${res.status}: ${await res.text().catch(() => '')}`);
+  if (!res.ok) {
+    // 402(NOT_PAID)는 부르는 쪽이 재시도할지 판단해야 하므로 상태를 실어 보낸다.
+    const e = new Error(`grant ${res.status}: ${await res.text().catch(() => '')}`) as Error & { status?: number };
+    e.status = res.status;
+    throw e;
+  }
 }
 
 /** 장 하나를 생성(또는 저장본 조회)한다. 60초 안팎 걸린다. */

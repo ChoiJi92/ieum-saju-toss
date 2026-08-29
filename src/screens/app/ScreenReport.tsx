@@ -327,12 +327,27 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
       const r = await fetchReport(orderId);
       if (r) return;                       // 이미 있다
     } catch { /* 조회 실패면 아래에서 만들어본다 */ }
-    await grantReport({
+
+    const body = {
       orderId, sku: SKU,
       isTest: Environment.environment === 'sandbox',
       name: profile!.name || '고객',
       myeongsik: buildReportPayload(myeongsik!, profile!),
-    });
+    };
+
+    // 402 는 "토스가 이 주문을 결제로 인정하지 않는다"는 뜻이다. 가짜 주문이면 계속 402 지만,
+    // 방금 결제한 진짜 주문도 토스 쪽 반영이 늦으면 잠깐 그렇게 나온다. 그때 바로 실패 화면을
+    // 띄우면 돈 낸 사람이 못 만들었다는 말을 본다. 몇 초 간격으로 두 번만 더 물어본다.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await grantReport(body);
+        return;
+      } catch (e) {
+        const status = (e as { status?: number }).status;
+        if (status !== 402 || attempt >= 2) throw e;
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
   }
 
   /** 주문번호를 손에 쥔 뒤 1장을 만들고, 2장은 읽는 동안 뒤에서 받아둔다. */

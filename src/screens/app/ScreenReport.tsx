@@ -255,29 +255,43 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
     const sweepPending = async () => {
       const { myeongsik: ms, profile: pf } = dataRef.current;
       if (!ms || !pf) return;
-      let mine;
+      let ours: { orderId: string; sku: string }[] = [];
       try {
         if (!IAP.getPendingOrders.isSupported()) return;
         const { orders } = await IAP.getPendingOrders();
         // 다른 프로필이 자기 것으로 적어둔 주문은 건드리지 않는다.
         const others = claimedByOthers(pid);
-        mine = orders.find((o) => o.sku === SKU && !others.has(o.orderId));
+        ours = orders.filter((o) => o.sku === SKU && !others.has(o.orderId));
       } catch { return; }        // 지원하지 않는 버전이거나 조회 실패 — 다음에 다시 본다
-      if (!mine || !alive) return;
+      if (!ours.length || !alive) return;
 
-      localStorage.setItem(ORDER_KEY(pid), mine.orderId);
+      // 이미 이 프로필의 리포트를 손에 쥐고 있으면, 남은 주문은 지급만 확정한다.
+      // 확정하지 않으면 토스에 미지급으로 남고, 실제로 그 상태에서 다음 결제창이
+      // 로딩에 멈춘 채 돈만 한 번 더 나갔다.
+      if (boot.order) {
+        for (const o of ours) await confirmGrant(o.orderId);
+        return;
+      }
+
+      const first = ours[0];
+      localStorage.setItem(ORDER_KEY(pid), first.orderId);
       setPaid(true);
       started.current = true;
       setPhase('working');
       // 지급 확정과 기록은 runGeneration 안에서 함께 처리한다.
       // 여기서 따로 부르면 두 경로가 갈라져, 한쪽만 고치는 실수가 또 난다.
-      if (alive) await runGeneration(mine.orderId);
+      if (alive) await runGeneration(first.orderId);
+      // 같은 사람 것을 두 번 산 경우. 리포트는 하나면 되니 나머지는 확정만 하고 닫는다.
+      for (const o of ours.slice(1)) await confirmGrant(o.orderId);
     };
+
+    // 미지급 주문 회수는 항상 돈다. 저장본이 있다고 건너뛰면, 그 사이 새로 한 결제가
+    // 영영 확정되지 않아 토스에 미지급으로 쌓인다.
+    sweepPending();
 
     // 두 장이 다 손에 있으면 끝난 리포트다. 내용이 바뀔 일이 없으니 서버에 묻지 않는다.
     if (boot.cache?.ch2) return;
     if (boot.order) check(boot.order);
-    else sweepPending();
 
     return () => { alive = false; clearTimeout(timer); };
   }, []);

@@ -24,8 +24,14 @@ import { IAP, Environment } from '@apps-in-toss/web-framework';
 const GOLD = '#FFD27A';
 /** 앱인토스 콘솔에 등록된 상품 ID. 공급가 900원 + 부가세 = 결제액 990원. */
 const SKU = 'ait.0000032205.c5c5ad40.783ba55c34.7928202033';
-/** 결제한 주문번호를 담아둔다. 앱을 다시 열었을 때 저장본을 불러오는 열쇠. */
-const ORDER_KEY = 'ieum-saju.report.orderId.v1';
+/**
+ * 저장은 프로필마다 따로 한다.
+ *
+ * 리포트는 특정 명식으로 쓴 글이라 사람이 바뀌면 다른 글이어야 한다. 키를 하나만 두면
+ * 내정보에서 다른 사람 사주로 바꿔도 앞사람 리포트가 그대로 떴다.
+ * 상품이 소모성(CONSUMABLE)이라 사람마다 따로 사는 것이 맞기도 하다.
+ */
+const ORDER_KEY = (profileId: string) => `ieum-saju.report.orderId.v2:${profileId}`;
 /**
  * 본문까지 로컬에 둔다.
  *
@@ -33,22 +39,68 @@ const ORDER_KEY = 'ieum-saju.report.orderId.v1';
  * 화면은 목차 상태다. 이미 산 사람에게 "990원으로 전부 읽기"가 잠깐 보였다가 사라진다.
  * 한 번 만들어진 리포트는 내용이 변하지 않으므로 통째로 들고 있다가 즉시 그린다.
  */
-const BODY_KEY = 'ieum-saju.report.body.v1';
+const BODY_KEY = (profileId: string) => `ieum-saju.report.body.v2:${profileId}`;
+
+/** 프로필 구분 없이 쓰던 예전 키. 아래에서 한 번만 옮겨온다. */
+const ORDER_KEY_V1 = 'ieum-saju.report.orderId.v1';
+const BODY_KEY_V1 = 'ieum-saju.report.body.v1';
 
 type Cached = { orderId: string; ch1: string; ch2: string | null };
 
-function readCache(orderId: string | null): Cached | null {
+/**
+ * 예전 키에 남은 주문을 지금 보고 있는 프로필 앞으로 옮긴다.
+ *
+ * v1 은 프로필 구분이 없었으므로 어느 사람 것인지 알 수 없다. 다만 그 시절에는
+ * 활성 프로필로만 살 수 있었으니, 처음 열리는 프로필에 붙여주는 것이 유일한 단서다.
+ * 이걸 안 하면 이미 결제한 사람이 목차 화면으로 떨어져 다시 사야 한다.
+ */
+function migrateV1(profileId: string) {
+  try {
+    const old = localStorage.getItem(ORDER_KEY_V1);
+    if (!old) return;
+    if (!localStorage.getItem(ORDER_KEY(profileId))) {
+      localStorage.setItem(ORDER_KEY(profileId), old);
+      const body = localStorage.getItem(BODY_KEY_V1);
+      if (body) localStorage.setItem(BODY_KEY(profileId), body);
+    }
+    localStorage.removeItem(ORDER_KEY_V1);
+    localStorage.removeItem(BODY_KEY_V1);
+  } catch { /* 옮기지 못해도 서버에 원본이 있다 */ }
+}
+
+/**
+ * 다른 프로필이 이미 자기 것으로 적어둔 주문번호들.
+ *
+ * 미지급 주문을 주워 담을 때 이걸 빼야 한다. 안 그러면 A 로 결제하다 실패한 주문이
+ * 남아 있는 상태에서 B 를 열었을 때, A 의 주문번호로 B 의 리포트를 만들어버린다.
+ * 결제는 프로필마다 따로이므로 주문도 주인이 있다.
+ */
+function claimedByOthers(currentProfileId: string): Set<string> {
+  const out = new Set<string>();
+  try {
+    const mineKey = ORDER_KEY(currentProfileId);
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith('ieum-saju.report.orderId.v2:') || k === mineKey) continue;
+      const v = localStorage.getItem(k);
+      if (v) out.add(v);
+    }
+  } catch { /* 못 읽으면 아무것도 제외하지 않는다 */ }
+  return out;
+}
+
+function readCache(profileId: string, orderId: string | null): Cached | null {
   if (!orderId) return null;
   try {
-    const raw = localStorage.getItem(BODY_KEY);
+    const raw = localStorage.getItem(BODY_KEY(profileId));
     if (!raw) return null;
     const c = JSON.parse(raw) as Cached;
     return c?.orderId === orderId && c.ch1 ? c : null;
   } catch { return null; }
 }
 
-function writeCache(orderId: string, ch1: string, ch2: string | null) {
-  try { localStorage.setItem(BODY_KEY, JSON.stringify({ orderId, ch1, ch2 })); }
+function writeCache(profileId: string, orderId: string, ch1: string, ch2: string | null) {
+  try { localStorage.setItem(BODY_KEY(profileId), JSON.stringify({ orderId, ch1, ch2 })); }
   catch { /* 저장 공간이 없어도 서버에 원본이 있다 */ }
 }
 
@@ -71,13 +123,17 @@ const WAIT_LINES = [
 ];
 
 export default function ScreenReport({ back, spirit }: { back: () => void; spirit: Spirit }) {
-  const { myeongsik, profile } = useSaju();
+  const { myeongsik, profile, activeId } = useSaju();
 
   // 첫 렌더에 이미 답을 알고 있어야 결제 버튼이 스쳐 보이지 않는다.
   // 그래서 localStorage 는 effect 가 아니라 여기서 읽는다.
+  // 저장 키는 프로필마다 나눈다. 사람이 바뀌면 다른 리포트여야 한다.
+  const pid = activeId ?? '';
   const [boot] = useState(() => {
-    const order = MOCK_ORDER ? null : localStorage.getItem(ORDER_KEY);
-    return { order, cache: readCache(order) };
+    if (MOCK_ORDER || !pid) return { order: null, cache: null };
+    migrateV1(pid);
+    const order = localStorage.getItem(ORDER_KEY(pid));
+    return { order, cache: readCache(pid, order) };
   });
 
   const [phase, setPhase] = useState<Phase>(
@@ -146,7 +202,7 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
         if (r.content_1) {
           setCh1(r.content_1);
           setCh2(r.content_2);
-          writeCache(orderId, r.content_1, r.content_2);
+          writeCache(pid, orderId, r.content_1, r.content_2);
           setPhase('reading');
           if (!r.content_2 && !mine.current) {
             // 1장만 있는 상태. 서버가 2장을 만들고 있으면 기다리고,
@@ -155,7 +211,7 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
             else generateChapter(orderId, 2).then((t) => {
               if (!alive) return;
               setCh2(t);
-              writeCache(orderId, r.content_1!, t);
+              writeCache(pid, orderId, r.content_1!, t);
             }).catch(() => {});
           }
           return;
@@ -203,22 +259,18 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
       try {
         if (!IAP.getPendingOrders.isSupported()) return;
         const { orders } = await IAP.getPendingOrders();
-        mine = orders.find((o) => o.sku === SKU);
+        // 다른 프로필이 자기 것으로 적어둔 주문은 건드리지 않는다.
+        const others = claimedByOthers(pid);
+        mine = orders.find((o) => o.sku === SKU && !others.has(o.orderId));
       } catch { return; }        // 지원하지 않는 버전이거나 조회 실패 — 다음에 다시 본다
       if (!mine || !alive) return;
 
-      localStorage.setItem(ORDER_KEY, mine.orderId);
+      localStorage.setItem(ORDER_KEY(pid), mine.orderId);
       setPaid(true);
       started.current = true;
       setPhase('working');
-      try {
-        // 지급의 단위는 리포트가 아니라 리포트를 받을 권한이다.
-        // 서버에 주문이 남는 순간 지급은 끝난 것이므로, 본문을 다 만들기 전에 알린다.
-        await ensureGranted(mine.orderId);
-        await IAP.completeProductGrant({ params: { orderId: mine.orderId } });
-      } catch (e) {
-        console.warn('미지급 주문 회수 실패', e);
-      }
+      // 지급 확정과 기록은 runGeneration 안에서 함께 처리한다.
+      // 여기서 따로 부르면 두 경로가 갈라져, 한쪽만 고치는 실수가 또 난다.
       if (alive) await runGeneration(mine.orderId);
     };
 
@@ -233,6 +285,26 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
   if (!myeongsik || !profile) return null;
   const who = { year: profile.year, gender: profile.gender };
   const outline = buildReportOutline(myeongsik, who);
+
+  /**
+   * 토스에 "지급 끝났다"고 알린다.
+   *
+   * 정상 결제 흐름에서는 processProductGrant 가 true 를 돌려주는 것으로 끝난다.
+   * 문제는 그 콜백이 실패한 뒤 나중에 되살리는 경우다. 그때는 이걸 따로 불러야
+   * 주문이 ORDER_COMPLETED 로 넘어간다. 안 부르면 토스에는 미지급으로 남고,
+   * 그 상태가 오래 가면 자동 환불될 수 있다 — 리포트는 나갔는데 돈은 돌아간다.
+   *
+   * 이미 확정된 주문에 다시 불러도 손해가 없으므로 조용히 삼킨다.
+   */
+  async function confirmGrant(orderId: string) {
+    if (MOCK_ORDER) return;
+    try {
+      if (!IAP.completeProductGrant.isSupported()) return;
+      await IAP.completeProductGrant({ params: { orderId } });
+    } catch (e) {
+      console.warn('지급 확정 실패 — 다음에 다시 시도한다', e);
+    }
+  }
 
   /** 주문 기록이 서버에 없으면 여기서 채운다. 결제 콜백에서 놓쳤을 수 있다. */
   async function ensureGranted(orderId: string) {
@@ -252,21 +324,25 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
   /** 주문번호를 손에 쥔 뒤 1장을 만들고, 2장은 읽는 동안 뒤에서 받아둔다. */
   async function runGeneration(orderId: string) {
     try {
-      localStorage.setItem(ORDER_KEY, orderId);
+      localStorage.setItem(ORDER_KEY(pid), orderId);
       setPaid(true);
       // 이게 켜져 있는 동안은 지켜보는 쪽이 서버를 따로 두드리지 않는다.
       // 이 요청이 본문을 들고 돌아오기 때문이다.
       mine.current = true;
       await ensureGranted(orderId);
+      // 권한이 서버에 남는 순간 지급은 끝난 것이다. 본문을 다 만들기 전에 알린다.
+      // 이 자리를 빼면, 결제 콜백이 실패했다가 여기로 되살아난 주문이 토스에는
+      // 영영 미지급으로 남는다. 실제로 그 일이 있었다.
+      await confirmGrant(orderId);
       if (MOCK_ORDER && MOCK_DELAY) await new Promise((r) => setTimeout(r, MOCK_DELAY));
       const a = await generateChapter(orderId, 1);
       setCh1(a);
-      writeCache(orderId, a, null);
+      writeCache(pid, orderId, a, null);
       setPhase('reading');
       // 2장이 끝나야 우리 손을 뗀다. 그전에 놓으면 지켜보는 쪽이 2장을 또 물어본다.
       generateChapter(orderId, 2).then((b) => {
         setCh2(b);
-        writeCache(orderId, a, b);
+        writeCache(pid, orderId, a, b);
       }).catch(() => { /* 아래에서 재시도 버튼 */ })
         .finally(() => { mine.current = false; });
     } catch (e) {
@@ -291,7 +367,7 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
         sku: SKU,
         processProductGrant: async ({ orderId }) => {
           // 주문번호부터 남긴다. 이게 있으면 서버 기록이 늦어져도 나중에 복구할 수 있다.
-          localStorage.setItem(ORDER_KEY, orderId);
+          localStorage.setItem(ORDER_KEY(pid), orderId);
 
           // 서버 기록을 끝까지 기다리면 안 된다.
           // Edge Function 은 한동안 호출이 없으면 잠들어 있다가 깨어나는데(콜드 스타트),
@@ -321,7 +397,7 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
         if (orderId) runGeneration(orderId);
         else {
           // 지급은 끝났으니 주문번호는 저장돼 있다. 그걸로 이어서 만든다.
-          const saved = localStorage.getItem(ORDER_KEY);
+          const saved = localStorage.getItem(ORDER_KEY(pid));
           if (saved) runGeneration(saved);
           else { started.current = false; setErr('주문 정보를 받지 못했어요'); setPhase('error'); }
         }
@@ -347,7 +423,7 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
     if (MOCK_ORDER) { runGeneration(MOCK_ORDER); return; }
 
     // 이미 산 주문이 있으면 다시 결제하지 않는다
-    const saved = localStorage.getItem(ORDER_KEY);
+    const saved = localStorage.getItem(ORDER_KEY(pid));
     if (saved) { runGeneration(saved); return; }
 
     if (!IAP.createOneTimePurchaseOrder.isSupported()) {

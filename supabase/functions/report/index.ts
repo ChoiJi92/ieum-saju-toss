@@ -221,6 +221,30 @@ async function handleFetch(req: Request, origin: string | null): Promise<Respons
   return json(data, 200, origin);
 }
 
+// ─── 후처리 ──────────────────────────────────────────────────────────────────
+/**
+ * 프롬프트가 금지한 구조 용어를 기계로 바꾼다.
+ *
+ * 쓰지 말라고 예시까지 붙여도 확률적으로 새어 나온다. 실제로 "시주의 위 글자인…"이
+ * 그대로 나왔다. 이 네 개는 바꿔 넣어도 문장이 그대로 읽히는 자리라 여기서 정리한다.
+ * (연주의 → 태어난 해의, 시주에는 → 태어난 시에는)
+ *
+ * 천간·지지·일간은 문장마다 자리가 달라 기계로 못 바꾼다. 그건 프롬프트와
+ * scripts/check-report-rules.mjs 로 잡는다.
+ */
+const PILLAR_WORDS: [string, string][] = [
+  ['연주', '태어난 해'], ['월주', '태어난 달'], ['일주', '태어난 날'], ['시주', '태어난 시'],
+];
+
+function plainify(text: string): string {
+  let out = text;
+  for (const [term, plain] of PILLAR_WORDS) {
+    // 앞 글자가 한글이면 다른 낱말의 일부다. "일주일"도 건드리지 않는다.
+    out = out.replace(new RegExp(`(^|[^가-힣])${term}(?!일)`, 'g'), `$1${plain}`);
+  }
+  return out;
+}
+
 // ─── /generate ───────────────────────────────────────────────────────────────
 async function handleGenerate(req: Request, origin: string | null): Promise<Response> {
   const body = await req.json();
@@ -304,9 +328,9 @@ async function handleGenerate(req: Request, origin: string | null): Promise<Resp
   }
 
   const result = await upstream.json();
-  const text: string = (result.content ?? [])
+  const text: string = plainify((result.content ?? [])
     .filter((b: { type: string }) => b.type === 'text')
-    .map((b: { text: string }) => b.text).join('');
+    .map((b: { text: string }) => b.text).join(''));
   const usage = result.usage ?? {};
   const inputTokens = (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0)
     + (usage.cache_creation_input_tokens ?? 0);

@@ -181,7 +181,7 @@ const saveMissionClaimedToday = () => {
 };
 
 export default function AppShell() {
-  const { myeongsik, reset } = useSaju();
+  const { myeongsik, reset, activeId } = useSaju();
   const spirit = useMemo(() => spiritFromMyeongsik(myeongsik), [myeongsik]);
 
   // 첫 플로우 결정: 사주 없음→온보딩 / 사주 있는데 v2 첫 진입(v1 마이그레이션 유저)→웰컴 소환 1회 / 그 외→바로 펫홈
@@ -399,7 +399,9 @@ export default function AppShell() {
       screenEl = <ScreenPersonality {...sp} />;
       break;
     case "report":
-      screenEl = <ScreenReport {...sp} />;
+      // 프로필이 바뀌면 새로 만든다. 리포트는 특정 명식으로 쓴 글이라
+      // 사람이 바뀌면 저장본도 결제 상태도 전부 다른 것이어야 한다.
+      screenEl = <ScreenReport key={activeId ?? "none"} {...sp} />;
       break;
     case "fortunes":
       screenEl = <ScreenFortunes {...sp} />;

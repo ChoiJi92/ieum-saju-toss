@@ -39,8 +39,40 @@ const HAPIL_WINDOW = 40;
 /** 앞 문장이 아무 정보도 주지 않고 답을 미루는 표현. */
 const STALLING = ['이거예요', '이겁니다', '이것입니다', '다음과 같아요', '다음과 같습니다', '눈에 들어오는 건', '눈에 띄는 건'];
 
-/** 풀어 쓰지 않으면 안 되는 전문 용어. */
-const JARGON = ['살인상생', '관살혼잡', '식신생재', '재생관', '군겁쟁재', '식상생재'];
+/** 풀어 쓰지 않으면 안 되는 전문 용어. 오행 생극 조합도 여기 해당한다. */
+const JARGON = [
+  '살인상생', '관살혼잡', '식신생재', '재생관', '군겁쟁재', '식상생재',
+  '목생화', '화생토', '토생금', '금생수', '수생목',
+  '목극토', '토극수', '수극화', '화극금', '금극목',
+];
+
+/**
+ * 오행은 우리말로만 쓴다. 화면 막대가 "나무·불·흙·쇠·물"이라, 글이 한자어를 쓰면
+ * 읽는 사람이 같은 것을 가리키는 줄 모른다.
+ *
+ * "을목(乙木)"처럼 낱글자 이름을 병기하는 건 허용이므로, 괄호 안이나 바로 뒤에
+ * 한자가 붙은 경우는 뺀다. 조사가 붙은 형태만 낱말로 본다.
+ */
+const OHAENG_HANJA = [
+  { word: '목', ko: '나무' }, { word: '화', ko: '불' }, { word: '토', ko: '흙' },
+  { word: '금', ko: '쇠' }, { word: '수', ko: '물' },
+];
+/** 오행 한자어 뒤에 이런 조사가 붙으면 오행을 가리키는 낱말로 본다. */
+const OHAENG_JOSA = ['이', '가', '은', '는', '을', '를', '도', '만', '과', '와', '의', '으로', '로'];
+
+/**
+ * 사주 얘기를 하는 문장인지.
+ *
+ * 이게 없으면 "볼 수가 없다", "화가 난다" 같은 평범한 말을 오행으로 오인한다.
+ * 한자 병기, 오행 우리말, 십성 이름, 개수를 세는 말이 곁에 있으면 사주 문맥으로 본다.
+ */
+const SAJU_CONTEXT = new RegExp([
+  '[\\u4e00-\\u9fff]',                                  // 한자 병기 — 을목(乙木)
+  '기운|글자|사주|오행|대운|세운|용신|신살',
+  '나무|불|흙|쇠|물',
+  '정관|편관|정인|편인|식신|상관|정재|편재|비견|겁재',
+  '하나뿐|둘|셋|넷|다섯|하나도',
+].join('|'));
 
 const HANJA = /[一-鿿]/;
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
@@ -96,6 +128,34 @@ function usesTerm(s, term) {
   return false;
 }
 
+/**
+ * 오행을 한자어로 쓴 낱말 찾기.
+ *
+ * "볼 수가", "화가 났다", "목이 아프다"처럼 흔한 말과 겹치므로 조심해야 한다.
+ * 앞 글자가 한글이 아니고 뒤에 조사가 붙은 것만 후보로 본다. 그래도 확신이 안 되니
+ * 한 문장에 둘 이상 몰릴 때만 위반으로 올리고, 하나뿐이면 경고로 남긴다.
+ * "을목(乙木)"처럼 한자를 병기한 낱글자 이름은 규칙이 허용하므로 뺀다.
+ */
+function ohaengHanja(sentence) {
+  // 사주 얘기를 하는 문장에서만 본다. "볼 수가 없다", "화가 난다"를 잡지 않기 위해서다.
+  if (!SAJU_CONTEXT.test(sentence)) return [];
+  const found = new Set();
+  for (const { word, ko } of OHAENG_HANJA) {
+    let i = 0;
+    while ((i = sentence.indexOf(word, i)) !== -1) {
+      const start = i;
+      i += word.length;
+      if (start > 0 && /[가-힣]/.test(sentence[start - 1])) continue;   // 다른 말의 일부
+      const rest = sentence.slice(i);
+      if (/^[(（一-鿿]/.test(rest)) continue;                            // 을목(乙木)
+      const josa = OHAENG_JOSA.find((j) => rest.startsWith(j));
+      if (!josa) continue;
+      found.add(`${word}→${ko}`);
+    }
+  }
+  return [...found];
+}
+
 function checkText(text, label, opts = {}) {
   const issues = [];
   const add = (level, rule, detail) => issues.push({ level, rule, detail, label });
@@ -143,16 +203,28 @@ function checkText(text, label, opts = {}) {
     }
 
     if (EMOJI.test(s)) add('error', '이모지', s);
+
+    const oh = ohaengHanja(s);
+    if (oh.length >= 2) add('error', '오행 한자어', `${oh.join(', ')} — 우리말로 써야 화면 막대와 같은 말이 됩니다\n    ${s}`);
+    else if (oh.length === 1) add('warn', '오행 한자어', `${oh[0]} — 일반 낱말과 겹칠 수 있으니 확인\n    ${s}`);
   }
 
   // 이름 표기 흔들림
   if (opts.name) {
     const full = `${opts.name}님`;
     if (!body.includes(full)) add('error', '이름', `"${full}" 표기가 한 번도 없습니다`);
-    // 성을 뗀 형태가 섞였는지 (김예지 → 예지님)
+    // 성을 뗀 형태가 섞였는지 (김예지 → 예지님).
+    // "최지훈님" 안에도 "지훈님"이 들어 있으므로, 앞 글자가 성이면 제대로 부른 것이다.
     if (opts.name.length === 3) {
       const short = `${opts.name.slice(1)}님`;
-      if (body.includes(short)) add('error', '이름', `"${short}"으로 줄여 부른 곳이 있습니다`);
+      let i = 0;
+      while ((i = body.indexOf(short, i)) !== -1) {
+        if (i === 0 || body[i - 1] !== opts.name[0]) {
+          add('error', '이름', `"${short}"으로 줄여 부른 곳이 있습니다`);
+          break;
+        }
+        i += short.length;
+      }
     }
   }
 

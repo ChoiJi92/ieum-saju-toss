@@ -18,6 +18,11 @@ const OHAENG_COLOR: Record<OhaengKey, string> = {
   wood: '#7EE0A0', fire: '#FF9E82', earth: '#FFD27A', metal: '#D6D9E0', water: '#7BA8FF',
 };
 
+/** 표 머리글도 본문과 같은 말로. 연주·월주는 읽는 사람이 모르는 용어다. */
+const PILLAR_KO: Record<string, string> = {
+  연주: '해', 월주: '달', 일주: '날', 시주: '시',
+};
+
 /** 1장 앞 — 여덟 글자와 오행 분포. 리포트가 무엇을 근거로 쓰였는지 먼저 보여준다. */
 export function MyeongsikPanel({ ms }: { ms: Myeongsik }) {
   const total = ORDER.reduce((s, k) => s + ms.ohaeng[k], 0);
@@ -28,11 +33,17 @@ export function MyeongsikPanel({ ms }: { ms: Myeongsik }) {
       marginTop: 14, marginBottom: 6, padding: '18px 16px 16px', borderRadius: 18,
       background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.1)',
     }}>
-      {/* 4기둥 */}
+      {/* 4기둥 — 본문이 "태어난 해의 위 글자"처럼 풀어 쓰므로 표도 같은 말을 쓴다.
+          연주·월주 같은 용어를 표에만 남기면 본문과 화면이 서로 다른 말을 하게 된다. */}
+      <div style={{ fontSize: 10.5, color: 'var(--v2-ink-dim)', textAlign: 'center', marginBottom: 7 }}>
+        태어난
+      </div>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
         {ms.pillars.map((p) => (
           <div key={p.label} style={{ textAlign: 'center', flex: 1, maxWidth: 66 }}>
-            <div style={{ fontSize: 10, color: 'var(--v2-ink-dim)', marginBottom: 5 }}>{p.label}</div>
+            <div style={{ fontSize: 11, color: 'var(--v2-ink-dim)', marginBottom: 5 }}>
+              {PILLAR_KO[p.label] ?? p.label}
+            </div>
             <div style={{
               borderRadius: 12, padding: '8px 0',
               background: p.isSelf ? withAlpha(GOLD, .16) : 'rgba(255,255,255,.05)',

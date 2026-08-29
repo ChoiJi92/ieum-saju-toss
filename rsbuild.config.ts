@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
+import aitDevtools from '@apps-in-toss/devtools/unplugin';
 
 // loadEnv 는 .env 파일을 읽으면서 process.env 까지 덮어쓴다.
 // 그래서 호출하기 전에 "빌드를 띄운 쪽이 명시적으로 넘긴 값"을 먼저 떠둬야 한다.
@@ -20,6 +21,18 @@ for (const [key, value] of Object.entries(injected)) {
 
 export default defineConfig({
   plugins: [pluginReact()],
+  // 앱인토스 SDK 를 mock 으로 바꿔 일반 브라우저에서 결제·광고까지 돌려본다.
+  // SDK 3.x 는 샌드박스 앱을 주지 않고 이 도구로 테스트하게 되어 있다.
+  // 콘솔 QR 은 진짜 토스 앱이라 실제 결제가 되므로 로컬 검증은 여기서 해야 한다.
+  // 프로덕션 빌드에서는 플러그인이 통째로 꺼져 번들에 한 바이트도 들어가지 않는다.
+  tools: {
+    rspack: (config) => {
+      if (process.env.NODE_ENV !== 'production') {
+        config.plugins = [...(config.plugins ?? []), aitDevtools.rspack()];
+      }
+      return config;
+    },
+  },
   html: {
     template: process.env.APP_TARGET === 'ja' ? './index.ja.html' : './index.html',
   },

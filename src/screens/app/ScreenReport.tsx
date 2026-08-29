@@ -111,10 +111,26 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
   const who = { year: profile.year, gender: profile.gender };
   const outline = buildReportOutline(myeongsik, who);
 
+  /** 주문 기록이 서버에 없으면 여기서 채운다. 결제 콜백에서 놓쳤을 수 있다. */
+  async function ensureGranted(orderId: string) {
+    if (MOCK_ORDER) return;
+    try {
+      const r = await fetchReport(orderId);
+      if (r) return;                       // 이미 있다
+    } catch { /* 조회 실패면 아래에서 만들어본다 */ }
+    await grantReport({
+      orderId, sku: SKU,
+      isTest: Environment.environment === 'sandbox',
+      name: profile!.name || '고객',
+      myeongsik: buildReportPayload(myeongsik!, profile!),
+    });
+  }
+
   /** 주문번호를 손에 쥔 뒤 1장을 만들고, 2장은 읽는 동안 뒤에서 받아둔다. */
   async function runGeneration(orderId: string) {
     try {
       localStorage.setItem(ORDER_KEY, orderId);
+      await ensureGranted(orderId);
       if (MOCK_ORDER && MOCK_DELAY) await new Promise((r) => setTimeout(r, MOCK_DELAY));
       const a = await generateChapter(orderId, 1);
       setCh1(a);
@@ -140,22 +156,29 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
       options: {
         sku: SKU,
         processProductGrant: async ({ orderId }) => {
+          // 주문번호부터 남긴다. 이게 있으면 서버 기록이 늦어져도 나중에 복구할 수 있다.
+          localStorage.setItem(ORDER_KEY, orderId);
+
+          // 서버 기록을 끝까지 기다리면 안 된다.
+          // Edge Function 은 한동안 호출이 없으면 잠들어 있다가 깨어나는데(콜드 스타트),
+          // 그 몇 초 사이에 토스가 지급 실패로 판단해 결제를 통째로 되돌린다.
+          // 실제로 서버에는 주문이 정상 기록됐는데 화면에는 "환불하세요"가 뜬 적이 있다.
+          // 그래서 짧게만 기다리고, 늦으면 지급은 성공으로 처리한다.
+          // 기록이 빠졌더라도 생성 단계에서 이 주문번호로 다시 채운다.
           try {
-            // 실행 환경은 토스가 정한다. QR 로 띄운 테스트 번들이면 sandbox 라
-            // 결제도 TEST 로 잡히고 실제 돈이 나가지 않는다.
-            // 서버는 이 값으로 "테스트 결제로 진짜 리포트를 받아가는 것"을 막는다.
             const isTest = Environment.environment === 'sandbox';
-            await grantReport({
-              orderId, sku: SKU, isTest,
-              name: profile!.name || '고객',
-              myeongsik: buildReportPayload(myeongsik!, profile!),
-            });
-            localStorage.setItem(ORDER_KEY, orderId);
-            return true;
+            await Promise.race([
+              grantReport({
+                orderId, sku: SKU, isTest,
+                name: profile!.name || '고객',
+                myeongsik: buildReportPayload(myeongsik!, profile!),
+              }),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('grant timeout')), 2500)),
+            ]);
           } catch (e) {
-            console.error('grant 실패', e);
-            return false;   // 토스가 거래를 실패 처리한다 (돈만 빠지는 상황을 막는다)
+            console.warn('grant 지연 — 생성 단계에서 다시 시도한다', e);
           }
+          return true;
         },
       },
       onEvent: (event) => {

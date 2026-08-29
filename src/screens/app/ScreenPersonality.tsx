@@ -3,8 +3,9 @@ import { useSaju } from '../../lib/saju-state';
 import { personalityCard } from '../../lib/personality';
 import type { Route, Tab } from './nav';
 import type { Spirit } from '../../lib/spirit';
+import ReportPromo from './ReportPromo';
 
-export default function ScreenPersonality({ back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
+export default function ScreenPersonality({ go, back, spirit }: { go: (r: Route) => void; back: () => void; switchTab: (t: Tab) => void; spirit: Spirit; tab: Tab }) {
   const { myeongsik } = useSaju();
   const f = myeongsik ? personalityCard(myeongsik) : null;
   if (!f) return <DomainEmpty title="성격 분석" back={back} />;
@@ -113,6 +114,8 @@ export default function ScreenPersonality({ back, spirit }: { go: (r: Route) => 
       <V2Glass style={{ marginTop: 22, textAlign: 'center', background: 'linear-gradient(135deg, rgba(183,156,255,.16), rgba(255,158,130,.12))' }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--v2-ink)', lineHeight: 1.55 }}>🌙 {f.mantra}</div>
       </V2Glass>
+
+      <ReportPromo onOpen={() => go('report')} />
 
       <div style={{ height: 96 }} />
     </V2Screen>

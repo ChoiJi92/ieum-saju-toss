@@ -10,6 +10,9 @@
     "api/toss/disconnect.ts": {
       "maxDuration": 5
     },
+    "api/toss/order-status.ts": {
+      "maxDuration": 10
+    },
     "api/state.ts": {
       "maxDuration": 10
     },

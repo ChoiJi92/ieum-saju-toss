@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "rsbuild dev",
-    "build": "ait build",
+    "build": "rsbuild build && ait build",
     "build:qa": "node scripts/build-with-env.mjs .env.qa",
     "build:prod": "node scripts/build-with-env.mjs .env.prod",
     "preview": "rsbuild preview",
@@ -18,7 +18,7 @@
     "gen:brightness": "npx tsx scripts/gen-jamidusu-brightness.ts"
   },
   "dependencies": {
-    "@apps-in-toss/web-framework": "2.5.1",
+    "@apps-in-toss/web-framework": "^3.1.1",
     "@fullstackfamily/manseryeok": "^1.0.8",
     "@granite-js/plugin-router": "1.0.26",
     "@vercel/analytics": "^2.0.1",
@@ -29,6 +29,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@apps-in-toss/devtools": "^3.1.1",
     "@eslint/js": "^9.17.0",
     "@granite-js/plugin-router": "1.0.26",
     "@rsbuild/core": "^1.2.4",
@@ -45,6 +46,7 @@
     "playwright": "^1.60.0",
     "postcss": "^8.5.14",
     "sharp": "^0.35.3",
+    "supabase": "^2.116.0",
     "tailwindcss": "^4",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.18.2"

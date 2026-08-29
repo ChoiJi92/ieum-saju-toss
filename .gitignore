@@ -111,3 +111,8 @@ Thumbs.db
 /.omx/
 /.omc/
 /reply-cards/
+.env*
+!.env*.example
+
+# Playwright 브라우저 캐시
+.pw-browsers/

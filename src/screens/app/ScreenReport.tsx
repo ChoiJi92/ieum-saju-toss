@@ -404,19 +404,25 @@ export default function ScreenReport({ back, spirit }: { back: () => void; spiri
           // 실제로 서버에는 주문이 정상 기록됐는데 화면에는 "환불하세요"가 뜬 적이 있다.
           // 그래서 짧게만 기다리고, 늦으면 지급은 성공으로 처리한다.
           // 기록이 빠졌더라도 생성 단계에서 이 주문번호로 다시 채운다.
-          try {
-            const isTest = Environment.environment === 'sandbox';
-            await Promise.race([
-              grantReport({
-                orderId, sku: SKU, isTest,
-                name: profile!.name || '고객',
-                myeongsik: buildReportPayload(myeongsik!, profile!),
-              }),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('grant timeout')), 2500)),
-            ]);
-          } catch (e) {
-            console.warn('grant 지연 — 생성 단계에서 다시 시도한다', e);
-          }
+          // 타이머는 거부하지 않고 시간만 알리고, grant 의 실패는 자기 자리에서 삼킨다.
+          //
+          // 전에는 타이머가 reject 하는 Promise 였다. Promise.race 가 넘겨받은 모든
+          // 프로미스에 핸들러를 달아주기 때문에 늦게 온 거부가 떠돌지는 않지만,
+          // 이긴 뒤에도 타이머가 2.5초를 살아 있고 읽는 사람은 "저 거부는 어디로 가나"를
+          // 매번 확인해야 한다. 승패와 무관하게 아무도 거부하지 않는 편이 낫다.
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          const isTest = Environment.environment === 'sandbox';
+          const granted = grantReport({
+            orderId, sku: SKU, isTest,
+            name: profile!.name || '고객',
+            myeongsik: buildReportPayload(myeongsik!, profile!),
+          }).catch((e) => { console.warn('grant 지연 — 생성 단계에서 다시 시도한다', e); });
+
+          await Promise.race([
+            granted,
+            new Promise<void>((resolve) => { timer = setTimeout(resolve, 2500); }),
+          ]);
+          if (timer) clearTimeout(timer);
           return true;
         },
       },

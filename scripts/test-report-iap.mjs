@@ -153,6 +153,17 @@ async function scenario(title, { activeId, orders, bodies, pending, report, gran
   console.log(`\n━━ ${title} ━━`);
   const ctx = await browser.newContext({ viewport: { width: 430, height: 932 } });
   const page = await ctx.newPage();
+  // 처리되지 않은 Promise 거부는 웹뷰에서 조용히 쌓이다가 SDK 브리지를 흔든다.
+  // 실제로 결제 시트가 멈춘 원인이었으므로 시나리오마다 지켜본다.
+  const pageErrors = [];
+  page.on('pageerror', (e) => pageErrors.push(`pageerror: ${e}`));
+  // 미처리 Promise 거부는 pageerror 로 오지 않는다. 페이지 안에서 직접 받아 모은다.
+  await page.addInitScript(`
+    window.__unhandled = [];
+    window.addEventListener('unhandledrejection', function (e) {
+      window.__unhandled.push(String(e && e.reason));
+    });
+  `);
   const calls = await stubServer(page, { report, grantStatus, generateStatus });
   await page.addInitScript(seed({ activeId, orders, bodies, pending }));
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
@@ -161,8 +172,11 @@ async function scenario(title, { activeId, orders, bodies, pending, report, gran
   const state = await page.evaluate(() => ({
     pending: (window.__ait?.state?.iap?.pendingOrders ?? []).map((o) => o.orderId),
     body: document.body.innerText,
+    unhandled: window.__unhandled ?? [],
   }));
-  await assert({ calls, state, page });
+  pageErrors.push(...state.unhandled.map((u) => `unhandledrejection: ${u}`));
+  await assert({ calls, state, page, pageErrors });
+  check('떠도는 오류가 없다', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '));
   await ctx.close();
 }
 
@@ -322,6 +336,24 @@ await scenario('402 가 잠깐 났다가 풀리면 회복한다', {
   check('실패 화면을 안 보여준다', !state.body.includes('만들지 못했어요'), state.body.slice(0, 100));
   check('본문까지 나온다', state.body.includes('테스트 본문'));
   check('지급 확정도 됐다', state.pending.length === 0, `남은 pending=${JSON.stringify(state.pending)}`);
+});
+
+
+// ── 12. 실제 결제 버튼을 눌렀을 때 ──────────────────────────────────
+await scenario('결제 흐름 — 떠도는 거부 없이 끝난다', {
+  activeId: PROFILE_A,
+  report: () => null,
+  settleMs: 6000,
+}, async ({ calls, state, page, pageErrors }) => {
+  // 목차에서 결제 버튼을 누른다. DevTools 목이 결제를 성공으로 흉내낸다.
+  await page.getByText('990원으로 전부 읽기', { exact: false }).first().click();
+  await page.waitForTimeout(6000);   // 타이머(2.5초)가 지나고도 조용해야 한다
+  const after = await page.evaluate(() => document.body.innerText);
+  pageErrors.push(...(await page.evaluate(() => window.__unhandled ?? [])).map((u) => `unhandledrejection: ${u}`));
+  check('결제 후 본문이 나온다', after.includes('테스트 본문'), after.slice(0, 100));
+  check('grant 가 불렸다', calls.grant.length >= 1, `grant=${calls.grant.length}회`);
+  check('타이머가 지난 뒤에도 떠도는 거부가 없다', pageErrors.length === 0,
+    pageErrors.slice(0, 3).join(' | '));
 });
 
 await browser.close();

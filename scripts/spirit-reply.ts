@@ -13,7 +13,71 @@
  *   - 희귀 이상만 등급·확률을 밝힌다 (자랑거리가 되게)
  */
 import { computeMyeongsik } from '../src/lib/saju';
-import { spiritFromMyeongsik } from '../src/lib/spirit';
+import { spiritFromMyeongsik, ELEMENTS, ZODIAC, type ElementKey } from '../src/lib/spirit';
+
+/* ─── 등급 글용 리플 ────────────────────────────────────────
+ * 스레드 "등급이 다릅니다" 글에 달리는 댓글용. 계열 글과 형식이 다르다.
+ * 등급을 물으러 온 사람들이라 등급을 먼저 말하고, 일반이어도 숨기지 않는다.
+ * 대신 "60종 중 하나뿐"으로 받쳐준다 — 실제로 60갑자와 1:1이라 참이고,
+ * 이 한 줄이 일반 등급인 분들을 오히려 신나게 만들었다.
+ */
+
+/** 천간 → 한글 (일주 표기용) */
+const STEM_KO: Record<string, string> = {
+  甲: '갑', 乙: '을', 丙: '병', 丁: '정', 戊: '무',
+  己: '기', 庚: '경', 辛: '신', 壬: '임', 癸: '계',
+};
+const BRANCH_KO: Record<string, string> = {
+  子: '자', 丑: '축', 寅: '인', 卯: '묘', 辰: '진', 巳: '사',
+  午: '오', 未: '미', 申: '신', 酉: '유', 戌: '술', 亥: '해',
+};
+
+/** 오행 우리말 — 화면 막대와 같은 말을 쓴다 */
+const OH: Record<ElementKey, string> = {
+  wood: '나무', fire: '불', earth: '흙', metal: '쇠', water: '물',
+};
+const SHENG: Record<ElementKey, ElementKey> = {
+  wood: 'fire', fire: 'earth', earth: 'metal', metal: 'water', water: 'wood',
+};
+const KE: Record<ElementKey, ElementKey> = {
+  wood: 'earth', earth: 'water', water: 'fire', fire: 'metal', metal: 'wood',
+};
+
+/** 등급별 두 번째 문단 */
+function gradeLine(rarityKo: string, ilju: string, name: string): string {
+  if (rarityKo === '전설') return '전설입니다. 100명 중 7명만 나오는 조합이에요.';
+  if (rarityKo === '영물') return '영물입니다. 예로부터 기운이 꽉 찬 날로 봐온 조합이고, 10명 중 1명쯤 나와요.';
+  if (rarityKo === '희귀') return '희귀 조합입니다.';
+  return `가장 흔한 등급이긴 한데, 60종 중에 ${ilju}일주는 ${name} 하나뿐이에요.\n등급과 별개로 조합 자체는 유일합니다.`;
+}
+
+/**
+ * 위 글자와 아래 글자의 관계 한 줄.
+ * 같은 오행이면 겹친 것, 아니면 생·극 방향을 짚는다.
+ */
+function relationLine(topEl: ElementKey, botEl: ElementKey): string {
+  const t = OH[topEl], b = OH[botEl];
+  // josa 는 조사만 돌려준다. 단어까지 붙이려면 여기서 이어야 한다.
+  const ig = (w: string) => `${w}${josa(w, '이', '가')}`;
+  const eul = (w: string) => `${w}${josa(w, '을', '를')}`;
+  if (topEl === botEl) return `같은 ${ig(t)} 위아래로 겹친 자리라,`;
+  if (SHENG[botEl] === topEl) return `${ig(b)} ${eul(t)} 만들어주는 자리라,`;
+  if (SHENG[topEl] === botEl) return `${ig(t)} ${eul(b)} 살려주는 자리라,`;
+  if (KE[topEl] === botEl) return `${ig(t)} ${eul(b)} 누르는 자리라,`;
+  return `${ig(b)} ${eul(t)} 다듬는 자리라,`;
+}
+
+/**
+ * 관계에 이어 붙는 마무리. 여기까지 있어야 문장이 끝난다.
+ * 사람마다 다르게 쓰던 부분이라 관계별 기본형만 둔다 — 필요하면 손으로 고친다.
+ */
+function closingLine(topEl: ElementKey, botEl: ElementKey): string {
+  if (topEl === botEl) return '한번 정한 건 웬만해선 안 바꾸시는 편일 거예요.';
+  if (SHENG[botEl] === topEl) return '아래에서 받쳐주는 힘이 있어 쌓은 게 잘 흩어지지 않는 편이실 거예요.';
+  if (SHENG[topEl] === botEl) return '한번 마음이 붙으면 그게 오래 가는 편이실 거예요.';
+  if (KE[topEl] === botEl) return '겉으로는 부드러운데 정작 본인 기준은 잘 안 굽히는 편이실 거예요.';
+  return '스스로를 깎아가며 다듬는 편이라, 결과물이 단단하게 나오는 쪽이실 거예요.';
+}
 
 const args = process.argv.slice(2);
 if (args.length === 0) {
@@ -67,12 +131,22 @@ for (const raw of args) {
     console.log(`\n━━━ ${raw} ━━━`);
     console.log(`${s.name} · ${stars} ${s.rarity.ko} (${s.rarity.pct}) · ${s.formula}`);
     console.log('─── 리플 (복붙용) ───');
-    const subject = `${s.name}${josa(s.name, '이', '가')}`;
-    // persona 앞부분(vibe)은 라이브러리 문자열이라 조사가 어긋날 수 있어 뒷문장만 사용
-    const vibeLine = `${s.elem.vibe}${josa(s.elem.vibe, '을', '를')} 품은 ${s.zod.trait} 기질이에요.`;
-    const closing = `${s.line}처럼 ${s.elem.trait} 마음으로 세상을 대하는 결이고요.`;
-    console.log(`${subject} 나왔어요! ${s.title}이에요.
-${vibeLine} ${closing}${TAIL[s.rarity.ko] ?? ''}`);
+
+    const stem = myeongsik.ilju?.[0] ?? myeongsik.pillars?.[2]?.top?.c ?? '';
+    const branch = myeongsik.ilju?.[1] ?? myeongsik.pillars?.[2]?.bot?.c ?? '';
+    const ilju = `${STEM_KO[stem] ?? ''}${BRANCH_KO[branch] ?? ''}`;
+    const dateLabel = `${String(y).slice(2)}.${String(mo).padStart(2, '0')}.${String(d).padStart(2, '0')}${lunar ? ' 음력' : ''}`;
+
+    const topEl = s.elemKey;
+    const botEl = ZODIAC[s.zodKey].elem as ElementKey;
+
+    console.log(`${dateLabel}이면 ${ilju}일주, ${s.name}${josa(s.name, '이', '가')} 나오네요.` +
+      (s.rarity.ko === '일반' ? ' 등급은 일반입니다.' : ''));
+    console.log('');
+    console.log(gradeLine(s.rarity.ko, ilju, s.name));
+    console.log('');
+    console.log(`${s.line}${josa(s.line, '은', '는')} ${s.elem.vibe}, ${s.animal}${josa(s.animal, '은', '는')} ${s.zod.trait} 결이고요.`);
+    console.log(`${relationLine(topEl, botEl)}\n${closingLine(topEl, botEl)}`);
   } catch (e) {
     console.log(`❌ ${raw} — 계산 실패: ${String(e).slice(0, 80)}`);
   }

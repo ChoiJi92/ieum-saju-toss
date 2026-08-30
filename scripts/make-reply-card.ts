@@ -89,11 +89,78 @@ function rarityLine(s: Spirit): { badge: string; hook: string } {
 const OPEN_ELEMENTS = [
   { prefix: '새싹', ko: '새싹', vibe: '시작과 생명력', color: '#7EE0A0' },
   { prefix: '노을', ko: '노을', vibe: '열정과 표현', color: '#FF9E82' },
-  { prefix: '언덕', ko: '언덕', vibe: '안정과 신뢰', color: '#FFD27A' },
+  { prefix: '언덕', ko: '황금', vibe: '안정과 신뢰', color: '#FFD27A' },   // 폴더는 언덕, 표시는 황금
   { prefix: '달빛', ko: '달빛', vibe: '결단과 세련', color: '#D6D9E0' },
   { prefix: '이슬', ko: '이슬', vibe: '지혜와 유연함', color: '#7BA8FF' },
 ];
 const OPEN_PICKS = ['용', '호랑이', '소', '뱀', '토끼'];
+
+
+/**
+ * 등급 소개 카드 — "내 정령은 몇 성일까"를 묻는 글용.
+ *
+ * 계열 카드와 달리 여기서는 등급이 주인공이므로, 각 등급에 실제로 해당하는 정령을
+ * 하나씩 세운다. 정령 60종과 60갑자가 1:1로 대응하므로 "이 정령 = 이 등급"은 항상 참이다.
+ */
+const GRADES = [
+  { key: 'common', ko: '일반', stars: 1, pct: '58%', spirit: '노을토끼', color: '#9C8FC0' },
+  { key: 'rare', ko: '희귀', stars: 2, pct: '25%', spirit: '언덕소', color: '#5BD9AC' },
+  { key: 'spirit', ko: '영물', stars: 3, pct: '10%', spirit: '달빛개', color: '#B79CFF' },
+  { key: 'legend', ko: '전설', stars: 4, pct: '7%', spirit: '노을닭', color: '#FFD27A' },
+];
+
+function gradeCardHtml(): string {
+  const rows = GRADES.map((g) => `
+    <div class="grow">
+      <img src="file://${resolve(ROOT, 'public', 'spirits')}/${g.spirit}/${g.spirit}-01-아기.png" alt="">
+      <div class="ginfo">
+        <div class="gname" style="color:${g.color}">${'★'.repeat(g.stars)}<span class="gko">${g.ko}</span></div>
+        <div class="gpct">100명 중 ${Math.round(Number(g.pct.replace('%','')))}명</div>
+      </div>
+    </div>`).join('');
+
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Apple SD Gothic Neo', Pretendard, sans-serif; }
+  #card {
+    width:1080px; height:1350px; position:relative; overflow:hidden; color:#F3EEFF;
+    background: linear-gradient(180deg, #2A2046 0%, #1E1635 55%, #14101F 100%);
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:88px 62px 48px;
+  }
+  .stars { position:absolute; inset:0; pointer-events:none; }
+  .stars i { position:absolute; border-radius:50%; background:#fff; }
+  .brand { font-size:29px; font-weight:800; letter-spacing:7px; color:#B79CFF; }
+  .head { margin-top:28px; font-size:64px; font-weight:900; line-height:1.34; }
+  .head em { font-style:normal; color:#FFD27A; }
+  .sub { margin-top:24px; font-size:30px; line-height:1.7; color:#C9BEE8; font-weight:500; }
+  .list { margin-top:62px; width:100%; display:flex; flex-direction:column; gap:16px; }
+  .grow {
+    display:flex; align-items:center; gap:26px; padding:20px 30px; border-radius:28px;
+    background:rgba(255,255,255,.05); border:1.5px solid rgba(183,156,255,.2);
+  }
+  .grow img { width:124px; height:124px; object-fit:contain; flex-shrink:0; }
+  .ginfo { text-align:left; }
+  .gname { font-size:42px; font-weight:900; letter-spacing:2px; }
+  .gko { margin-left:16px; font-size:36px; }
+  .gpct { margin-top:8px; font-size:26px; color:#8F82B8; font-weight:600; }
+  .ask { margin-top:56px; font-size:42px; font-weight:800; }
+  .wm { margin-top:auto; font-size:24px; font-weight:700; letter-spacing:5px; color:#6E5FA0; }
+  </style></head><body>
+  <div id="card">
+    <div class="stars">${Array.from({ length: 34 }, (_, i) => {
+      const x = (i * 37) % 100, y = (i * 53) % 100, s = 2 + (i % 3), o = 0.25 + (i % 4) * 0.12;
+      return `<i style="left:${x}%;top:${y}%;width:${s}px;height:${s}px;opacity:${o}"></i>`;
+    }).join('')}</div>
+    <div class="brand">이음사주</div>
+    <div class="head">태어난 날마다<br/><em>등급이 다릅니다</em></div>
+    <div class="sub">같은 사주는 없으니 등급도 사람마다 달라요.</div>
+    <div class="list">${rows}</div>
+    <div class="ask">나는 몇 성일까</div>
+    <div class="wm">이음사주 ✦</div>
+  </div>
+  </body></html>`;
+}
 
 function openCardHtml(): string {
   const cells = OPEN_ELEMENTS.map((e, i) => `
@@ -134,7 +201,7 @@ function openCardHtml(): string {
     }).join('')}</div>
     <div class="brand">이음사주</div>
     <div class="head">태어난 날이 정하는<br/><em>다섯 갈래의 기운</em></div>
-    <div class="sub">새싹·노을·언덕·달빛·이슬.<br/>어느 기운을 갖고 태어났는지에 따라<br/>곁에 오는 정령이 달라져요.</div>
+    <div class="sub">새싹·노을·황금·달빛·이슬.<br/>어느 기운을 갖고 태어났는지에 따라<br/>곁에 오는 정령이 달라져요.</div>
     <div class="orow">${cells}</div>
     <div class="ask">나는 어느 쪽일까</div>
     <div class="wm">이음사주 ✦</div>
@@ -224,19 +291,20 @@ function cardHtml(job: Job, spirit: Spirit, iljuHanja: string): string {
 // ── 메인 ─────────────────────────────────────────────────
 const argv = process.argv.slice(2);
 const openMode = argv.includes('--open');
-const jobs = openMode ? [] : parseArgs(argv);
+const gradeMode = argv.includes('--grade');
+const jobs = (openMode || gradeMode) ? [] : parseArgs(argv);
 mkdirSync(OUT_DIR, { recursive: true });
 
 // 시스템 Chrome 사용 — playwright 크로미움 다운로드 불필요 (디스크 절약)
 const browser = await chromium.launch({ channel: 'chrome' });
 const page = await browser.newPage({ viewport: { width: 1080, height: 1350 }, deviceScaleFactor: 2 });
 
-if (openMode) {
+if (openMode || gradeMode) {
   const tmp = resolve(OUT_DIR, '_open.html');
-  writeFileSync(tmp, openCardHtml());
+  writeFileSync(tmp, gradeMode ? gradeCardHtml() : openCardHtml());
   await page.goto(`file://${tmp}`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
-  const out = resolve(OUT_DIR, '여는글-다섯기운.png');
+  const out = resolve(OUT_DIR, gradeMode ? '여는글-등급.png' : '여는글-다섯기운.png');
   await page.screenshot({ path: out });
   rmSync(tmp, { force: true });
   await browser.close();

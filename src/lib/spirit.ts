@@ -42,6 +42,9 @@ export const ZODIAC = {
 export const ELEM_ORDER: ElementKey[] = ['wood', 'fire', 'earth', 'metal', 'water'];
 export const ZOD_ORDER: ZodiacKey[] = ['rat', 'ox', 'tiger', 'rabbit', 'dragon', 'snake', 'horse', 'goat', 'monkey', 'rooster', 'dog', 'pig'];
 
+/** 도감 전체 종수. 계열 × 십이지라 숫자를 따로 적어두지 않는다. */
+export const SPIRIT_TOTAL = ELEM_ORDER.length * ZOD_ORDER.length;
+
 const SHENG: Record<ElementKey, ElementKey> = { wood: 'fire', fire: 'earth', earth: 'metal', metal: 'water', water: 'wood' };
 const KE: Record<ElementKey, ElementKey> = { wood: 'earth', earth: 'water', water: 'fire', fire: 'metal', metal: 'wood' };
 

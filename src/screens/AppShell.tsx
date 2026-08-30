@@ -53,10 +53,12 @@ import {
   getMockTossUser,
 } from "../lib/toss-auth";
 import { detectEntryShare, hasPendingShare } from "../lib/invite";
+import { 을를 } from "../lib/hangul";
 import {
   ELEMENTS,
   ELEM_ORDER,
   ZOD_ORDER,
+  SPIRIT_TOTAL,
   makeSpirit,
   spiritFromMyeongsik,
   type ElementKey,
@@ -2746,12 +2748,15 @@ function CatchModal({
   todaySp,
   gunghap,
   chance,
+  ownedCount,
   onClose,
   onResult,
 }: {
   todaySp: Spirit;
   gunghap: number;
   chance: number;
+  /** 이번에 잡은 것까지 포함한 도감 보유 수 */
+  ownedCount: number;
   onClose: () => void;
   onResult: () => void;
 }) {
@@ -2894,9 +2899,28 @@ function CatchModal({
               </div>
               <p
                 className="v2-body"
-                style={{ color: "var(--v2-ink-dim)", margin: "0 0 16px" }}
+                style={{ color: "var(--v2-ink-dim)", margin: "0 0 8px" }}
               >
-                {todaySp.name}을(를) 도감에서 만나볼 수 있어요
+                {을를(todaySp.name)} 도감에서 만나볼 수 있어요
+              </p>
+              {/* 몇 개 중 몇 개인지 보여줘야 "모으는 것"이라는 게 전달된다.
+                  이 숫자가 없으면 한 마리 잡고 끝난 것처럼 읽힌다. */}
+              <div
+                style={{
+                  fontSize: 15, fontWeight: 800, color: "var(--v2-mint)",
+                  margin: "0 0 14px", letterSpacing: 0.5,
+                }}
+              >
+                도감 {ownedCount} / {SPIRIT_TOTAL}
+              </div>
+              {/* 기분이 가장 좋은 순간에 내일을 알려준다.
+                  전에는 실패했을 때만 "내일 또 찾아와요"가 있고, 잡은 사람은
+                  아무 말 없이 닫혔다. 다시 올 이유를 여기서 준다. */}
+              <p
+                className="v2-body"
+                style={{ color: "var(--v2-ink-mid)", margin: "0 0 16px" }}
+              >
+                내일은 다른 정령이 찾아와요
               </p>
               <V2Button onClick={onClose}>확인</V2Button>
             </>
@@ -3845,6 +3869,7 @@ function ScreenToday({
           todaySp={todaySp}
           gunghap={gunghap}
           chance={chance}
+          ownedCount={ownedKeys.size}
           onClose={() => {
             setCatchOpen(false);
             setCatchTick((t) => t + 1);

@@ -42,6 +42,14 @@ const SHENG: Record<ElementKey, ElementKey> = {
 const KE: Record<ElementKey, ElementKey> = {
   wood: 'earth', earth: 'water', water: 'fire', fire: 'metal', metal: 'wood',
 };
+/** 극(剋)은 관계마다 어울리는 말이 다르다. 전부 "누른다"로 쓰면 어색해진다. */
+const KE_VERB: Record<ElementKey, string> = {
+  wood: '붙드는',    // 나무가 흙을
+  earth: '담아주는', // 흙이 물을
+  water: '가라앉히는', // 물이 불을
+  fire: '벼려내는',  // 불이 쇠를
+  metal: '다듬는',   // 쇠가 나무를
+};
 
 /** 등급별 두 번째 문단 */
 function gradeLine(rarityKo: string, ilju: string, name: string): string {
@@ -63,16 +71,24 @@ function relationLine(topEl: ElementKey, botEl: ElementKey): string {
   if (topEl === botEl) return `같은 ${ig(t)} 위아래로 겹친 자리라,`;
   if (SHENG[botEl] === topEl) return `${ig(b)} ${eul(t)} 만들어주는 자리라,`;
   if (SHENG[topEl] === botEl) return `${ig(t)} ${eul(b)} 살려주는 자리라,`;
-  if (KE[topEl] === botEl) return `${ig(t)} ${eul(b)} 누르는 자리라,`;
-  return `${ig(b)} ${eul(t)} 다듬는 자리라,`;
+  if (KE[topEl] === botEl) return `${ig(t)} ${eul(b)} ${KE_VERB[topEl]} 자리라,`;
+  return `${ig(b)} ${eul(t)} ${KE_VERB[botEl]} 자리라,`;
 }
 
 /**
  * 관계에 이어 붙는 마무리. 여기까지 있어야 문장이 끝난다.
  * 사람마다 다르게 쓰던 부분이라 관계별 기본형만 둔다 — 필요하면 손으로 고친다.
  */
+const SAME_CLOSING: Record<ElementKey, string> = {
+  wood: '한번 뻗은 방향으로 계속 자라는 편이실 거예요.',
+  fire: '안에 열이 많으신데 확 터뜨리기보다 조용히 오래 태우는 편이실 거예요.',
+  earth: '한번 정한 건 웬만해선 안 바꾸시는 편일 거예요.',
+  metal: '판단이 날카로운데 그게 잘 무뎌지지 않는 편이실 거예요.',
+  water: '깊이 담아두는 쪽이라 속을 잘 안 드러내시는 편일 거예요.',
+};
+
 function closingLine(topEl: ElementKey, botEl: ElementKey): string {
-  if (topEl === botEl) return '한번 정한 건 웬만해선 안 바꾸시는 편일 거예요.';
+  if (topEl === botEl) return SAME_CLOSING[topEl];
   if (SHENG[botEl] === topEl) return '아래에서 받쳐주는 힘이 있어 쌓은 게 잘 흩어지지 않는 편이실 거예요.';
   if (SHENG[topEl] === botEl) return '한번 마음이 붙으면 그게 오래 가는 편이실 거예요.';
   if (KE[topEl] === botEl) return '겉으로는 부드러운데 정작 본인 기준은 잘 안 굽히는 편이실 거예요.';

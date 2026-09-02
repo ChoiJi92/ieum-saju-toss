@@ -95,6 +95,13 @@ const OPEN_ELEMENTS = [
 ];
 const OPEN_PICKS = ['용', '호랑이', '소', '뱀', '토끼'];
 
+/** 단계 라벨 — 이미지 파일명과 같은 순서(01~04). */
+const STAGES = ['아기', '어린', '성체', '영험'];
+/** 폴더명과 표시명이 다른 것만. 흙 계열은 폴더가 '언덕', 화면에는 '황금'으로 나온다. */
+const DISPLAY_NAME: Record<string, string> = {
+  언덕용: '황금용', 언덕소: '황금소', 언덕뱀: '황금뱀', 언덕말: '황금말',
+};
+
 
 /**
  * 등급 소개 카드 — "내 정령은 몇 성일까"를 묻는 글용.
@@ -108,6 +115,71 @@ const GRADES = [
   { key: 'spirit', ko: '영물', stars: 3, pct: '10%', spirit: '달빛개', color: '#B79CFF' },
   { key: 'legend', ko: '전설', stars: 4, pct: '7%', spirit: '노을닭', color: '#FFD27A' },
 ];
+
+/**
+ * 진화 소개 카드 — "내 정령은 어디까지 크나"를 묻는 글용.
+ *
+ * 등급 카드와 노리는 지점이 다르다. 등급은 댓글로 답해주면 궁금증이 거기서 끝나서
+ * (8/30 댓글당 유입 0.70 → 8/31 0.37) 앱까지 오지 않는다.
+ * 진화는 답글로 해결이 안 된다 — 직접 키워야만 볼 수 있으니 앱이 유일한 답이 된다.
+ *
+ * 그래서 여기서는 한 마리의 네 단계를 **끝까지 다 보여준다**. 보상이 실재한다는 걸
+ * 먼저 증명해야 "내 것도 저렇게 되나"가 생긴다. 가리는 건 각자의 정령이지 진화 자체가 아니다.
+ */
+const EVOLVE_PICKS = ['달빛용', '노을닭', '이슬토끼'];
+
+function evolveCardHtml(): string {
+  const dir = resolve(ROOT, 'public', 'spirits');
+  const rows = EVOLVE_PICKS.map((key) => {
+    const cells = STAGES.map((label, i) => `
+      <div class="ecell">
+        <img src="file://${dir}/${key}/${key}-0${i + 1}-${label}.png" alt="">
+        <div class="estage">${label}</div>
+      </div>`).join('<div class="earrow">›</div>');
+    return `<div class="erow"><div class="ename">${DISPLAY_NAME[key] ?? key}</div><div class="eline">${cells}</div></div>`;
+  }).join('');
+
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Apple SD Gothic Neo', Pretendard, sans-serif; }
+  #card {
+    width:1080px; height:1350px; position:relative; overflow:hidden; color:#F3EEFF;
+    background: linear-gradient(180deg, #2A2046 0%, #1E1635 55%, #14101F 100%);
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:78px 54px 44px;
+  }
+  .stars { position:absolute; inset:0; pointer-events:none; }
+  .stars i { position:absolute; border-radius:50%; background:#fff; }
+  .brand { font-size:29px; font-weight:800; letter-spacing:7px; color:#B79CFF; }
+  .head { margin-top:20px; font-size:56px; font-weight:900; line-height:1.32; }
+  .head em { font-style:normal; color:#FFD27A; }
+  .sub { margin-top:18px; font-size:28px; line-height:1.65; color:#C9BEE8; font-weight:500; }
+  .list { margin-top:40px; width:100%; display:flex; flex-direction:column; gap:16px; }
+  .erow { padding:16px 18px 12px; border-radius:26px;
+    background:rgba(255,255,255,.05); border:1.5px solid rgba(183,156,255,.2); }
+  .ename { font-size:29px; font-weight:800; color:#D9CEFF; margin-bottom:6px; }
+  .eline { display:flex; align-items:center; justify-content:center; gap:4px; }
+  .ecell { width:160px; }
+  .ecell img { width:146px; height:146px; object-fit:contain; }
+  .estage { margin-top:0; font-size:22px; font-weight:700; color:#8F82B8; }
+  .earrow { font-size:32px; color:#6E5FA0; margin-bottom:24px; }
+  .ask { margin-top:34px; font-size:39px; font-weight:800; }
+  .wm { margin-top:auto; font-size:24px; font-weight:700; letter-spacing:5px; color:#6E5FA0; }
+  </style></head><body>
+  <div id="card">
+    <div class="stars">${Array.from({ length: 34 }, (_, i) => {
+      const x = (i * 37) % 100, y = (i * 53) % 100, s = 2 + (i % 3), o = 0.25 + (i % 4) * 0.12;
+      return `<i style="left:${x}%;top:${y}%;width:${s}px;height:${s}px;opacity:${o}"></i>`;
+    }).join('')}</div>
+    <div class="brand">이음사주</div>
+    <div class="head">정령은 <em>네 번</em> 자랍니다</div>
+    <div class="sub">아기로 만나서 영험까지 갑니다.<br/>같은 정령도 키운 만큼 모습이 달라져요.</div>
+    <div class="list">${rows}</div>
+    <div class="ask">내 정령은 어디까지 클까</div>
+    <div class="wm">이음사주 ✦</div>
+  </div>
+  </body></html>`;
+}
 
 function gradeCardHtml(): string {
   const rows = GRADES.map((g) => `
@@ -292,19 +364,21 @@ function cardHtml(job: Job, spirit: Spirit, iljuHanja: string): string {
 const argv = process.argv.slice(2);
 const openMode = argv.includes('--open');
 const gradeMode = argv.includes('--grade');
-const jobs = (openMode || gradeMode) ? [] : parseArgs(argv);
+const evolveMode = argv.includes('--evolve');
+const jobs = (openMode || gradeMode || evolveMode) ? [] : parseArgs(argv);
 mkdirSync(OUT_DIR, { recursive: true });
 
 // 시스템 Chrome 사용 — playwright 크로미움 다운로드 불필요 (디스크 절약)
 const browser = await chromium.launch({ channel: 'chrome' });
 const page = await browser.newPage({ viewport: { width: 1080, height: 1350 }, deviceScaleFactor: 2 });
 
-if (openMode || gradeMode) {
+if (openMode || gradeMode || evolveMode) {
   const tmp = resolve(OUT_DIR, '_open.html');
-  writeFileSync(tmp, gradeMode ? gradeCardHtml() : openCardHtml());
+  writeFileSync(tmp, evolveMode ? evolveCardHtml() : gradeMode ? gradeCardHtml() : openCardHtml());
   await page.goto(`file://${tmp}`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
-  const out = resolve(OUT_DIR, gradeMode ? '여는글-등급.png' : '여는글-다섯기운.png');
+  const out = resolve(OUT_DIR,
+    evolveMode ? '여는글-진화.png' : gradeMode ? '여는글-등급.png' : '여는글-다섯기운.png');
   await page.screenshot({ path: out });
   rmSync(tmp, { force: true });
   await browser.close();

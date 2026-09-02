@@ -162,11 +162,15 @@ export function V2Label({ children, color = 'var(--v2-ink-dim)' }: { children: R
 
 export function SpiritSlot({ spirit, size = 200, tag = true, stage = 1, floating = true }: { spirit: Spirit; size?: number; tag?: boolean; stage?: Stage; floating?: boolean }) {
   const art = spirit.imageFor(stage);
+  // 이미지가 Storage 에서 오므로 첫 표시에 100~700ms 가 든다. 빈 자리에서 '툭' 나타나면
+  // 느리게 느껴지고, 기운 원(glow)만 있다가 스르륵 들어오면 연출로 읽힌다.
+  // 이미 캐시된 그림은 onLoad 가 즉시 불려 페이드가 거의 안 보인다.
+  const [loaded, setLoaded] = useState(false);
   return (
     <div style={{ position: 'relative', width: size, height: size, margin: '0 auto', animation: floating ? 'v2-float 5s ease-in-out infinite' : 'none' }}>
       <div style={{ position: 'absolute', inset: '2%', borderRadius: '50%', background: `radial-gradient(circle at 50% 54%, ${spirit.elem.raw}55 0%, ${spirit.elem.raw}22 38%, transparent 68%)`, animation: 'v2-breathe 4.5s ease-in-out infinite' }} />
       {art ? (
-        <img src={art} alt={spirit.name} draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', filter: `drop-shadow(0 0 18px ${spirit.elem.raw}66)`, transformOrigin: '50% 88%' }} />
+        <img src={art} alt={spirit.name} draggable={false} decoding="async" onLoad={() => setLoaded(true)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', filter: `drop-shadow(0 0 18px ${spirit.elem.raw}66)`, transformOrigin: '50% 88%', opacity: loaded ? 1 : 0, transform: loaded ? 'scale(1)' : 'scale(.94)', transition: 'opacity .35s ease-out, transform .35s ease-out' }} />
       ) : (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.42, filter: `drop-shadow(0 0 18px ${spirit.elem.raw}66)` }}>{spirit.zod.emoji}</div>
       )}

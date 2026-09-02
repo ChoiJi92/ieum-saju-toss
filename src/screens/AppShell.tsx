@@ -201,8 +201,27 @@ export default function AppShell() {
   const [adUnlocked, setAdUnlocked] = useState<Set<Route>>(() =>
     loadRewardedUnlocked(),
   );
-  const { adBoost } = useSpiritState();
+  const { adBoost, progressOf } = useSpiritState();
   const [adToast, setAdToast] = useState<string | null>(null);
+
+  // 정령 이미지를 Storage 에서 받게 된 뒤(번들 338MB→5MB) 첫 표시에 100~700ms 가 든다.
+  // 홈이 그려지기 전 — 부팅·알 화면·소환 연출이 도는 동안 — 내 정령과 오늘 정령을
+  // 먼저 받아두면 홈이 뜰 때는 이미 브라우저 캐시에 있다. 화면에 안 붙이는 Image 라
+  // 렌더에 영향이 없고, 실패해도 <img> 가 다시 받으니 조용히 무시한다.
+  useEffect(() => {
+    const urls = [
+      spirit.imageFor(progressOf(spirit.key).stage),
+      todaySpirit().imageFor(1),
+    ];
+    for (const u of urls) {
+      if (!u) continue;
+      const img = new Image();
+      img.decoding = "async";
+      img.src = u;
+    }
+    // spirit·stage 가 바뀔 때만. progressOf 는 안정 참조가 아니라 의존성에서 뺀다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spirit.key]);
   // 보상형 광고로 운세를 열면 정령 기운도 함께 적립 (하루 광고 한도/상한 내) — 광고=보상 루프
   const unlock = (r: Route) => {
     setAdUnlocked((s) => {

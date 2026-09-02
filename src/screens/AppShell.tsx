@@ -3957,6 +3957,48 @@ function ScreenPetHome({
   const prog = progressOf(spirit.key);
   const stage = prog.stage;
   const pct = percent(spirit.key);
+
+  /**
+   * 홈에서도 오늘의 정령을 보여준다.
+   *
+   * 포획 카드가 '오늘 운세' 화면에만 있어서, 홈만 보고 나가는 사람은 오늘 누가 왔는지조차
+   * 몰랐다. 매일 바뀌는 건 이것뿐인데 그게 안 보이면 내일 다시 올 이유가 없다.
+   * (8/30 신규 55명 → 다음날 재방문 0명)
+   *
+   * 잡기 자체는 '오늘 운세'에 그대로 둔다. 포획 모달이 궁합·재도전·광고 상태를 물고 있어
+   * 홈에 복제하면 두 벌이 갈라진다. 여기서는 "왔다"만 알리고 넘긴다.
+   */
+  const dateKey = todayDateKey();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dateKey는 자정 넘김 감지용
+  const todaySp = useMemo(() => todaySpirit(), [dateKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dateKey 동일
+  const catchSt = useMemo(() => todayCatchState(), [dateKey]);
+  const ownedKeys = useMemo(() => {
+    const s = caughtKeys();
+    for (const p of profiles) {
+      try {
+        s.add(spiritFromMyeongsik(computeMyeongsik(p)).key);
+      } catch {
+        /* skip */
+      }
+    }
+    return s;
+  }, [profiles]);
+  const todayOwned = ownedKeys.has(todaySp.key);
+  /** 잡으러 갈 이유가 남았는가 — 남아야 버튼을 띄운다. */
+  const catchOpen = !todayOwned && !catchSt.caught && catchSt.attemptsLeft > 0;
+  // 도감 숫자는 어느 상태에서든 남긴다. 채우고 싶게 만드는 건 이 숫자이고,
+  // 막 한 마리 늘어난 직후가 그게 제일 잘 먹히는 순간이다.
+  const dex = `도감 ${ownedKeys.size} / ${SPIRIT_TOTAL}`;
+  const catchNote = catchSt.caught
+    ? `${dex} · 오늘 담았어요 ✨`
+    : todayOwned
+      ? catchSt.greeted
+        ? `${dex} · 오늘 인사했어요 ✨`
+        : "이미 친한 정령이에요 · 인사하러 가요"
+      : catchSt.attemptsLeft === 0
+        ? "오늘은 도망갔어요 · 내일 또 와요"
+        : `${dex} · 잡아서 담아보세요`;
   const rem = remaining(spirit.key);
   const canEvolve = stage < 4 && prog.bond >= thresholdOf(stage);
   const STAGE_KO = ["", "아기 정령", "어린 정령", "성체 정령", "영험한 정령"];
@@ -4104,7 +4146,7 @@ function ScreenPetHome({
   };
   // 일일 미션 3종 — 기존 상태에서 파생 (새 추적 없음). 교감은 교감 버튼과 동일 대상(targetKey),
   // 운세 확인 보너스는 항상 내 정령(spirit.key)에 적립되므로 그쪽에서 파생 (멘토 모드에서도 완료 가능)
-  const catchSt = todayCatchState();
+  // catchSt 는 위 '오늘 찾아온 정령' 카드와 같은 것을 쓴다 (자정 넘김까지 같은 기준).
   const missions = [
     {
       label: "교감 3종 완료",
@@ -4441,6 +4483,123 @@ function ScreenPetHome({
             </button>
           </Rise>
         )}
+
+        {/* 오늘 찾아온 정령 — 매일 바뀌는 유일한 것이라 홈에서 먼저 보여준다 */}
+        <Rise delay={70} style={{ marginTop: 12 }}>
+          <button
+            onClick={() => go("today")}
+            className="v2-press"
+            style={{
+              display: "block",
+              width: "100%",
+              padding: 0,
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              textAlign: "left",
+              font: "inherit",
+            }}
+          >
+            <V2Glass
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                background:
+                  "linear-gradient(120deg, rgba(183,156,255,.12), rgba(91,217,172,.08))",
+              }}
+              glow="0 0 22px rgba(183,156,255,.16)"
+            >
+              <div
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  background: `radial-gradient(circle at 38% 34%, #fff8, ${todaySp.elem.raw})`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: `0 0 16px ${todaySp.elem.raw}66`,
+                }}
+              >
+                {todaySp.imageFor(1) ? (
+                  <img
+                    src={todaySp.imageFor(1) as string}
+                    alt=""
+                    style={{
+                      width: "120%",
+                      height: "120%",
+                      objectFit: "contain",
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 24 }}>{todaySp.zod.emoji}</span>
+                )}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "var(--v2-lavender)",
+                  }}
+                >
+                  오늘 찾아온 정령 🎯
+                </div>
+                <div
+                  style={{
+                    fontSize: 14.5,
+                    fontWeight: 800,
+                    color: "var(--v2-ink)",
+                    marginTop: 2,
+                  }}
+                >
+                  {todaySp.name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--v2-ink-dim)",
+                    marginTop: 2,
+                    fontWeight: 700,
+                  }}
+                >
+                  {catchNote}
+                </div>
+              </div>
+              {catchOpen ? (
+                <span
+                  style={{
+                    flexShrink: 0,
+                    padding: "9px 14px",
+                    borderRadius: 999,
+                    fontSize: 12.5,
+                    fontWeight: 800,
+                    background:
+                      "linear-gradient(120deg, var(--v2-lavender), var(--v2-peach))",
+                    color: "#1b1230",
+                  }}
+                >
+                  잡으러 가기
+                </span>
+              ) : (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    color: "var(--v2-lavender)",
+                    fontSize: 18,
+                    fontWeight: 800,
+                  }}
+                >
+                  ›
+                </span>
+              )}
+            </V2Glass>
+          </button>
+        </Rise>
+
         {/* 백업 넛지 — 첫 진화 후 미연결 유저에게 1회 */}
         {nudge && !isLinked() && stage >= 2 && (
           <Rise style={{ marginTop: 12 }}>

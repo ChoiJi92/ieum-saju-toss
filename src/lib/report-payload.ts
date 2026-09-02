@@ -42,7 +42,9 @@ export function buildReportPayload(ms: Myeongsik, profile: SajuInput) {
     시모름: ms.unknownTime,
     정령: { 이름: sp.name, 등급: sp.rarity.ko },
     대운: getDaewoon(ms, who),
-    세운: getSeun(ms, who),
+    // `지남`을 붙여 지난 해를 예언처럼 쓰는 것을 막는다. isCurrent 만으로도 유추는 되지만
+    // 실제로 어겼다 — 첫 실판매 리포트가 이미 지난 2022~2023년을 "생기기 쉽습니다"로 썼다.
+    세운: getSeun(ms, who).map((s) => ({ ...s, 지남: s.year < new Date().getFullYear() })),
     신살: getSinsal(ms).map((s) => ({ 이름: s.name, has: s.has, 한줄: s.oneLine })),
   };
 }

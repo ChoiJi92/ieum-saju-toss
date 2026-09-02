@@ -77,6 +77,36 @@ const SAJU_CONTEXT = new RegExp([
 const HANJA = /[一-鿿]/;
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
+/**
+ * 시제. 세운은 올해 기준 앞뒤로 주어지므로 지난 해 얘기가 반드시 섞인다.
+ * 첫 실판매 리포트가 이미 지난 2022~2023년을 "생기기 쉽습니다"로 썼다 —
+ * 읽는 사람은 "그건 이미 지났는데?" 하고, 거기서 글 전체가 의심받는다.
+ *
+ * "2025~2026년"처럼 물결로 묶은 앞쪽 연도도 잡아야 과거·현재가 섞인 걸 알아본다.
+ */
+const YEAR_RE = /(?:19|20)\d{2}(?=\s*[년~\-–])/g;
+/**
+ * 과거를 가리키는 어미인지.
+ *
+ * 았·었·였·왔·갔·했·셨·됐… 을 다 적으면 반드시 하나를 빠뜨린다(실제로 "왔"을 빠뜨렸다).
+ * 한국어 과거 표지는 받침 ㅆ 하나이므로 그것으로 판정한다.
+ * "있습니다"의 "있"도 받침이 ㅆ이지만 현재형이라 뺀다.
+ */
+const PAST_TAIL = ['을', '던', '습니다', '어요', '네요', '고', '지만', '는데'];
+function hasPastMark(s) {
+  for (let i = 0; i < s.length - 1; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0xac00 || c > 0xd7a3) continue;
+    if ((c - 0xac00) % 28 !== 20) continue;      // 받침 ㅆ 이 아니면 과거 표지가 아니다
+    if (s[i] === '있') continue;                  // 있습니다 · 있을 — 현재형
+    if (PAST_TAIL.some((t) => s.startsWith(t, i + 1))) return true;
+  }
+  return false;
+}
+/** 앞으로 일어날 일로 읽히는 서술. 사실 서술("~년입니다")은 과거에 써도 괜찮으므로 뺀다. */
+const PREDICTIVE = ['기 쉽습니다', '기 쉬워요', '기 쉽고', '기 쉬운', '겁니다', '거예요',
+  '게 됩니다', '수 있습니다', '것입니다', '하게 되', '오게 되'];
+
 /* ─── 검사 ────────────────────────────────────────────────── */
 
 /**
@@ -192,8 +222,33 @@ function checkText(text, label, opts = {}) {
 
   // 장 제목은 프롬프트가 지정한 고정 문구라 검사 대상이 아니다.
   const FIXED_TITLES = ['조각이 맞물리는 자리', '그 구조가 시기와 만나면'];
+  // 연도를 말하지 않은 문장("이 해 즈음엔…")은 앞 문장의 연도를 이어받는다.
+  // 다만 한 칸 건너온 문맥이라 확신이 덜하므로 경고로만 올린다.
+  const thisYear = opts.year ?? new Date().getFullYear();
+  let carried = null;
   for (const { text: s, heading } of sentences(body)) {
     if (FIXED_TITLES.some((t) => s.includes(t))) continue;
+
+    // 시제 — 지난 해를 예언처럼, 올해·앞으로를 이미 끝난 일처럼 쓰지 않았는지
+    const own = (s.match(YEAR_RE) ?? []).map(Number);
+    const years = own.length ? own : (carried ?? []);
+    carried = own.length ? own : null;
+    if (years.length) {
+      const allPast = years.every((y) => y < thisYear);
+      // 올해는 뺀다. 이미 지나온 달이 있어 과거형도 맞는 말이라 오탐이 난다.
+      // 아직 하나도 안 지난 해를 끝난 일처럼 쓴 것만 잡는다.
+      const allAhead = years.every((y) => y > thisYear);
+      const past = hasPastMark(s);
+      const ahead = PREDICTIVE.some((w) => s.includes(w));
+      const level = own.length ? 'error' : 'warn';
+      const span = [...new Set(years)].join('·');
+      if (allPast && ahead && !past) {
+        add(level, '시제', `${span}년은 이미 지났는데 앞으로 올 일처럼 썼습니다\n    ${s}`);
+      } else if (allAhead && past) {
+        add(level, '시제', `${span}년은 아직 안 지났는데 끝난 일처럼 썼습니다\n    ${s}`);
+      }
+    }
+
     const bare = bareHanja(s);
     if (bare.length) add('error', '한자 단독', `${bare.join(', ')} — 「한글(한자)」로 병기해야 합니다\n    ${s}`);
 
@@ -281,12 +336,15 @@ const argv = process.argv.slice(2);
 const nameIdx = argv.indexOf('--name');
 const forcedName = nameIdx >= 0 ? argv[nameIdx + 1] : null;
 const orderIdx = argv.indexOf('--order');
+// 시제 검사 기준 연도. 지난 리포트를 다시 볼 때 그때 기준으로 맞춘다.
+const yearIdx = argv.indexOf('--year');
+const forcedYear = yearIdx >= 0 ? Number(argv[yearIdx + 1]) : null;
 
 let chapters;
 if (orderIdx >= 0) {
   chapters = await fromServer(argv[orderIdx + 1]);
 } else {
-  const files = argv.filter((a) => !a.startsWith('--') && a !== forcedName);
+  const files = argv.filter((a) => !a.startsWith('--') && a !== forcedName && a !== String(forcedYear));
   if (!files.length) {
     console.error('사용법: node scripts/check-report-rules.mjs <파일…> | --order <orderId> [--name 이름]');
     process.exit(2);
@@ -296,7 +354,7 @@ if (orderIdx >= 0) {
 
 let errors = 0, warns = 0;
 for (const ch of chapters) {
-  const { issues, chars } = checkText(ch.text, ch.label, { name: forcedName ?? ch.name });
+  const { issues, chars } = checkText(ch.text, ch.label, { name: forcedName ?? ch.name, year: forcedYear });
   console.log(`\n━━ ${ch.label} · ${chars}자 ━━`);
   if (!issues.length) { console.log('  위반 없음'); continue; }
   for (const it of issues) {

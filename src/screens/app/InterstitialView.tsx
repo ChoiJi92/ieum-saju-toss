@@ -1,11 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { V2Screen, V2TopBar, V2Button, V2Glass, SelfSpiritSlot } from './_kit';
 import { showInterstitialAd } from '../../lib/ads';
+import { 이가 } from '../../lib/hangul';
+import type { Spirit } from '../../lib/spirit';
 
 /**
- * 전면형 라우트 — 진입 시 광고를 "먼저" 보여주고, 끝나면 콘텐츠 공개.
- * 노출 빈도: 라우트별 "하루 1회"(자정 리셋). 같은 날 재방문은 광고 없이 즉시 공개, 다음 날엔 다시 노출.
- * showInterstitialAd()는 광고 닫힘 후 resolve(쿨다운·미지원·실패 시 즉시)되므로 기다렸다 children 렌더.
- * 안전장치: 광고가 끝내 resolve 안 돼도 8초 후 콘텐츠 공개(갇힘 방지).
+ * 전면형 라우트 — 광고를 먼저 보여주고 끝나면 콘텐츠 공개.
+ *
+ * 예전에는 진입하자마자 광고를 자동 재생했다. 화면에는 "운세를 준비하고 있어요…"만 떠서
+ * 광고가 나올 거라는 걸 알 방법이 없었고, 2026-09-01 검수에서 그 이유로 반려됐다.
+ *   "유저가 예상하기 어려운 시점에 광고가 노출돼요. 광고 노출 전에 유저가 인지할 수 있도록
+ *    CTA 문구나 UI를 추가해 주세요."
+ * 그래서 눌러야 시작하는 문으로 바꿨다. 이미 승인받은 RewardedGate 와 같은 모양이다.
+ *
+ * 노출 빈도: 라우트별 하루 1회(자정 리셋). 같은 날 재방문은 문 없이 바로 열린다.
  */
 const KEY = 'ieum-saju.interstitial.v1';
 function todayStr(): string {
@@ -23,26 +31,51 @@ function markShown(routeKey: string): void {
   } catch { /* ignore */ }
 }
 
-export default function InterstitialView({ routeKey, children }: { routeKey: string; children: React.ReactNode }) {
-  const [ready, setReady] = useState(() => shownToday(routeKey)); // 오늘 이미 봤으면 즉시 공개(로딩 없음)
+export default function InterstitialView({ routeKey, title, back, spirit, children }: {
+  routeKey: string;
+  title: string;
+  back: () => void;
+  spirit: Spirit;
+  children: React.ReactNode;
+}) {
+  const [ready, setReady] = useState(() => shownToday(routeKey)); // 오늘 이미 봤으면 바로 공개
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (shownToday(routeKey)) { setReady(true); return; }
-    let cancelled = false;
-    const reveal = () => { if (!cancelled) setReady(true); };
-    const safety = window.setTimeout(reveal, 8000);
-    // 광고가 실제로 끝/실패로 resolve된 뒤에 "오늘 봄" 기록 — 광고 실패 시 슬롯 소진(수익 누락) 방지
-    showInterstitialAd().finally(() => { markShown(routeKey); window.clearTimeout(safety); reveal(); });
-    return () => { cancelled = true; window.clearTimeout(safety); };
-  }, [routeKey]);
+  const watch = async () => {
+    if (loading) return;
+    setLoading(true);
+    // 광고가 끝내 응답하지 않아도 8초 뒤에는 열어준다 (사용자를 가두지 않는다).
+    const safety = window.setTimeout(() => { markShown(routeKey); setReady(true); }, 8000);
+    try {
+      await showInterstitialAd();
+    } finally {
+      window.clearTimeout(safety);
+      markShown(routeKey);
+      setReady(true);
+    }
+  };
 
-  if (!ready) {
-    return (
-      <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(180deg, #2a2046, #1e1635 55%, #14101f)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-        <div style={{ fontFamily: 'var(--v2-serif)', fontSize: 40, color: '#fff', textShadow: '0 0 24px rgba(183,156,255,.9)', animation: 'v2-breathe 1.6s ease-in-out infinite' }}>✦</div>
-        <div style={{ fontSize: 13, color: 'var(--v2-ink-dim)', fontFamily: 'var(--v2-font)' }}>운세를 준비하고 있어요…</div>
+  if (ready) return <>{children}</>;
+
+  return (
+    <V2Screen seed={19}>
+      <V2TopBar onBack={back} title={title} />
+      <div style={{ textAlign: 'center', marginTop: 24 }}>
+        <SelfSpiritSlot spirit={spirit} size={140} tag={false} />
+        <h2 className="v2-hero" style={{ margin: '8px 0 6px' }}>{title}</h2>
+        <p className="v2-body" style={{ color: 'var(--v2-ink-dim)', margin: '0 20px' }}>
+          광고가 끝나면 {이가(title)} 열려요 ✦
+        </p>
       </div>
-    );
-  }
-  return <>{children}</>;
+      <V2Glass style={{ marginTop: 18, textAlign: 'center' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--v2-ink-dim)' }}>
+          하루에 한 번만 나와요. 오늘은 다시 열어도 광고 없이 바로 보여요.
+        </span>
+      </V2Glass>
+      <div style={{ marginTop: 24 }}>
+        <V2Button onClick={watch}>{loading ? '광고 여는 중…' : `광고 보고 ${title} 열기 ✦`}</V2Button>
+      </div>
+      <div style={{ height: 96 }} />
+    </V2Screen>
+  );
 }

@@ -445,7 +445,16 @@ export default function AppShell() {
       </RewardedGate>
     );
   } else if (INTERSTITIAL_ROUTES.includes(route)) {
-    screenEl = <InterstitialView routeKey={route}>{screenEl}</InterstitialView>;
+    screenEl = (
+      <InterstitialView
+        routeKey={route}
+        title={ROUTE_TITLE[route]}
+        back={back}
+        spirit={spirit}
+      >
+        {screenEl}
+      </InterstitialView>
+    );
   }
   return (
     <div

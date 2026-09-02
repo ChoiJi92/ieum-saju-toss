@@ -5,6 +5,7 @@ import {
   showRewardedAdForResult,
   preloadRewardedAdForResult,
 } from "../lib/ads";
+import { Analytics, Notification } from "@apps-in-toss/web-framework";
 import {
   ACTION_GAIN,
   AD_GAIN,
@@ -182,6 +183,44 @@ const saveMissionClaimedToday = () => {
   }
 };
 
+/**
+ * 알림 동의를 딱 한 번, 첫 진화 직후에 묻는다.
+ *
+ * 지금까지 알림 동의를 한 번도 안 받았다. D1 이 5% 인데 재방문 채널이 없다는 게 제일 큰 구멍이다.
+ * 첫 진화는 앱에서 가장 기분 좋은 순간이라 동의율이 제일 높고, 정령이 자랐다는 걸 막 확인한
+ * 사람에게 "내일 또 다른 정령이 와요"는 자연스러운 다음 말이다.
+ *
+ * templateCode 는 콘솔 스마트발송 템플릿 코드(매일 저녁 '오늘의 정령' 안내). 결과가 뭐든
+ * 다시 묻지 않는다 — 거절한 사람에게 또 물으면 그때부터 앱이 귀찮아진다.
+ */
+const NOTI_ASKED_KEY = "ieum-saju.noti-asked.v1";
+const NOTI_TEMPLATE_CODE = "ieum-saju-daily_spirit"; // 발송 코드는 appName- 접두어가 필수
+function askNotificationOnce() {
+  try {
+    if (localStorage.getItem(NOTI_ASKED_KEY)) return;
+    if (!Notification.requestAgreement.isSupported()) return;
+    localStorage.setItem(NOTI_ASKED_KEY, "1");
+    // requestAgreement 는 콜백 해제 함수를 돌려준다. 콜백이 그걸 부르므로 타입을 적어둬야
+    // 자기 초기화 참조(TS7022)로 안 걸린다 — 콜백은 나중에 불리니 실제로는 안전하다.
+    const cleanup: () => void = Notification.requestAgreement({
+      options: { templateCode: NOTI_TEMPLATE_CODE },
+      onEvent: ({ type }) => {
+        try {
+          void Analytics.log({ log_name: "notification_agreement", log_type: "event", params: { result: type } });
+        } catch {
+          /* ignore */
+        }
+        cleanup();
+      },
+      onError: () => {
+        cleanup();
+      },
+    });
+  } catch {
+    /* 동의 화면이 못 뜨면 조용히 넘어간다 — 다음 진화 때 다시 묻지도 않는다 */
+  }
+}
+
 export default function AppShell() {
   const { myeongsik, reset, activeId } = useSaju();
   const spirit = useMemo(() => spiritFromMyeongsik(myeongsik), [myeongsik]);
@@ -203,6 +242,11 @@ export default function AppShell() {
   );
   const { adBoost, progressOf } = useSpiritState();
   const [adToast, setAdToast] = useState<string | null>(null);
+  /** 광고 관련 짧은 안내. 화면(ScreenPetHome 등)에서 쓸 수 있게 sp 로 내려보낸다. */
+  const toast = (msg: string) => {
+    setAdToast(msg);
+    window.setTimeout(() => setAdToast(null), 2600);
+  };
 
   // 정령 이미지를 Storage 에서 받게 된 뒤(번들 338MB→5MB) 첫 표시에 100~700ms 가 든다.
   // 홈이 그려지기 전 — 부팅·알 화면·소환 연출이 도는 동안 — 내 정령과 오늘 정령을
@@ -311,6 +355,20 @@ export default function AppShell() {
   };
   const go = (r: Route) => setStack((s) => [...s, r]);
   const goHome = () => setStack(["home"]);
+
+  // 화면 이벤트. 우리가 찍는 건 지금까지 '/::screen' 하나뿐이라, 알에서 나가는지
+  // 홈까지 오는지 도감은 여는지 아무것도 안 보였다. 라우트가 URL 이 아니라 스택이라
+  // 토스가 자동으로 못 잡는다. 스택·플로우의 맨 위를 콘솔 로그 이름 규칙(name::screen)으로 남긴다.
+  // 온보딩·소환 같은 플로우가 떠 있으면 그게 화면이고, 아니면 스택 맨 위다.
+  useEffect(() => {
+    const top = flow ? flow[flow.length - 1] : stack[stack.length - 1];
+    // 토스 밖(브라우저·스크린샷)에서는 브릿지가 없다. 로그 한 줄 때문에 화면이 죽으면 안 된다.
+    try {
+      void Analytics.screen({ log_name: `${top}::screen` });
+    } catch {
+      /* ignore */
+    }
+  }, [stack, flow]);
   // 구 화면 호환 shim — 탭 개념 제거. home/grow→루트, 그 외→push.
   const switchTab = (t: Tab) => {
     if (t === "home" || t === "grow") goHome();
@@ -380,7 +438,7 @@ export default function AppShell() {
 
   // 2) 단일 스택 top 라우트 렌더 (탭바 없음 — 펫 메인 + 상단 아이콘 네비)
   const route = stack[stack.length - 1];
-  const sp = { go, back, switchTab, spirit, tab: "home" as Tab, resetApp };
+  const sp = { go, back, switchTab, spirit, tab: "home" as Tab, resetApp, toast };
   let screenEl: React.ReactNode;
   switch (route) {
     case "today":
@@ -3916,6 +3974,7 @@ function HomeOrEgg(props: {
   switchTab: (t: Tab) => void;
   spirit: Spirit;
   tab: Tab;
+  toast: (msg: string) => void;
 }) {
   const { progressOf } = useSpiritState();
   const [done, setDone] = useState(() => progressOf(props.spirit.key).hatched);
@@ -3935,12 +3994,14 @@ function HomeOrEgg(props: {
 function ScreenPetHome({
   go,
   spirit,
+  toast,
 }: {
   go: (r: Route) => void;
   back: () => void;
   switchTab: (t: Tab) => void;
   spirit: Spirit;
   tab: Tab;
+  toast: (msg: string) => void;
 }) {
   const { profile, myeongsik, profiles } = useSaju();
   const name = profile?.name ?? "나";
@@ -4249,9 +4310,14 @@ function ScreenPetHome({
     setAdLoading(true);
     const res = await showRewardedAdForResult();
     setAdLoading(false);
-    if (res === "rewarded" || res === "watched") {
+    // 기운은 보상 이벤트(userEarnedReward)가 왔을 때만. 'watched'(노출은 됐는데 보상 이벤트가
+    // 안 온 경우)에도 주던 걸 끊었다 — 광고 정책상 회색지대였고, 광고로 한 번 반려당한 뒤라
+    // 남겨둘 이유가 없다. 콘텐츠 해제(RewardedGate 등)는 watched 를 그대로 인정한다.
+    if (res === "rewarded") {
       const r = adBoost(targetKey);
       if (r.ok && r.gained > 0) playFx(r.gained, "✨");
+    } else if (res === "watched") {
+      toast("광고 보상이 확인되지 않았어요. 잠시 후 다시 시도해 주세요.");
     }
   };
   // 진화 연출 — 마일스톤이라 새 모습을 충분히 보여줌(~3.4초). 탭하면 일찍 넘기기(중복 호출은 canEvolve로 안전)
@@ -4262,6 +4328,7 @@ function ScreenPetHome({
     }
     evolve(spirit.key);
     setEvolving(false);
+    askNotificationOnce();
   };
   const doEvolve = () => {
     scrollTop();

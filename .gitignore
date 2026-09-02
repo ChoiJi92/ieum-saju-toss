@@ -82,6 +82,8 @@ Thumbs.db
 # ── 정령 이미지·디자인 작업물 (대용량·로컬 전용, git 미추적/미푸시) ──
 # 앱이 쓰는 정령 이미지(투명 PNG) — 로컬에서 빌드 시 포함, repo엔 안 올림
 /public/spirits/
+# 정령 원본 PNG (1254px, 334MB). 번들엔 안 들어가고 scripts/upload-spirits.py 가 WebP 로 바꿔 Storage 에 올린다.
+/spirits-src/
 # 계열별 캐릭터 원본 폴더 (노을쥐/ 새싹용/ 달빛소/ 언덕호랑이/ 이슬…)
 /노을*/
 /새싹*/

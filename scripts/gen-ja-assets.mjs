@@ -1,10 +1,10 @@
 /**
- * 일본어 웹판 전용 정령 에셋 생성 — public/spirits(gitignore, 333MB) → public/ja-spirits(추적, ~5MB).
+ * 일본어 웹판 전용 정령 에셋 생성 — spirits-src(gitignore, 333MB) → public/ja-spirits(추적, ~5MB).
  *
  *   node scripts/gen-ja-assets.mjs
  *
  * 왜 필요한가:
- *   public/spirits 는 용량 때문에 git 에서 제외돼 있어서 Vercel 빌드에서 접근할 수 없다.
+ *   spirits-src 는 용량 때문에 git 에서 제외돼 있어서 Vercel 빌드에서 접근할 수 없다.
  *   JA 웹판은 아기 단계 60장만 쓰므로, 512px 로 최적화한 사본만 리포에 커밋한다.
  *   정령 이미지를 교체했다면 이 스크립트를 다시 실행해 커밋할 것.
  */
@@ -13,11 +13,11 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const SRC = join(ROOT, 'public', 'spirits');
+const SRC = join(ROOT, 'spirits-src');
 const OUT = join(ROOT, 'public', 'ja-spirits');
 
 if (!existsSync(SRC)) {
-  console.error('❌ public/spirits 가 없습니다. 원본 에셋이 있는 환경에서 실행하세요.');
+  console.error('❌ spirits-src 가 없습니다. 원본 에셋이 있는 환경에서 실행하세요.');
   process.exit(1);
 }
 mkdirSync(OUT, { recursive: true });

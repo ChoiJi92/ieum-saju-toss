@@ -82,7 +82,10 @@ function rarityByIlju(stem: string, branch: string, stemElem: ElementKey, branch
 /** 표시 단계 → 한글 라벨 (이미지 파일명 규칙과 일치) */
 export const STAGE_LABEL: Record<Stage, string> = { 1: '아기', 2: '어린', 3: '성체', 4: '영험' };
 
-/** 이미지 보유 조합 — 5계열 × 12지 = 60종 전체 완비 (public/spirits) */
+/** 정령 이미지 저장소. 공개 버킷이라 키가 필요 없고, 캐시는 1년 immutable 로 올려뒀다. */
+const SPIRIT_CDN = 'https://hpuczqxswupbujbeknls.supabase.co/storage/v1/object/public/spirits';
+
+/** 이미지 보유 조합 — 5계열 × 12지 = 60종 전체 완비 (Supabase Storage `spirits` 버킷) */
 const AVAILABLE: Partial<Record<ElementKey, ZodiacKey[]>> = {
   wood: [...ZOD_ORDER],
   fire: [...ZOD_ORDER],
@@ -114,9 +117,21 @@ export function makeSpirit(elemKey: ElementKey, zodKey: ZodiacKey, rarityOverrid
   const key = `${imageLine}${animal}`;     // 안정 키 — 이미지 경로·도감·교감 저장용 (표시명과 분리)
   const available = (AVAILABLE[elemKey] ?? []).includes(zodKey);
 
-  /** 현재 단계 기준 이미지 경로 (없으면 null → 이모지 폴백). ?v= 는 에셋 캐시 버스트(이미지 교체 시 +1) */
-  const imageFor = (stage: Stage): string | null =>
-    available ? `/spirits/${key}/${key}-${String(stage).padStart(2, '0')}-${STAGE_LABEL[stage]}.png?v=3` : null;
+  /**
+   * 현재 단계 기준 이미지 URL (없으면 null → 이모지 폴백).
+   *
+   * 번들에 넣지 않고 Supabase Storage 에서 받는다. 242장 × 1.4MB PNG 를 번들에 넣었더니
+   * .ait 가 338MB — 토스 한도(압축 해제 100MB)의 4배였고, 처음 여는 사람은 알이 보이기까지
+   * 그걸 다 받아야 했다. 번들을 올릴 때마다 재방문자 전원이 다시 받았고.
+   * 지금은 768px WebP 71KB / 192px 썸네일 10KB 로, 필요한 것만 그때그때 받는다.
+   *
+   * 경로는 영문 슬러그(`metal-dragon/04.webp`)다. Storage 가 키에 한글을 허용하지 않는다.
+   * 업로드 스크립트(scripts/upload-spirits.py)와 같은 규칙이어야 한다.
+   *
+   * size: 'full'(홈·오늘 운세·모달, 최대 210px×3x) / 'thumb'(도감 그리드 52px)
+   */
+  const imageFor = (stage: Stage, size: 'full' | 'thumb' = 'full'): string | null =>
+    available ? `${SPIRIT_CDN}/${size}/${elemKey}-${zodKey}/${String(stage).padStart(2, '0')}.webp` : null;
 
   return {
     elemKey, zodKey, elem, zod, rarity,

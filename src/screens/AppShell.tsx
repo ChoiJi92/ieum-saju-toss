@@ -5924,9 +5924,9 @@ function ScreenCollection({
                 }}
               >
                 {c.got ? (
-                  c.sp.imageFor(1) ? (
+                  c.sp.imageFor(1, 'thumb') ? (
                     <img
-                      src={c.sp.imageFor(1) as string}
+                      src={c.sp.imageFor(1, 'thumb') as string}
                       alt={c.sp.name}
                       style={{
                         width: "118%",

@@ -24,7 +24,7 @@ const CAST: { folder: string; color: string; big?: boolean }[] = [
 ];
 
 const spImg = (folder: string) =>
-  `file://${resolve(ROOT, 'public', 'spirits', folder, `${folder}-01-아기.png`)}`;
+  `file://${resolve(ROOT, 'spirits-src', folder, `${folder}-01-아기.png`)}`;
 
 function brandHtml(): string {
   const stars = Array.from({ length: 40 }, (_, i) => {

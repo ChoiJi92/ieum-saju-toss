@@ -129,7 +129,7 @@ const GRADES = [
 const EVOLVE_PICKS = ['달빛용', '노을닭', '이슬토끼'];
 
 function evolveCardHtml(): string {
-  const dir = resolve(ROOT, 'public', 'spirits');
+  const dir = resolve(ROOT, 'spirits-src');
   const rows = EVOLVE_PICKS.map((key) => {
     const cells = STAGES.map((label, i) => `
       <div class="ecell">
@@ -184,7 +184,7 @@ function evolveCardHtml(): string {
 function gradeCardHtml(): string {
   const rows = GRADES.map((g) => `
     <div class="grow">
-      <img src="file://${resolve(ROOT, 'public', 'spirits')}/${g.spirit}/${g.spirit}-01-아기.png" alt="">
+      <img src="file://${resolve(ROOT, 'spirits-src')}/${g.spirit}/${g.spirit}-01-아기.png" alt="">
       <div class="ginfo">
         <div class="gname" style="color:${g.color}">${'★'.repeat(g.stars)}<span class="gko">${g.ko}</span></div>
         <div class="gpct">100명 중 ${Math.round(Number(g.pct.replace('%','')))}명</div>
@@ -237,7 +237,7 @@ function gradeCardHtml(): string {
 function openCardHtml(): string {
   const cells = OPEN_ELEMENTS.map((e, i) => `
     <div class="ocell">
-      <img src="file://${resolve(ROOT, 'public', 'spirits')}/${e.prefix}${OPEN_PICKS[i]}/${e.prefix}${OPEN_PICKS[i]}-01-아기.png" alt="">
+      <img src="file://${resolve(ROOT, 'spirits-src')}/${e.prefix}${OPEN_PICKS[i]}/${e.prefix}${OPEN_PICKS[i]}-01-아기.png" alt="">
       <div class="oname" style="color:${e.color}">${e.ko}</div>
       <div class="ovibe">${e.vibe}</div>
     </div>`).join('');

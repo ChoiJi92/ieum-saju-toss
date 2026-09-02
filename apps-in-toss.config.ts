@@ -17,4 +17,13 @@ export default defineConfig({
   },
   permissions: [],
   webBundleDir: 'dist',
+  /**
+   * 토스 상단 바의 뒤로가기는 끈다. 우리 화면마다 V2TopBar 의 `<` 가 있어서 둘이 같이 보였고,
+   * 2026-09-02 검수에서 "중복된 버튼을 제거해 주세요" 로 반려됐다(20260902-54).
+   * 우리 것은 스택을 되돌리지만 토스 것은 웹뷰 히스토리를 되돌려 SPA 에선 아무것도 안 하거나
+   * 닫기 확인만 띄웠으니, 남길 쪽은 우리 것이다. 하드웨어 뒤로가기는 AppShell 이 backEvent 로 받는다.
+   */
+  navigationBar: {
+    withBackButton: false,
+  },
 });

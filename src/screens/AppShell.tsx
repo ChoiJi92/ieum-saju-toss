@@ -5,7 +5,7 @@ import {
   showRewardedAdForResult,
   preloadRewardedAdForResult,
 } from "../lib/ads";
-import { Analytics, Notification } from "@apps-in-toss/web-framework";
+import { Analytics, Notification, graniteEvent } from "@apps-in-toss/web-framework";
 import {
   ACTION_GAIN,
   AD_GAIN,
@@ -381,6 +381,21 @@ export default function AppShell() {
     }
     setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
   };
+
+  // 토스 뒤로가기(하드웨어 포함)를 우리 스택에 잇는다. 구독하면 토스 기본 동작(웹뷰 히스토리 back)이
+  // 막히는데, SPA 라 그건 어차피 아무것도 안 했다 — 사람들은 서브 화면에서 뒤로가기를 눌렀다가
+  // "앱을 닫을까요?" 를 만났다(14일간 CTA 클릭 1,547건). 되돌아갈 곳이 있을 때만 잡고,
+  // 루트에서는 구독을 풀어 토스의 닫기 확인이 그대로 뜨게 둔다.
+  const canGoBack = flow ? flow.length > 1 : stack.length > 1;
+  useEffect(() => {
+    if (!canGoBack) return;
+    try {
+      return graniteEvent.addEventListener("backEvent", { onEvent: back });
+    } catch {
+      return; // 토스 밖(브라우저)에는 브릿지가 없다
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- back 은 매 렌더 새 함수지만 스택·플로우가 바뀔 때만 다시 걸면 된다
+  }, [canGoBack, stack, flow]);
 
   // 0) 신규 유저가 공유 링크로 들어온 경우 — 감지 끝날 때까지 잠깐 대기 (온보딩 깜빡임 방지)
   if (!myeongsik && !shareDetected) {
